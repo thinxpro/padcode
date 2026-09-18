@@ -1,6 +1,6 @@
 # 蓝牙优先配置：验证记录
 
-状态：实现与本地自动化验证完成；CI 与实体 PS4 蓝牙验收待完成。
+状态：实现、本地自动化及 macOS/Ubuntu CI 验证完成；实体 PS4 蓝牙验收待完成。[PR #2](https://github.com/thinxpro/padcode/pull/2) 保持 Draft。
 
 ## 范围和依赖
 
@@ -16,6 +16,8 @@
 
 测试包含原有 Controller Lab 全部测试，并增加配置持久化、命令发现不执行、蓝牙适配器错误/身份验证、子进程超时/取消、SDL 新按下事件验证、完整真实 PTY 向导（含彩色窄终端/纯文本）和本地 npm 安装测试。CI 结果通过 PR Checks 跟踪。
 
+[实现提交 `0c64c93` 的 CI](https://github.com/thinxpro/padcode/actions/runs/35321800645)：macOS 与 Ubuntu 的 Node 22 完整门槛均通过。后续仅追加验证文档；最新状态见 [PR Checks](https://github.com/thinxpro/padcode/pull/2/checks)。
+
 测试修正记录：彩色模式退出测试必须持续读取 PTY，模拟真实终端的输出消费。否则 macOS 的终端状态恢复可能等待输出排空，造成测试侧假超时。修正后保留 Ctrl+C、termios 恢复及退出码断言，没有放宽退出标准。
 
 npm 安装测试使用临时 prefix/cache，安装本机平台 tarball，再从仓库外运行帮助、原生 SDL 虚拟设备和完整首次配置/再次启动流程。不会修改用户的全局 npm 安装或真实配置。另验证错误平台的包拒绝运行原生 helper。
@@ -26,7 +28,7 @@ npm 安装测试使用临时 prefix/cache，安装本机平台 tarball，再从�
 
 | 标准 | 状态 |
 | --- | --- |
-| B1–B8 自动化/安装/终端流程 | 本地通过；CI 待完成 |
+| B1–B8 自动化/安装/终端流程 | 本地及 macOS/Ubuntu CI 通过 |
 | B2/B4 的实体蓝牙部分 | 待用户验证 |
 | B9 真实 PS4 全流程与稳定性 | 待用户验证，PR 保持 Draft |
 

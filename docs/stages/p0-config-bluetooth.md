@@ -1,6 +1,6 @@
 # Bluetooth-first terminal onboarding
 
-Status: planned before implementation. User priority change: Bluetooth is now the primary connection flow; USB is optional. This stage moves onboarding ahead of PTY integration. Existing hardware criteria remain pending, with Bluetooth replacing USB as the primary physical acceptance path by explicit user instruction.
+Status: implementation and automated validation complete; physical acceptance pending. This plan was committed before implementation (`37ce2c0`). User priority change: Bluetooth is now the primary connection flow; USB is optional. This stage moves onboarding ahead of PTY integration. Existing hardware criteria remain pending, with Bluetooth replacing USB as the primary physical acceptance path by explicit user instruction. See [validation evidence](p0-config-validation.md).
 
 ## Scope
 
