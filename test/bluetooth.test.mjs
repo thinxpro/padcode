@@ -12,7 +12,7 @@ test('Bluetooth adapter validates protocol, device identity and completion statu
   });
   assert.equal((await adapter.list(false, signal))[0].name, 'DUALSHOCK 4');
   await adapter.list(true, signal); await adapter.pair(pad.address, signal); await adapter.connect(pad.address, signal);
-  assert.deepEqual(calls.map(c => c.args[0]), ['status', 'scan', 'pair', 'connect']); assert.equal(calls[2].options.timeout, 45000);
+  assert.deepEqual(calls.map(c => c.args[0]), ['status', 'scan', 'pair', 'connect']); assert.equal(calls[2].options.timeout, 45000); assert.equal(calls[1].options.timeout, 35000);
   assert.equal(normalizeAddress('AA:BB:CC:DD:EE:FF'), 'aabbccddeeff');
   await assert.rejects(adapter.pair('bad;command', signal), /address/);
   await assert.rejects(new NativeBluetooth('linux').list(false, signal), /macOS/);
@@ -73,4 +73,19 @@ test('macOS permission ownership failures stop before Bluetooth access', async t
       assert.equal(result.status, 0, result.stderr); assert.match(result.stdout, expected);
     }
   }
+});
+test('partial scan metadata is validated and warnings reset on a subsequent request', async () => {
+  let response = { v: 1, ok: true, devices: [pad], scan: { complete: false, started: true, discovered: 1, reason: 'deadline' } };
+  const adapter = new NativeBluetooth('darwin', async () => ({ code: 0, stderr: '', stdout: JSON.stringify(response) }));
+  assert.equal((await adapter.list(true, signal)).length, 1); assert.match(adapter.scanWarning, /SCAN INCOMPLETE/);
+  await adapter.list(false, signal); assert.equal(adapter.scanWarning, undefined);
+  response.scan = { complete: false, started: true, discovered: 1, reason: 'native-error', nativeError: 1 };
+  await adapter.list(true, signal); assert.match(adapter.scanWarning, /macOS inquiry error 1/);
+  response.scan = { complete: true, started: true, discovered: 1, reason: 'complete' };
+  await adapter.list(true, signal); assert.equal(adapter.scanWarning, undefined);
+  for (const metadata of [null, {}, { complete: false, started: true, discovered: 1, reason: 'native-error', nativeError: 0 }, { complete: true, started: true, discovered: 1, reason: 'complete', nativeError: 'bad' }, { complete: false, started: true, discovered: 2, reason: 'deadline' }, { complete: true, started: 'yes', discovered: 1, reason: 'complete' }, { complete: false, started: true, discovered: 1, reason: 'complete' }]) {
+    response.scan = metadata; await assert.rejects(adapter.list(true, signal), /scan metadata/);
+  }
+  response.devices = []; response.scan = { complete: false, started: false, discovered: 0, reason: 'deadline' };
+  await assert.rejects(adapter.list(true, signal), /scan metadata/);
 });

@@ -2,6 +2,7 @@
 #import <IOBluetooth/IOBluetooth.h>
 #import <CoreBluetooth/CoreBluetooth.h>
 #import "permission.h"
+#import "discovery.h"
 #include <signal.h>
 #include <unistd.h>
 
@@ -21,7 +22,7 @@ static NSDictionary *describe(IOBluetoothDevice *device) {
     return @{@"address": device.addressString ?: @"", @"name": device.name ?: @"Unnamed Bluetooth device",
              @"paired": @([device isPaired]), @"connected": @([device isConnected])};
 }
-@interface Operation : NSObject <IOBluetoothDeviceInquiryDelegate, IOBluetoothDevicePairDelegate>
+@interface Operation : NSObject <IOBluetoothDevicePairDelegate>
 @property BOOL done;
 @property IOReturn error;
 @property BOOL challenge;
@@ -32,13 +33,6 @@ static NSDictionary *describe(IOBluetoothDevice *device) {
     self = [super init];
     if (self) _devices = [NSMutableDictionary dictionary];
     return self;
-}
-- (void)deviceInquiryDeviceFound:(IOBluetoothDeviceInquiry *)sender device:(IOBluetoothDevice *)device {
-    (void)sender;
-    if (device.addressString) self.devices[device.addressString] = device;
-}
-- (void)deviceInquiryComplete:(IOBluetoothDeviceInquiry *)sender error:(IOReturn)error aborted:(BOOL)aborted {
-    (void)sender; (void)aborted; self.error = error; self.done = YES;
 }
 - (void)devicePairingFinished:(id)sender error:(IOReturn)error {
     (void)sender; self.error = error; self.done = YES;
@@ -88,26 +82,20 @@ int main(int argc, const char **argv) {
         if ([CBManager authorization] == CBManagerAuthorizationDenied || [CBManager authorization] == CBManagerAuthorizationRestricted) {
             return failure(@"permission", @"Bluetooth permission is denied. Allow padcode-bluetooth in macOS Privacy & Security > Bluetooth, then retry.");
         }
+        if (getenv("PADCODE_BLUETOOTH_DEBUG")) fprintf(stderr, "Bluetooth scan: host-query\n");
         IOBluetoothHostController *host = [IOBluetoothHostController defaultController];
         if (!host || host.powerState != kBluetoothHCIPowerStateON) {
             return failure(@"powered-off", @"Bluetooth is off or unavailable. Turn it on in macOS, then retry; USB or configure-later remain available.");
         }
         Operation *operation = [Operation new];
         if ([command isEqual:@"status"] || [command isEqual:@"scan"]) {
+            if ([command isEqual:@"scan"]) {
+                NSDictionary *discovery = discoverBluetooth((id<PadcodeInquiry>)[IOBluetoothDeviceInquiry inquiryWithDelegate:nil], 20, &interrupted);
+                output(discovery);
+                return [discovery[@"ok"] boolValue] ? 0 : 1;
+            }
             for (IOBluetoothDevice *device in [IOBluetoothDevice pairedDevices]) {
                 if (device.addressString) operation.devices[device.addressString] = device;
-            }
-            if ([command isEqual:@"scan"]) {
-                IOBluetoothDeviceInquiry *inquiry = [IOBluetoothDeviceInquiry inquiryWithDelegate:operation];
-                inquiry.inquiryLength = 8;
-                inquiry.updateNewDeviceNames = YES;
-                IOReturn result = [inquiry start];
-                if (result != kIOReturnSuccess) return failure(@"scan", [NSString stringWithFormat:@"Bluetooth discovery could not start (%d). Check permission and retry.", result]);
-                BOOL finished = waitForOperation(operation, 20);
-                inquiry.delegate = nil;
-                [inquiry stop];
-                if (!finished) return failure(interrupted ? @"cancelled" : @"timeout", @"Bluetooth discovery stopped before completion.");
-                if (operation.error != kIOReturnSuccess) return failure(@"scan", [NSString stringWithFormat:@"Bluetooth discovery failed (%d).", operation.error]);
             }
             NSMutableArray *devices = [NSMutableArray array];
             for (NSString *key in [[operation.devices allKeys] sortedArrayUsingSelector:@selector(compare:)]) [devices addObject:describe(operation.devices[key])];

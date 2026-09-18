@@ -38,9 +38,10 @@ async function linkController(io: PromptPort, services: SetupServices, signal: A
           { label: 'Configure Bluetooth later', value: 'later' },
         ]);
         if (selected === 'scan') {
-          io.say('SCANNING... keep SHARE + PS pairing mode active (up to 20 seconds).');
+          io.say('SCANNING... keep SHARE + PS pairing mode active (20-second scan; up to 35 seconds including macOS initialization).');
           devices = await services.bluetooth.list(true, signal);
-          io.say(devices.length ? `Discovery complete: ${devices.length} device(s). Select your controller.` : 'No devices found. Keep the controller close and retry.');
+          if (services.bluetooth.scanWarning) io.say(services.bluetooth.scanWarning);
+          else io.say(devices.length ? `Discovery complete: ${devices.length} nearby device(s). Select your controller.` : 'No nearby devices found. Keep SHARE + PS pairing active, wait 15 seconds, then scan again.');
           continue;
         }
         if (selected === 'usb' || selected === 'later') { mode = selected; break; }
