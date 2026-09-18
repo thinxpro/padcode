@@ -5,7 +5,7 @@ export type Axis = typeof axes[number];
 type Base = { v: 1; seq: number; time: number };
 export type Event = Base & (
   { type: 'ready'; source: 'hardware' | 'virtual'; sdl: string } |
-  { type: 'connected'; device: number; name: string } |
+  { type: 'connected'; device: number; name: string; connection?: 'wired' | 'wireless' | 'unknown'; serial?: string } |
   { type: 'disconnected'; device: number } |
   { type: 'button'; device: number; button: Button; down: boolean } |
   { type: 'axis'; device: number; axis: Axis; value: number }
@@ -23,7 +23,11 @@ export function parseEvent(line: string): Event {
   } else {
     if (!integer(e.device) || e.device === 0) return invalid();
     switch (e.type) {
-      case 'connected': if (typeof e.name !== 'string' || e.name.length > 512) return invalid(); break;
+      case 'connected':
+        if (typeof e.name !== 'string' || e.name.length > 512) return invalid();
+        if (e.connection !== undefined && !['wired', 'wireless', 'unknown'].includes(String(e.connection))) return invalid();
+        if (e.serial !== undefined && (typeof e.serial !== 'string' || e.serial.length > 512)) return invalid();
+        break;
       case 'disconnected': break;
       case 'button': if (!buttons.includes(e.button as Button) || typeof e.down !== 'boolean') return invalid(); break;
       case 'axis': if (!axes.includes(e.axis as Axis) || !Number.isInteger(e.value) || Number(e.value) < -32768 || Number(e.value) > 32767) return invalid(); break;

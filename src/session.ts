@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
+import { helperPath } from './process.js';
 import { EventDecoder, type Event } from './protocol.js';
 import { createState, reduce } from './state.js';
 import { colorEnabled, render } from './ui.js';
@@ -13,7 +13,7 @@ export async function session(options: SessionOptions): Promise<number> {
   const state = createState();
   if (options.demo) { state.source = 'demo'; state.ready = true; }
   const decoder = new EventDecoder();
-  const helper = options.helper ?? fileURLToPath(new URL('../build/native/padcode-controller', import.meta.url));
+  const helper = options.demo ? '' : options.helper ?? helperPath('padcode-controller');
   const child = options.demo ? null : spawn(helper, options.helperArgs ?? [], { stdio: ['ignore', 'pipe', 'pipe'] });
   const interactive = !options.json;
   const terminalControl = interactive && process.env.TERM !== 'dumb';

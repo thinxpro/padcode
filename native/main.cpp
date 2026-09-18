@@ -78,7 +78,10 @@ int main(int argc, char **argv) {
                 SDL_Gamepad *handle = SDL_OpenGamepad(id);
                 if (!handle) { std::fprintf(stderr, "Cannot open gamepad: %s\n", SDL_GetError()); continue; }
                 Pad pad{handle, {}}; pad.pending.fill(65536); pads.emplace(id, pad);
-                emit("\"type\":\"connected\"," + deviceField(id) + ",\"name\":" + quote(SDL_GetGamepadName(handle)));
+                const auto connection = SDL_GetGamepadConnectionState(handle);
+                const char *transport = connection == SDL_JOYSTICK_CONNECTION_WIRELESS ? "wireless" : connection == SDL_JOYSTICK_CONNECTION_WIRED ? "wired" : "unknown";
+                const char *serial = SDL_GetGamepadSerial(handle);
+                emit("\"type\":\"connected\"," + deviceField(id) + ",\"name\":" + quote(SDL_GetGamepadName(handle)) + ",\"connection\":" + quote(transport) + (serial ? ",\"serial\":" + quote(serial) : ""));
             } else if (event.type == SDL_EVENT_GAMEPAD_REMOVED) {
                 const auto id = event.gdevice.which;
                 const auto found = pads.find(id);

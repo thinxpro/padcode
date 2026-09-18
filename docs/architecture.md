@@ -1,6 +1,6 @@
 # 技术架构
 
-本页描述整体目标架构。P0-1 已实现 TypeScript CLI、SDL3 helper、JSONL 协议和诊断界面，见 [验证记录](stages/p0-1-validation.md)；PTY/Agent 桥接与配置仍待后续阶段实现。
+本页描述整体目标架构。已实现 TypeScript CLI、SDL3 helper、JSONL 协议、诊断界面及蓝牙优先配置向导；PTY/Agent 桥接仍待后续阶段实现。配置向导另有 macOS IOBluetooth helper，负责系统设备扫描/配对/连接，SDL 独立验证输入。见 [配置阶段](stages/p0-config-bluetooth.md)。
 
 ## 系统结构
 

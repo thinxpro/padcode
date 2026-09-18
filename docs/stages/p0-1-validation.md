@@ -2,6 +2,8 @@
 
 状态：实现与自动化验证完成，真实 DualShock 4 验收尚未完成。[PR #1](https://github.com/thinxpro/padcode/pull/1) 保持 Draft。没有跳过硬件标准或把它改成可选项。
 
+用户后续明确要求蓝牙优先：以下 USB 检查为原始测试方案，现采用 [蓝牙配置与验收](p0-config-validation.md)；按键、三次断连重连、后台输入和十分钟稳定性要求保持。
+
 ## 环境
 
 - 本地 macOS 27.0 / arm64。

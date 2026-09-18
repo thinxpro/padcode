@@ -1,11 +1,12 @@
 {
   "name": "padcode",
-  "version": "0.1.0-dev.0",
+  "version": "0.1.0-dev.1",
   "private": true,
   "license": "MIT",
   "description": "Gamepad controls for your own coding agent — controller lab prototype",
   "type": "module",
   "bin": { "padcode": "dist/cli.js" },
+  "files": ["dist/", "build/native/padcode-controller", "build/native/padcode-bluetooth", "build/native/platform.json", "LICENSE", "THIRD_PARTY_NOTICES.md"],
   "engines": { "node": ">=22.14.0" },
   "scripts": {
     "build": "tsc",

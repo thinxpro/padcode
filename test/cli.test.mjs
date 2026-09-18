@@ -5,7 +5,7 @@ import { once } from 'node:events';
 const cli = args => spawnSync(process.execPath, ['dist/cli.js', ...args], { encoding: 'utf8', timeout: 5000 });
 test('help/version/invalid arguments and non-TTY dashboard', () => {
   for (const args of [[], ['--help'], ['-h']]) { const r = cli(args); assert.equal(r.status, 0); assert.match(r.stdout, /P A D C O D E/); assert.ok(!r.stdout.includes('\x1b')); }
-  assert.match(cli(['--version']).stdout, /^0\.1\.0-dev\.0\n$/);
+  assert.match(cli(['--version']).stdout, /^0\.1\.0-dev\.1\n$/);
   for (const args of [['bad'], ['demo', '--json'], ['controllers', '--bad'], ['--help', 'extra']]) assert.equal(cli(args).status, 2);
   for (const cmd of ['controllers', 'demo']) { const r = cli([cmd]); assert.equal(r.status, 2); assert.match(r.stderr, /requires a terminal/); }
 });

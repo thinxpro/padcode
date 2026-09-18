@@ -2,7 +2,7 @@
 
 ## 当前状态
 
-尚未发布 npm 包、Homebrew formula、curl 安装脚本或二进制。所有名称和命令是规划接口，发布前需验证归属和可用性。
+尚未发布 npm registry 包、Homebrew formula 或 curl 安装脚本。当前开发版可以生成包含本机平台原生 helper 的 npm tarball，并在隔离目录验证安装和首次向导；它不是跨平台公开发行包。发布前仍需验证名称归属和可用性。
 
 ## npm 优先
 
@@ -13,7 +13,7 @@
 ### 首个发布目标
 
 - 优先在实际开发机器的 macOS 架构上验证，明确记录架构和系统版本。
-- DualShock 4 USB 首先验证，随后验证蓝牙。
+- DualShock 4 蓝牙优先验证，USB 为备选。
 - 明确要求兼容的 Node.js LTS 版本。
 - 用户安装环境不要求 Xcode、CMake、C/C++ 编译器或 SDL 开发包。
 - 不支持的平台给出明确提示，不静默尝试本机编译。
