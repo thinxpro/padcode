@@ -4,7 +4,22 @@
 
 Padcode 是计划通过终端安装的本地开发工具。用户自行选择终端、项目、Agent 和账号；Padcode 提供手柄输入、按键映射、终端会话桥接，以及可选的 Agent 适配能力。
 
-**当前状态：方案与开发准备阶段，尚无可安装的软件包或可运行实现。** 仓库目前为 private，计划在完成首版验证和发布准备后再转为 public。Padcode 是暂定名称，npm 和 Homebrew 名称可用性尚未确认。
+**当前状态：P0-1 Controller Lab 开发版，实体手柄验收待完成。** 已实现手柄诊断 CLI、游戏风格仪表盘和 SDL3 辅助程序；尚未实现 Agent 会话或发布 npm 软件包。仓库目前为 private，完成验证和发布准备后再决定转 public。Padcode 是暂定名称，npm 和 Homebrew 名称可用性尚未确认。
+
+## 运行当前开发版
+
+开发前置：Node.js 22.14+（推荐 Node 22 LTS）、npm、CMake 3.24+、C/C++ 编译器；macOS 使用 Xcode/Command Line Tools。完整测试还需要 Python 3 和 `pgrep`。这些是开发者要求，最终用户免编译安装将在 P1 实现。
+
+```sh
+npm ci --ignore-scripts
+npm run check
+node dist/cli.js demo
+node dist/cli.js controllers
+```
+
+首次原生构建会从 SDL 官方 GitHub 下载校验和锁定的源码，需要联网。`demo` 为明确标记的模拟预览；`controllers` 显示真实设备状态。Q / Esc 退出，Ctrl+C 中断。`controllers --json` 输出事件流，支持管道。界面支持窄终端、`NO_COLOR` 和 `TERM=dumb`；没有硬件时显示等待连接。
+
+当前诊断工具不会启动 Agent、注入键鼠或保存会话记录。物理硬件支持声明以 [阶段验收报告](docs/stages/p0-1-validation.md) 为准。
 
 ## 产品边界
 
@@ -49,6 +64,6 @@ macOS + DualShock 4 USB + 单个前台终端会话。用户可通过通用模式
 
 ## 开始开发
 
-下一步从 [P0 技术验证](docs/roadmap.md#p0技术验证) 开始：先验证 SDL3 输入和 PTY 透明转发，再实现配置向导。当前仓库没有源码构建、测试或安装命令。
+当前执行 [Controller Lab 阶段计划](docs/stages/p0-1-controller-lab.md)。下一独立任务为 P0-2 PTY 会话桥接，需先提交该阶段计划和验收标准，再编写代码。每个任务通过 PR 提交，自动化检查全部通过且必需真机验收完成后才可标记 ready。
 
-开源许可证尚未选择；转 public 前由维护者确定。当前没有授予开源许可。
+项目使用 [MIT License](LICENSE)。第三方依赖适用各自许可证，见 [依赖声明](THIRD_PARTY_NOTICES.md)。
