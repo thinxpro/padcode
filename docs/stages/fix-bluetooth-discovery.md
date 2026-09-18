@@ -25,3 +25,7 @@ This task stacks on PR #4 (`docs/english-repository`). Keep all maintained conte
 | D5 | Actual PS4 discovery, explicit pairing and SDL fresh input pass in Warp | user physical acceptance; pending until observed |
 
 References: [Apple inquiry length](https://developer.apple.com/documentation/iobluetooth/iobluetoothdeviceinquiry/inquirylength), [IOBluetoothDeviceInquiry](https://developer.apple.com/documentation/iobluetooth/iobluetoothdeviceinquiry).
+
+## Evidence-driven plan amendment
+
+The first instrumented scan with name updates disabled received a device-found callback, then completed with native error `1` after about 16 seconds. Therefore name updates are not the sole cause; an OS inquiry failure can also hide an already discovered device. Extend D1/D2 to preserve found results on native completion errors as well as deadlines, with `native-error` metadata and the numeric error displayed as a partial-result warning. Empty native-error results still fail. Explicit cancellation/OS abort still fail and never offer stale results. Do not claim the underlying macOS inquiry error itself is fixed.
