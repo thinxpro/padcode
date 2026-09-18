@@ -1,6 +1,7 @@
 #import <Foundation/Foundation.h>
 #import <IOBluetooth/IOBluetooth.h>
 #import <CoreBluetooth/CoreBluetooth.h>
+#import "permission.h"
 #include <signal.h>
 #include <unistd.h>
 
@@ -67,17 +68,25 @@ static BOOL waitForOperation(Operation *operation, NSTimeInterval seconds) {
 
 int main(int argc, const char **argv) {
     @autoreleasepool {
+        BOOL handedOff = argc > 1 && strcmp(argv[1], "--permission-owner") == 0;
+        if (handedOff) { ++argv; --argc; }
         NSString *command = argc > 1 ? @(argv[1]) : @"";
         BOOL deviceCommand = [command isEqual:@"pair"] || [command isEqual:@"connect"];
-        if ((!deviceCommand && ![command isEqual:@"status"] && ![command isEqual:@"scan"]) || argc != (deviceCommand ? 3 : 2)) {
+        if ((!deviceCommand && ![command isEqual:@"status"] && ![command isEqual:@"scan"] && ![command isEqual:@"diagnose-permission"]) || argc != (deviceCommand ? 3 : 2)) {
             return failure(@"usage", @"Usage: padcode-bluetooth status | scan | pair ADDRESS | connect ADDRESS");
         }
         NSString *address = deviceCommand ? @(argv[2]) : nil;
         NSPredicate *validAddress = [NSPredicate predicateWithFormat:@"SELF MATCHES %@", @"(?i)[0-9a-f]{2}([:-][0-9a-f]{2}){5}"];
         if (address && ![validAddress evaluateWithObject:address]) return failure(@"address", @"Invalid Bluetooth address.");
+        NSString *permissionError = prepareBluetoothPermission(argc, argv, handedOff);
+        if (permissionError) return failure(@"permission-host", permissionError);
+        if ([command isEqual:@"diagnose-permission"]) {
+            output(@{@"v": @1, @"ok": @YES, @"selfResponsible": @YES, @"usageDescription": @YES, @"pid": @(getpid())});
+            return 0;
+        }
         signal(SIGINT, stopOperation); signal(SIGTERM, stopOperation);
         if ([CBManager authorization] == CBManagerAuthorizationDenied || [CBManager authorization] == CBManagerAuthorizationRestricted) {
-            return failure(@"permission", @"Bluetooth permission is denied. Allow this terminal in macOS Privacy & Security > Bluetooth, then retry.");
+            return failure(@"permission", @"Bluetooth permission is denied. Allow padcode-bluetooth in macOS Privacy & Security > Bluetooth, then retry.");
         }
         IOBluetoothHostController *host = [IOBluetoothHostController defaultController];
         if (!host || host.powerState != kBluetoothHCIPowerStateON) {
