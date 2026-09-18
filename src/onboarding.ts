@@ -1,10 +1,12 @@
 import { configPath, discoverAgents, loadConfig, resolveExecutable, saveConfig, type Config } from './config.js';
 import { NativeBluetooth, type BluetoothPort } from './bluetooth.js';
-import { ControllerProbe, identityMatch, type ProbePort } from './probe.js';
+import { identityMatch, type ProbePort } from './probe.js';
 import { TerminalPrompt, type PromptPort } from './prompt.js';
 import { session } from './session.js';
+import { GamepadMenus } from './menu-controller.js';
 
 export interface SetupServices {
+  activateMenus?: (controller: Config['controller']) => Promise<void>;
   bluetooth: BluetoothPort;
   probe: () => ProbePort;
   agents: typeof discoverAgents;
@@ -127,7 +129,9 @@ async function chooseAgent(io: PromptPort, services: SetupServices, initial?: Co
 }
 
 export async function setup(io: PromptPort, services: SetupServices, signal: AbortSignal, initial?: Config): Promise<Config | null> {
-  const controller = await verifyInput(io, services, await linkController(io, services, signal, initial), signal);
+  const linked = await linkController(io, services, signal, initial);
+  if (linked.address || linked.transport === 'usb') await services.activateMenus?.(linked);
+  const controller = await verifyInput(io, services, linked, signal);
   const agent = await chooseAgent(io, services, initial);
   io.banner('MISSION 04 / LOADOUT');
   await io.choose('Key profile', [{ label: 'Terminal basic / D-pad arrows, X Enter, O Escape, L1 Tab / R1 Shift+Tab', value: 'terminal-basic' }]);
@@ -153,7 +157,8 @@ export async function onboarding(edit = false): Promise<number> {
   const cancel = () => controller.abort();
   const terminate = () => { exitCode = 143; controller.abort(); };
   process.on('SIGINT', cancel); process.on('SIGTERM', terminate);
-  const io = new TerminalPrompt(controller.signal, cancel);
+  const menus = new GamepadMenus();
+  const io = new TerminalPrompt(controller.signal, cancel, menus);
   let action = 'quit';
   try {
     let config: Config | null;
@@ -163,9 +168,10 @@ export async function onboarding(edit = false): Promise<number> {
       if (await io.choose('Existing file will only be replaced after a successful save', [{ label: 'Reconfigure', value: 'reset' }, { label: 'Exit and preserve file', value: 'exit' }]) === 'exit') return 1;
       config = null; edit = true;
     }
+    if (config && (config.controller.address || config.controller.transport === 'usb')) await menus.activate(config.controller, controller.signal);
     if (!config || edit) {
       config = await setup(io, {
-        bluetooth: new NativeBluetooth(), probe: () => new ControllerProbe(), agents: discoverAgents, resolve: resolveExecutable, save: saveConfig,
+        bluetooth: new NativeBluetooth(), probe: () => menus.probe(), activateMenus: target => menus.activate(target, controller.signal), agents: discoverAgents, resolve: resolveExecutable, save: saveConfig,
       }, controller.signal, config ?? undefined);
       if (!config) { io.say('No configuration changes saved.'); return 0; }
       io.say(`Configuration: ${configPath()}`);
@@ -185,7 +191,7 @@ export async function onboarding(edit = false): Promise<number> {
     if (controller.signal.aborted) { io.say('Setup cancelled. No pending configuration changes saved.'); return exitCode; }
     io.say(`SETUP STOPPED: ${(error as Error).message}`); return (error as Error).message === 'Setup cancelled.' ? 0 : 1;
   } finally {
-    io.close(); process.removeListener('SIGINT', cancel); process.removeListener('SIGTERM', terminate);
+    await menus.stop(); io.close(); process.removeListener('SIGINT', cancel); process.removeListener('SIGTERM', terminate);
   }
   if (action === 'config') return onboarding(true);
   if (action === 'controllers' || action === 'demo') return session({ demo: action === 'demo', json: false });

@@ -4,7 +4,7 @@ Control your own AI coding agent with a gamepad.
 
 Padcode is a local developer tool designed for terminal installation. You choose your terminal, project, agent and accounts. Padcode provides controller input, key mapping, terminal session bridging and optional agent integrations.
 
-**Current status: Bluetooth-first terminal onboarding development build; physical controller acceptance is pending.** First-run setup, local configuration, macOS Bluetooth discovery/pairing/connection, SDL input verification and a game-style dashboard are implemented. Agent sessions and npm registry publication are not implemented. The repository is private; public release requires validation and a maintainer decision. Padcode is a provisional name; npm and Homebrew name availability has not been confirmed.
+**Current status: Bluetooth-first terminal onboarding development build; physical controller acceptance is pending.** Controller-operated menus, first-run setup, local configuration, macOS Bluetooth discovery/pairing/connection, SDL input verification and a game-style dashboard are implemented. Agent sessions and npm registry publication are not implemented. The repository is private; public release requires validation and a maintainer decision. Padcode is a provisional name; npm and Homebrew name availability has not been confirmed.
 
 ## Run the development build
 
@@ -19,6 +19,8 @@ node dist/cli.js
 
 The first native build downloads checksum-pinned SDL source from its official GitHub release and requires network access. `demo` is explicitly simulated; `controllers` shows real device state. Q / Esc exits the dashboard; Ctrl+C interrupts. `controllers --json` emits pipe-friendly events. The interface supports narrow terminals, `NO_COLOR` and `TERM=dumb`, and waits for a connection when no controller is present.
 
+After connection, press X once to take control of menus; use D-pad up/down, X to confirm and O to go back/cancel. Keyboard input remains available, and custom command text still uses the keyboard.
+
 Interactive startup without arguments opens setup, or the Player Hub if configuration exists. Use `node dist/cli.js config` to reconfigure. Configuration lives at `$XDG_CONFIG_HOME/padcode/config.json` when that variable is an absolute path, otherwise `~/.config/padcode/config.json`. The current build only saves the selected agent command and arguments; it does not launch the agent or collect credentials.
 
 See the [terminal setup guide](docs/setup.md) for the complete flow and macOS permission boundaries, and the [Bluetooth acceptance report](docs/stages/p0-config-validation.md) for physical test status.
@@ -30,7 +32,7 @@ After building and testing locally, create a package for the current platform. N
 ```sh
 mkdir -p artifacts
 npm pack --ignore-scripts --pack-destination artifacts
-npm install -g ./artifacts/padcode-0.1.0-dev.3.tgz
+npm install -g ./artifacts/padcode-0.1.0-dev.4.tgz
 padcode
 ```
 

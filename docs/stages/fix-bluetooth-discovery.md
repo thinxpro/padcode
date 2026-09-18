@@ -40,3 +40,7 @@ The first instrumented scan with name updates disabled received a device-found c
 - Physical D5 and stability remain pending; keep the fix PR Draft.
 - Final local `npm run check`: all 50 tests pass, zero failures/skips (macOS 27 arm64, Node 23.5.0). Native synthetic tests cover complete/empty results, delayed callbacks, fallback results, deduplication, missing names, partial errors, startup errors, unavailable inquiry, OS abort, pre-cancellation and active cancellation. Adapter and wizard tests verify metadata validation and partial-result wording; existing package installation and lifecycle tests remain green. JavaScript line coverage is 98.75%; native code is excluded from that metric.
 - CI results are tracked on the fix PR. The development tarball version is 0.1.0-dev.3, for the current macOS arm64 build only; no registry publication.
+
+## Subsequent user evidence
+
+The user confirmed that the controller connects over Bluetooth with dev.3. This establishes a successful connection attempt; SDL button verification, repeated reconnection, background input and ten-minute stability are still pending. The requested controller-operated menu follow-up is tracked in [its own stage](gamepad-terminal-menus.md).
