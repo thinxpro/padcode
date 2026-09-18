@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { EventDecoder, parseEvent, buttons, axes } from '../dist/protocol.js';
 const ready = { v: 1, seq: 0, time: 0, type: 'ready', source: 'hardware', sdl: '3.4.16' };
-const event = (fields = {}) => ({ v: 1, seq: 1, time: 1, type: 'connected', device: 1, name: '手柄', ...fields });
+const event = (fields = {}) => ({ v: 1, seq: 1, time: 1, type: 'connected', device: 1, name: '🎮', ...fields });
 const line = value => Buffer.from(`${JSON.stringify(value)}\n`);
 test('accepts each event and all supported buttons/axes', () => {
   for (const e of [ready, event(), event({ type: 'disconnected' }), ...buttons.map(button => event({ type: 'button', button, down: true })), ...axes.map(axis => event({ type: 'axis', axis, value: -32768 }))]) assert.deepEqual(parseEvent(JSON.stringify(e)), e);

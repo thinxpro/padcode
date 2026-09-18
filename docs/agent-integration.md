@@ -1,22 +1,22 @@
-# Agent 兼容设计
+# Agent integration
 
-## 基础原则
+## Principle
 
-用户决定运行什么。工具不自动安装、登录或启动未选择的 Agent，不自动提交任务或处理批准请求。
+The user chooses what runs. Padcode does not install, authenticate or launch an unselected agent, submit tasks automatically or handle approvals on the user's behalf.
 
-## 三个兼容级别
+## Three integration levels
 
-| 级别 | 能力 | 限制 |
+| Level | Capability | Limitation |
 | --- | --- | --- |
-| 通用 PTY | 启动任意配置命令，转发按键与输出 | 不理解 Agent 语义，需实际验证 TUI |
-| 按键方案 | 为具体 CLI 配置发送、菜单、取消等按键 | 随 CLI 版本变化；发送按键不保证动作成功 |
-| 结构化适配 | 通过官方协议读取状态、请求中断、展示确认 | 逐工具实现，可能采用不同的进程启动与显示路径 |
+| Generic PTY | Launch a configured command and forward keys/output | No agent semantics; actual TUI compatibility must be tested |
+| Key profile | Configure submission, menu and cancellation keys for a CLI | Version-dependent; sending a key does not guarantee an action succeeds |
+| Structured adapter | Read state, request interruption and present confirmations through official protocols | Implemented per tool; may require a different launch/rendering path |
 
-通用模式是基础入口。候选可以包括用户已安装的 Codex CLI、Claude Code 或其他交互式工具；列出名称不代表已经测试兼容。
+Generic mode is the base entry point. Candidates include the user's installed Codex CLI, Claude Code and other interactive tools. Naming a tool is not a compatibility claim.
 
-## 配置草案
+## Configuration concept
 
-下面是概念 schema，尚不能直接使用：
+This is a conceptual schema, not a usable current configuration:
 
 ```json
 {
@@ -32,26 +32,26 @@
 }
 ```
 
-工作目录默认采用执行 `padcode` 时所在目录。允许用户覆盖，但启动前显示实际目录。命令不可用时报告原因并允许重选，不自动换成其他 Agent。
+The working directory defaults to the directory where `padcode` was invoked. Allow an override, but show the actual directory before launch. If a command is unavailable, explain why and allow another selection; do not silently substitute an agent.
 
-## 首版行为边界
+## Initial behavior boundaries
 
-- Enter 只是 Enter，不统一命名为“批准”。
-- Escape 只是 Escape，不承诺能够中断正在运行的任务。
-- 程序进程存活不等于正在生成；退出码也不代表开发任务语义正确。
-- 不自动绕过所选 Agent 的确认、权限或沙箱设置。
-- 用户通过 Agent 原有交互界面处理其认证与权限。
+- Enter means Enter; do not universally label it "Approve".
+- Escape means Escape; it is not guaranteed to interrupt an active task.
+- A live process does not imply active generation, and its exit code does not prove the development task is correct.
+- Do not bypass the selected agent's confirmations, permissions or sandbox settings.
+- Authentication and permission handling stay in the agent's original interface.
 
-## 后续结构化适配
+## Future structured adapters
 
-适配器声明自身能力，例如开始任务、中断、流式输出、确认请求。上层只显示实际支持的动作。
+Adapters declare capabilities such as task launch, interruption, streaming output and confirmation requests. The interface only offers supported actions.
 
-Codex app-server 是候选接口之一，需锁定版本并核实协议。接入结构化服务通常需要我们展示对话和确认内容，不保证可以直接复用原来的 Agent TUI。因此它是独立增强路径，不在通用模式中悄悄替换启动方式。
+Codex app-server is one candidate; pin its version and verify its protocol. Structured services usually require Padcode to render conversations and confirmations, so the original agent TUI may not be reusable. This is a separate enhancement path, not a silent replacement for generic launch.
 
-第三方适配器首版不自动下载或执行。将来如支持插件，应由用户显式安装，并清楚声明它可以访问本地进程和项目。
+The initial release does not automatically download or execute third-party adapters. If plugins are added later, require explicit installation and disclose their access to local processes and projects.
 
-## 兼容记录模板
+## Compatibility record
 
-每个测试组合记录操作系统、CPU 架构、终端及版本、Node 版本、控制器及连接方式、Agent 命令及版本、配置方案、测试结果与已知限制。
+For each tested combination, record OS, CPU, terminal/version, Node version, controller/transport, agent command/version, profile, results and limitations.
 
-最低用例：启动、输入中文与英文、菜单选择、发送、原生取消操作、终端 resize、断线后继续键盘输入、正常退出和异常清理。
+Minimum cases: startup, ASCII and Unicode input, menu selection, submission, native cancellation, terminal resize, keyboard use after disconnection, normal exit and failure cleanup.

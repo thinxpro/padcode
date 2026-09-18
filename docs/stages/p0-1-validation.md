@@ -1,65 +1,64 @@
-# P0-1 验证记录
+# P0-1 validation record
 
-状态：实现与自动化验证完成，真实 DualShock 4 验收尚未完成。[PR #1](https://github.com/thinxpro/padcode/pull/1) 保持 Draft。没有跳过硬件标准或把它改成可选项。
+Status: implementation and automated validation complete; physical acceptance pending. Required hardware criteria remain mandatory and are not weakened or made optional because testing is pending.
 
-用户后续明确要求蓝牙优先：以下 USB 检查为原始测试方案，现采用 [蓝牙配置与验收](p0-config-validation.md)；按键、三次断连重连、后台输入和十分钟稳定性要求保持。
+The user subsequently prioritized Bluetooth. The USB procedure below records the original plan; use the [Bluetooth setup and acceptance procedure](p0-config-validation.md) for current testing. Button/axis checks, three reconnections, background input and ten-minute stability requirements remain unchanged.
 
-## 环境
+## Environment
 
-- 本地 macOS 27.0 / arm64。
-- Node.js 23.5.0（本机现有版本）；CI 使用 Node.js 22。
-- CMake 4.0.3 / AppleClang 21；构建显式选择与 Xcode 匹配的 SDK。
-- SDL 3.4.16 静态构建；源码 SHA-256 锁定在 CMakeLists.txt。
-- TypeScript 5.9.3，锁定 npm 依赖，无运行时 npm 依赖。
+- Local macOS 27.0 / arm64.
+- Node.js 23.5.0 installed locally; CI uses Node.js 22.
+- CMake 4.0.3 / AppleClang 21; build explicitly selects the SDK matching Xcode.
+- SDL 3.4.16 static build; source SHA-256 pinned in CMakeLists.txt.
+- TypeScript 5.9.3 with locked npm dependencies and no runtime npm dependencies.
 
-## 自动化证据
+## Automated evidence
 
-完整命令：`npm ci --ignore-scripts`，`npm run check`。
+Complete commands: `npm ci --ignore-scripts`, then `npm run check`.
 
-本地完整门槛通过：22 项测试，0 失败、0 跳过；CLI JavaScript 行覆盖率 100%、分支覆盖率 96.41%、函数覆盖率 97.67%。该报告不包含 C++/SDL 的代码覆盖率。已检查未覆盖分支，主要为终端输出错误类型、重复清理及环境状态分支；缺失 helper、协议错误、超时、信号、强制清理、慢消费者及 EPIPE 均有专门测试。
+The local gate passed: 22 tests, zero failures/skips; CLI JavaScript line coverage 100%, branch coverage 96.41%, function coverage 97.67%. These figures exclude C++/SDL coverage. Uncovered branches were reviewed: primarily terminal output error types, repeated cleanup and environment-state branches. Missing helpers, protocol failures, timeouts, signals, forced cleanup, slow consumers and EPIPE have dedicated tests.
 
-测试包括事件格式/顺序/UTF-8/长度上限、输入状态与死区、多设备隔离、窄屏与纯文本、CLI 错误、SDL 虚拟设备、慢消费者与管道关闭、真实 PTY 退出/异常/信号恢复和 helper 清理。
+Tests cover event schema/order/UTF-8/size limits, input state/deadzones, device isolation, narrow/plain rendering, CLI errors, SDL virtual devices, slow consumers/closed pipes, real PTY exit/error/signal restoration and helper cleanup.
 
-[GitHub CI 验证](https://github.com/thinxpro/padcode/actions/runs/35304321740)：实现提交 `885423c` 的 macOS 与 Ubuntu 两组 Node 22 完整检查均通过。后续仅更新本验收记录与阶段状态；最新 PR 检查见 [Checks](https://github.com/thinxpro/padcode/pull/1/checks)。
+[GitHub CI](https://github.com/thinxpro/padcode/actions/runs/35304321740): implementation commit `885423c` passed the complete Node 22 gate on macOS and Ubuntu. Later commits only updated validation documentation and stage status; see [latest PR checks](https://github.com/thinxpro/padcode/pull/1/checks).
 
-首次 Linux CI 暴露 SDL 在无窗口构建时仍要求显式 `SDL_UNIX_CONSOLE_BUILD=ON`。已依据锁定版本的 SDL README 配置该选项，保留所有测试；这不改变阶段范围和验收标准。
+The first Linux CI run showed that a headless SDL build requires explicit `SDL_UNIX_CONSOLE_BUILD=ON`. This was configured according to the pinned SDL README without removing tests or changing scope/acceptance.
 
-测试中的 SDL 虚拟设备实际经过 SDL API、生产事件循环和 JSONL 序列化；它证明软件链路，不能证明 PS4 硬件兼容性。真实 PTY 测试验证 termios 和终端控制序列，不能替代用户对界面外观的评价。
+The SDL virtual device exercises real SDL APIs, the production event loop and JSONL serialization. It validates the software path, not PS4 hardware compatibility. Real PTY tests verify termios and terminal sequences, not subjective interface quality.
 
-## 标准状态
+## Acceptance status
 
-| 标准 | 状态 |
+| Criterion | Status |
 | --- | --- |
-| A1–A7 自动化与界面检查 | 本地通过；macOS/Ubuntu CI 通过 |
-| A8 PS4 USB 按钮与轴 | 待用户真机测试 |
-| A9 断线重连、后台输入、10 分钟稳定性 | 待用户真机测试 |
-| A10 完整验收 | 未完成；PR 保持 draft |
+| A1–A7 automation and interface checks | Local and macOS/Ubuntu CI passed |
+| A8 PS4 USB buttons/axes (original transport; now Bluetooth first) | Physical testing pending |
+| A9 reconnection, background input and ten-minute stability | Physical testing pending |
+| A10 complete acceptance | Incomplete; PR remains draft |
 
-本地短时真实设备枚举收到 SDL ready，未收到实体控制器连接事件。没有据此推断权限或兼容性通过。
+A short local physical enumeration emitted SDL ready but no physical controller connection event. No permission or compatibility pass was inferred.
 
-## 用户测试步骤
+## Original user test procedure
 
-在已构建的本地仓库运行：
+Run from the built local checkout:
 
 ```sh
-cd /Users/kevinsmacmini/Project/padcode
 node dist/cli.js controllers
 ```
 
-1. 用 USB 数据线连接 PS4 手柄，记录界面是否显示 PLAYER READY 及设备名。
-2. 按方向键、四个面键、L1/R1、L3/R3、Share、Options，每个按下后松开。确认 HELD、图示和 RECENT INPUT 对应变化。
-3. 摇动两根摇杆、按压 L2/R2，回中/松开后检查数值是否归零。
-4. 按住 X 五秒，松开；BUTTON EDGES 应增加两次，不应持续增加。
-5. 按住一个按钮拔线，确认状态清空；重连。重复三次。
-6. 切到其他应用，操作手柄，切回检查 RECENT INPUT。持续使用十分钟观察异常。
-7. 分别验证 Q 与 Ctrl+C 退出，终端输入和光标正常。
+1. Connect the PS4 controller with a USB data cable; record whether PLAYER READY and the device name appear.
+2. Press/release D-pad directions, four face buttons, L1/R1, L3/R3, Share and Options. Check HELD, the diagram and RECENT INPUT.
+3. Move both sticks and squeeze L2/R2; check neutral values after release.
+4. Hold X for five seconds, then release. BUTTON EDGES should increase twice, not continuously.
+5. Unplug while holding a button; verify state clears. Reconnect and repeat three times.
+6. Focus another app, use the controller, return and inspect RECENT INPUT. Continue for ten minutes and observe failures.
+7. Test Q and Ctrl+C exit separately; verify normal terminal input and cursor restoration.
 
-请反馈终端名称/版本、手柄型号/连接方式，以及上述每项结果。若失败，记录复现步骤；无需提供任何 Agent 凭据或项目代码。
+Report terminal/version, controller model/transport and each result. Include reproduction steps for failures; no agent credentials or project code are needed.
 
-## 当前限制
+## Limitations at this stage
 
-- 尚无 Agent 启动、按键注入、配置向导、语音或桌面控制。
-- 首次安装是源码开发流程；未验证用户免编译分发。
-- 设备名在图形面板中使用安全 ASCII 展示；完整名称保留在 JSON 字段。
-- 当前默认显示最先连接的设备；所有设备事件可在 JSON 模式读取。
-- SDL helper 目前面向 Unix 平台构建，未实现 Windows 生命周期处理。
+- No agent launch, key injection, configuration wizard, voice or desktop control in P0-1. Onboarding was added in a later PR.
+- Initial installation used the source-development workflow; compilation-free distribution was unverified at this stage.
+- Dashboard device names use safe ASCII; JSON preserves complete names.
+- The dashboard selects the first connected device; JSON emits events for all devices.
+- The SDL helper targets Unix; Windows lifecycle handling is not implemented.

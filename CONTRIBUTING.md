@@ -1,21 +1,25 @@
-# 协作约定
+# Contributing
 
-实现前阅读 [开发守则](AGENTS.md)、README、技术架构和开发路线，优先完成 P0。每个清晰任务使用一个 PR，可包含多个 commit；编写代码前先提交该阶段的实现计划、验收标准和测试矩阵。
+Read the [development rules](AGENTS.md), README, architecture and roadmap before implementation. Prioritize P0. Use one PR per clearly scoped task, with multiple commits as needed. Commit the stage implementation plan, acceptance criteria and test matrix before writing code.
 
-## 改动范围
+## Language
 
-- 保持 CLI、本地运行和用户自带 Agent 的边界。
-- 新依赖须说明用途、分发影响与平台限制。
-- 新增平台或 Agent 支持必须附具体测试版本与结果。
-- 不提交用户配置、凭据、项目内容、终端录屏或真实会话日志。
-- 方案有变化时更新决策记录，区分已实现、已验证和计划事项。
+Use English for all maintained repository content: documentation, code comments, CLI messages, examples, commit messages, PR titles and descriptions, and project issue/review text. This prepares the project for public collaboration. Unicode support and user-provided runtime data remain unrestricted; use non-Chinese Unicode fixtures when testing encoding behavior.
 
-## Git 与 PR
+## Scope
 
-初始文档位于 main。后续改动使用短期分支，通过 PR 合入 main；本仓库不是 SensForge，不适用其 dev 分支约定。建议使用 `feature/`、`fix/`、`docs/` 前缀。
+- Preserve the local CLI and user-provided agent boundaries.
+- Explain each new dependency's purpose, distribution impact and platform limitations.
+- Include tested versions and results when adding platform or agent support.
+- Do not commit user configuration, credentials, project content, terminal recordings or real session logs.
+- Update decisions when the design changes, distinguishing implemented, verified and planned behavior.
 
-PR 描述应说明具体变化、用户行为、验证方法、结果及已知限制。自动化测试须全部通过。硬件测试未运行时直接注明，不勾选未完成的检查；存在必需硬件验收项时保持 draft。未经用户授权不合并 PR。
+## Git and PRs
 
-## 验证
+Initial documentation lives on `main`. Use short-lived branches and PRs targeting `main`; this repository does not use SensForge's `dev` convention. Suggested prefixes are `feature/`, `fix/` and `docs/`. For dependencies on unmerged work, follow the documented stacked PR exception in AGENTS.md.
 
-文档变更检查链接、示例与状态表述。完整自动化门槛为 `npm run check`（类型检查、TypeScript 构建、原生构建、单元/子进程/PTY/SDL 虚拟设备测试与覆盖报告）。首次运行前执行 `npm ci --ignore-scripts`。输入路由、生命周期和安装产物遵循阶段验收要求；真机测试单独记录。
+Use the repository PR template. Describe the concrete change, user behavior, validation methods, results and limitations. All automated tests must pass. Explicitly identify unrun hardware tests and leave incomplete checks unchecked; keep hardware-dependent PRs draft. Do not merge without user authorization.
+
+## Validation
+
+For documentation changes, check links, examples and status claims. The full automated gate is `npm run check`: type checking, TypeScript/native builds, unit/subprocess/PTY/SDL virtual-device tests and coverage. Run `npm ci --ignore-scripts` first. Input routing, lifecycle and installation artifacts must meet their stage acceptance criteria; record physical hardware validation separately.

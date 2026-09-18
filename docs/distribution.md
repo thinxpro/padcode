@@ -1,43 +1,43 @@
-# 安装与发布方案
+# Installation and distribution
 
-## 当前状态
+## Current status
 
-尚未发布 npm registry 包、Homebrew formula 或 curl 安装脚本。当前开发版可以生成包含本机平台原生 helper 的 npm tarball，并在隔离目录验证安装和首次向导；它不是跨平台公开发行包。发布前仍需验证名称归属和可用性。
+No npm registry package, Homebrew formula or curl installer has been published. The development build can produce an npm tarball containing native helpers for the build platform; isolated installation and first-run setup are tested. This is not a public cross-platform release. Confirm package naming and ownership before publication.
 
-## npm 优先
+## npm first
 
-目标是通过一个命令安装 CLI。若 `padcode` 名称不可用，使用维护者有权限的 npm scope 或重新命名；GitHub 账户名称不自动赋予 npm scope 权限。
+The target is single-command CLI installation. If `padcode` is unavailable, use an authorized npm scope or another name. A GitHub account name does not automatically grant npm scope ownership.
 
-主包携带 JavaScript CLI，平台专用产物提供 SDL3 helper，以及 PTY 所需的本地组件。候选使用平台 optionalDependencies；具体拆包方案在原生依赖验证后定案。
+The main package carries the JavaScript CLI; platform artifacts provide the SDL3 helper and native PTY components. Platform-specific optionalDependencies are a candidate; finalize packaging after validating native dependencies.
 
-### 首个发布目标
+### First release target
 
-- 优先在实际开发机器的 macOS 架构上验证，明确记录架构和系统版本。
-- DualShock 4 蓝牙优先验证，USB 为备选。
-- 明确要求兼容的 Node.js LTS 版本。
-- 用户安装环境不要求 Xcode、CMake、C/C++ 编译器或 SDL 开发包。
-- 不支持的平台给出明确提示，不静默尝试本机编译。
+- Validate the actual development Mac architecture first and record OS/CPU versions.
+- Prioritize DualShock 4 Bluetooth validation; retain USB as an alternative.
+- Specify a compatible Node.js LTS requirement.
+- Require no Xcode, CMake, C/C++ compiler or SDL development package on user machines.
+- Report unsupported platforms explicitly instead of silently attempting source compilation.
 
-## 后续安装渠道
+## Later installation channels
 
-Homebrew 分发已验证版本及依赖，使用相同 CLI 和配置格式。curl 安装脚本只有在有版本化可信下载源、校验和、架构检测、升级与卸载方案后才提供；脚本需要明确 Node 运行时是否为前置条件。
+Homebrew should distribute validated versions and dependencies using the same CLI and configuration format. Offer a curl installer only after establishing versioned trusted downloads, checksums, architecture detection, upgrades and uninstall behavior. Specify whether Node is a prerequisite.
 
-安装器只安装工具，不自动安装 Agent、改变项目、采集凭据或启用桌面控制权限。运行时原生程序可能涉及 macOS 签名、公证与隔离属性，需用真实下载产物验证，不能以本地编译成功代替安装验证。
+Installers only install the tool. They do not install agents, modify projects, collect credentials or enable desktop-control permissions. Native macOS binaries may require signing, notarization and quarantine handling; validate real downloaded artifacts rather than treating a successful local build as installation evidence.
 
-## 本地数据与卸载
+## Local data and uninstall
 
-文档应列出二进制、配置、缓存和日志位置。卸载工具默认保留用户配置；删除配置使用显式指令。工具不接管 Agent 自身的数据目录。
+Document binary, configuration, cache and log locations. Uninstall preserves configuration by default; removal must be explicit. Padcode does not manage the agent's own data directories.
 
-## 转 public 前清单
+## Public release checklist
 
-- [ ] 确定项目名称和包名归属（维护者已有 npm 账号）。
-- [x] 确定项目许可证：MIT；不覆盖第三方依赖许可证。
-- [ ] 审核 Git 历史、示例、截图与发布产物，移除个人信息、凭据和私有项目内容。
-- [ ] 验证 SDL3、PTY 等分发依赖的许可证及 notices。
-- [ ] 提供真实可执行的安装、升级、卸载与故障排查说明。
-- [ ] 发布兼容矩阵与已知限制，区分已支持与计划支持。
-- [ ] 在无开发工具的环境验证安装与启动。
-- [ ] 明确日志、网络和数据处理行为。
-- [ ] 维护者明确决定公开；本次建仓不包含改变仓库可见性或发布软件包。
+- [ ] Confirm project naming and package ownership; the maintainer already has an npm account.
+- [x] Select the project license: MIT, without overriding third-party licenses.
+- [ ] Review Git history, examples, screenshots and artifacts for personal information, credentials and private project content.
+- [ ] Verify licenses and notices for distributed SDL3, PTY and other dependencies.
+- [ ] Provide working installation, upgrade, uninstall and troubleshooting instructions.
+- [ ] Publish a compatibility matrix and limitations, distinguishing supported from planned features.
+- [ ] Validate installation and startup without developer build tools.
+- [ ] Document logging, networking and data handling.
+- [ ] Obtain an explicit maintainer decision to go public; repository creation does not authorize visibility changes or package publication.
 
-GitHub 仓库可见性、GitHub Release 可见性与 npm 软件包可见性分别管理，不假定它们会同步变化。
+GitHub repository visibility, GitHub Release visibility and npm package visibility are managed separately; do not assume they change together.

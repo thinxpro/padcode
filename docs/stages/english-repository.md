@@ -15,3 +15,14 @@ This documentation task is stacked on PR #3 (`fix/bluetooth-permission-host`) to
 - E5: Submit this task as a separate PR. Keep hardware acceptance pending; do not interpret acknowledgment as a physical pass.
 
 No test is added solely to detect language: editorial review and a tracked-file Unicode scan verify E1.
+
+## Validation evidence
+
+- Plan committed before changes: `659ffea`.
+- Translated 11 documentation files, including README, design guides and historical validation records. Historical test counts and pending hardware criteria remain explicit.
+- Replaced Chinese Unicode fixtures in three tests with an emoji or accented/Greek characters. Split UTF-8 and unsafe-label checks remain exercised; production behavior is unchanged.
+- All tracked text files passed a Chinese-character scan; local Markdown file links resolve. Updated the translated public-release checklist anchor.
+- `npm run check` passed all 47 tests locally on macOS 27 arm64 / Node 23.5.0, with zero failures/skips.
+- Existing PR #1/#2 descriptions were translated using their original template. PR #3 was already English. All existing titles were already English.
+- AGENTS.md and CONTRIBUTING.md now require English repository and contribution text. Runtime user data remains unrestricted.
+- CI is recorded on this task's PR. No PR was merged and repository visibility is unchanged. Earlier Git history is preserved; the English-only policy applies to maintained content and future contributions.

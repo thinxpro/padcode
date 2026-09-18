@@ -1,65 +1,65 @@
-# 开发路线与验收
+# Roadmap and acceptance
 
-当前按用户新优先级推进 [蓝牙优先终端配置阶段](stages/p0-config-bluetooth.md)，依赖 P0-1 Controller Lab。以下复选框在该项完整验收后更新，不能以模拟测试代替真机验证。
+The current priority is [Bluetooth-first terminal setup](stages/p0-config-bluetooth.md), built on P0-1 Controller Lab. Check items only after their full acceptance criteria pass; simulated tests do not replace physical validation.
 
-## P0：技术验证
+## P0: Technical validation
 
-### P0-1：控制器输入
+### P0-1: Controller input
 
-- [ ] 记录实际 Mac 型号、CPU、系统版本、控制器型号和连接方式。
-- [ ] 使用 SDL3 helper 读取 DualShock 4 蓝牙按钮和模拟轴；USB 为备选。
-- [ ] 验证后台事件、拔插重连、死区和按下/释放。
-- [ ] 明确没有系统级鼠标控制时所需权限。
+- [ ] Record the actual Mac model, CPU, OS version, controller model and transport.
+- [ ] Read DualShock 4 Bluetooth buttons and axes through SDL3; retain USB as an alternative.
+- [ ] Verify background events, reconnection, deadzones and press/release behavior.
+- [ ] Identify required permissions when no system-wide mouse control is used.
 
-验收：连续使用及多次断线重连不产生卡键、重复提交或崩溃；事件日志能解释状态变化。
+Acceptance: sustained use and repeated reconnections produce no stuck keys, repeated submissions or crashes; event logs explain state changes.
 
-### P0-2：终端透明转发
+### P0-2: Transparent terminal forwarding
 
-- [ ] 验证 node-pty 启动用户配置的程序及参数。
-- [ ] 转发键盘、中文输入结果、输出、颜色、窗口 resize 和退出码。
-- [ ] 验证交互式 TUI 的光标位置请求、备用屏幕及控制字符。
-- [ ] 验证退出、信号、异常及子进程清理。
-- [ ] 确认原生组件的预编译分发路线；不通过则调整 PTY 实现。
+- [ ] Validate node-pty launching a user-configured executable and arguments.
+- [ ] Forward keyboard/Unicode input, output, colors, window resizing and exit status.
+- [ ] Test TUI cursor-position queries, alternate screen and control characters.
+- [ ] Test exit, signals, exceptions and child cleanup.
+- [ ] Confirm a prebuilt native distribution route; change the PTY implementation if it fails this requirement.
 
-验收：至少两个终端、两个用户自带 CLI 的核心交互可运行；异常退出后终端可继续正常输入且没有遗留 helper。记录具体版本和已知限制。
+Acceptance: core interactions work in at least two terminals with two user-provided CLIs. The terminal remains usable after exceptional exits, with no orphaned helper. Record exact versions and limitations.
 
-### P0-3：最小手柄开发流程
+### P0-3: Minimal controller development workflow
 
-- [ ] 手柄动作进入 PTY，不依赖前台窗口焦点。
-- [ ] 用户可以选择或自定义运行命令。
-- [ ] 方向键、Enter、Escape 可用，键盘输入始终可用。
-- [ ] 暂停映射后输入不再注入；恢复不重放旧动作。
+- [ ] Route controller input to the PTY independently of foreground window focus.
+- [ ] Let users select or customize the command.
+- [ ] Support arrows, Enter and Escape while keeping keyboard input available.
+- [ ] Stop injection when mapping is paused; never replay stale actions on resume.
 
-验收：用户在一个测试项目中完成启动、输入需求、发送、查看输出、继续交互和退出。人工观察误触与终端异常。P0 结束提交技术验证记录，确认是否进入 P1。
+Acceptance: in a test project, the user can start, enter a request, submit, read output, continue and exit. Observe accidental actions and terminal failures. Finish P0 with a validation record and a decision on entering P1.
 
-## P1：可安装的个人可用版本
+## P1: Installable personal-use release
 
-- [ ] CLI 命令入口、配置向导、schema 校验与配置迁移。
-- [ ] `config` 与 `doctor`。
-- [ ] 原生产物打包与干净环境安装。
-- [ ] 设备缺失、命令缺失和辅助进程故障提示。
-- [ ] 按键配置与重连恢复。
-- [ ] 安装、使用、升级、卸载文档。
+- [ ] CLI entry point, setup, schema validation and configuration migrations.
+- [ ] `config` and `doctor` commands.
+- [ ] Native packaging and clean-environment installation.
+- [ ] Clear missing-device, missing-command and helper-failure feedback.
+- [ ] Key configuration and reconnection recovery.
+- [ ] Installation, usage, upgrade and uninstall documentation.
 
-验收：新环境中按文档安装，无需编译工具；用户自带 Agent 即可完成基础流程。该阶段首先可通过私有构建产物验证，不要求立即公开发布 npm 包。
+Acceptance: installation follows the documentation on a fresh environment without build tools; users complete the basic flow with their own agent. Private artifacts may validate this stage before public npm publication.
 
-## P2：兼容性与交互增强
+## P2: Compatibility and interaction improvements
 
-- [ ] 其他控制器验证（蓝牙稳定性已提前到首阶段验收）。
-- [ ] Agent 专用按键方案与版本记录。
-- [ ] 可选桌面模式；显式切换与权限指引。
-- [ ] 可选外部语音输入接口，用户自选转写工具。
-- [ ] 根据实际需求评估结构化 Agent 适配。
-- [ ] Windows/Linux 可行性与平台产物验证。
+- [ ] Validate additional controllers; Bluetooth stability was moved into the first stage.
+- [ ] Agent-specific profiles and version records.
+- [ ] Optional desktop mode with explicit switching and permission guidance.
+- [ ] Optional external voice interface with user-selected transcription tools.
+- [ ] Evaluate structured adapters against real needs.
+- [ ] Validate Windows/Linux feasibility and platform artifacts.
 
-## P3：公开发布
+## P3: Public release
 
-完成 [发布清单](distribution.md#转-public-前清单)，由维护者决定转 public。随后按需发布 npm、Homebrew 和安装脚本，不把三个渠道同时完成作为首版门槛。
+Complete the [release checklist](distribution.md#public-release-checklist), then let the maintainer decide when to go public. Publish npm, Homebrew and installation scripts as needed; all three channels are not an initial release gate.
 
-## 测试策略
+## Testing strategy
 
-单元测试覆盖输入边沿、去重、死区、模式切换和配置校验。PTY 集成测试使用可控子进程验证数据、resize、退出和清理。真机测试覆盖控制器及实际 CLI/TUI。仅有 mock 测试不能支持兼容性声明。
+Unit tests cover edges, deduplication, deadzones, mode transitions and configuration validation. PTY integration tests use controlled children to check data, resize, exit and cleanup. Physical tests cover controllers and actual CLI/TUI combinations. Mocks alone do not support compatibility claims.
 
-## 第一项开发工作
+## Initial development sequence
 
-建立最小 CLI 与 SDL3 helper 验证工程，完成 P0-1；随后连接 PTY 做 P0-2/P0-3。不要先实现完整菜单、插件市场、语音模型或桌面 UI。
+Build the minimal CLI and SDL3 helper for P0-1, then connect the PTY for P0-2/P0-3, with the user-prioritized onboarding stage in between. Do not start with a plugin marketplace, voice models or desktop UI.
