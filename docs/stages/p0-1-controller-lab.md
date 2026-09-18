@@ -1,6 +1,6 @@
 # P0-1 · Controller Lab
 
-Status: implementation planned; acceptance pending. This plan is committed before implementation.
+Status: implementation and automated validation complete; physical acceptance pending. The original plan was committed before implementation (`3a8c2df`). See [validation evidence](p0-1-validation.md).
 
 ## Task and boundary
 

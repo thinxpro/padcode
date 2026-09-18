@@ -1,6 +1,6 @@
 # 技术架构
 
-本页是待实现方案，不代表依赖已经选定或验证完成。
+本页描述整体目标架构。P0-1 已实现 TypeScript CLI、SDL3 helper、JSONL 协议和诊断界面，见 [验证记录](stages/p0-1-validation.md)；PTY/Agent 桥接与配置仍待后续阶段实现。
 
 ## 系统结构
 
