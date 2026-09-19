@@ -51,7 +51,7 @@ No real Agent was launched during implementation. This PR remains Draft until T7
 ## Automated evidence
 
 - Plan commits before implementation: `7ab7c4b`, `853d5ce`.
-- Local `npm run check`: 77 tests passed, zero failures/skips, on macOS 27 arm64 with Node 23.5.0. The tightened native-spawn assertion was also rerun successfully.
+- Final local `npm run check`: 80 tests passed, zero failures/skips, on macOS 27 arm64 with Node 23.5.0. This includes the final session-host implementation, private channel cleanup, failed interpreter launch and post-exit descendant deadline.
 - T1–T6 local coverage includes explicit launch/cancel from `run` and Player Hub, literal arguments/cwd/environment, real child TTYs, Unicode/control sequences, resize, normal exit status, Ctrl+C delivery, Ctrl+], external signals, ignored-TERM process-group cleanup, input EOF, missing/spawn failures, input overflow/stalls, output failures/stalls and slow final-output drain.
 - An empty-cache, offline npm installation with scripts disabled runs both onboarding and Agent PTY scenarios outside the checkout. No real Agent account or process is used by automation.
 - CI runs the same gate on macOS and Ubuntu with Node 22; results are tracked on the PR. T7 is still pending and the PR remains Draft.
