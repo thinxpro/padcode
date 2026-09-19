@@ -1,9 +1,9 @@
 {
   "name": "padcode",
-  "version": "0.1.0-dev.6",
+  "version": "0.1.0-dev.7",
   "private": true,
   "license": "MIT",
-  "description": "Gamepad controls for your own coding agent \u2014 controller lab prototype",
+  "description": "Gamepad controls for your own coding agent \u2014 terminal development build",
   "type": "module",
   "bin": {
     "padcode": "dist/cli.js"

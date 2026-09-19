@@ -23,7 +23,7 @@ Incomplete verification is labeled UNVERIFIED. Deferral is allowed but never rep
 - `padcode controllers --json`: structured diagnostics. Connection events may contain device serial numbers; inspect logs before sharing.
 - `padcode demo`: simulated interface preview.
 
-Saving configuration never starts an agent. Select Start agent session in Player Hub or run `padcode run` from your project, review the executable/arguments/directory, then explicitly confirm. Keyboard PTY forwarding is available; gamepad-to-agent key mapping remains P0-3. Historical input verification does not prove a device is currently online.
+Saving configuration never starts an agent. Select Start agent session in Player Hub or run `padcode run` from your project, review the executable/arguments/directory, then explicitly confirm. Keyboard PTY forwarding and the terminal-basic gamepad profile are available. Historical input verification does not prove a device is currently online.
 
 ## macOS system boundaries
 
@@ -86,7 +86,7 @@ If the known-device status refresh also fails, previously known entries remain l
 
 ## Agent sessions (dev.6)
 
-Install the current-platform dev.6 package, change into a project, then run `padcode run`. An existing configured Agent is required; use `padcode config` to choose another. The confirmation defaults to Cancel. It supports the existing gamepad menu controls; once launched, use the keyboard for this stage.
+Install the current-platform dev.7 package, change into a project, then run `padcode run`. An existing configured Agent is required; use `padcode config` to choose another. The confirmation defaults to Cancel. It supports the existing gamepad menu controls; once launched, use the keyboard or enable gamepad mapping with Options.
 
 - The Agent receives the current directory, inherited environment and literal configured arguments. No shell command string or Agent API proxy is used.
 - Ctrl+C goes to the Agent, preserving its interrupt/approval behavior. Ctrl+] is reserved for ending the session and cannot be sent as literal input.
@@ -96,3 +96,23 @@ Install the current-platform dev.6 package, change into a project, then run `pad
 - Padcode stores no session transcript. Agent accounts, network use and permissions remain the Agent's responsibility.
 
 Manual compatibility is pending. See the [stage checklist](stages/p0-2-pty-session.md); automation uses local fixtures, not real Agent accounts.
+
+
+## Gamepad Agent controls (dev.7)
+
+A uniquely identity-matched configured controller works directly in Player Hub and launch confirmation; no extra X claiming press is required. Initial setup or missing identity metadata still uses explicit claiming; D-pad up/down can claim and navigate together. On startup/reconnection, allow 250 ms for initial device state to settle and release held buttons.
+
+Agent mapping starts **PAUSED** to avoid carrying the launch confirmation into the Agent. Press and release **Options** to enable it. The terminal title shows ACTIVE, PAUSED, DISCONNECTED or INPUT LOST where title updates are supported; TERM=dumb prints status lines. Padcode restores the prior title on exit. Terminals that suppress title updates still accept Options and keyboard controls.
+
+| PS4 control | Agent input |
+| --- | --- |
+| D-pad | Arrow keys (fixed CSI sequences) |
+| X | Enter |
+| O | Escape |
+| L1 | Tab |
+| R1 | Shift+Tab |
+| Options | Pause/resume mapping; never sent to the Agent |
+
+Each fresh button press sends one action; holding does not repeat. Sticks, triggers and voice are not mapped. Keyboard input remains active while gamepad mapping is paused. After disconnect, release buttons, reconnect, then press/release Options; no buffered gamepad actions replay. Helper failure leaves keyboard operation available; restart the session to restore the input helper. Ctrl+] still terminates the session.
+
+Complete the [physical checklist](stages/p0-3-gamepad-agent-input.md) before claiming PS4/Agent compatibility. This is separate from the still-pending two-terminal/two-Agent P0-2 matrix.

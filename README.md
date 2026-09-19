@@ -4,7 +4,7 @@ Control your own AI coding agent with a gamepad.
 
 Padcode is a local developer tool designed for terminal installation. You choose your terminal, project, agent and accounts. Padcode provides controller input, key mapping, terminal session bridging and optional agent integrations.
 
-**Current status: terminal onboarding and keyboard PTY sessions are implemented; real-agent compatibility acceptance is pending.** Controller-operated menus, first-run setup, local configuration, macOS Bluetooth discovery/pairing/connection, SDL input verification and a game-style dashboard are implemented. Gamepad-to-agent mapping and npm registry publication are not implemented. The repository is private; public release requires validation and a maintainer decision. Padcode is a provisional name; npm and Homebrew name availability has not been confirmed.
+**Current status: terminal onboarding, keyboard PTY sessions and basic gamepad mapping are implemented; physical and real-agent compatibility acceptance is pending.** Controller-operated menus, first-run setup, local configuration, macOS Bluetooth discovery/pairing/connection, SDL input verification and a game-style dashboard are implemented. Voice input and npm registry publication are not implemented. The repository is private; public release requires validation and a maintainer decision. Padcode is a provisional name; npm and Homebrew name availability has not been confirmed.
 
 ## Run the development build
 
@@ -21,9 +21,9 @@ The first native build downloads checksum-pinned SDL source from its official Gi
 
 Bluetooth discovery keeps known paired/connected controllers visible, even when no nearby device is discovered.
 
-After connection, press X once to take control of menus; use D-pad up/down, X to confirm and O to go back/cancel. Keyboard input remains available, and custom command text still uses the keyboard.
+A uniquely identity-matched saved controller can operate menus directly: D-pad up/down, X to confirm and O to go back/cancel. During initial setup or when identity is ambiguous, D-pad navigates and claims control, or X claims without confirming. Keyboard input remains available, and custom command text still uses the keyboard.
 
-Interactive startup without arguments opens setup, or the Player Hub if configuration exists. Use `node dist/cli.js config` to reconfigure. Configuration lives at `$XDG_CONFIG_HOME/padcode/config.json` when that variable is an absolute path, otherwise `~/.config/padcode/config.json`. Saving configuration never launches an agent. Run `padcode run`, or choose Start agent session in Player Hub, to review the executable, literal arguments and current project directory before confirming launch. Your keyboard controls the Agent; Ctrl+C is forwarded and Ctrl+] terminates the session. Gamepad menus remain available, while gamepad-to-agent keys come in P0-3. Padcode does not collect credentials or record session content.
+Interactive startup without arguments opens setup, or the Player Hub if configuration exists. Use `node dist/cli.js config` to reconfigure. Configuration lives at `$XDG_CONFIG_HOME/padcode/config.json` when that variable is an absolute path, otherwise `~/.config/padcode/config.json`. Saving configuration never launches an agent. Run `padcode run`, or choose Start agent session in Player Hub, to review the executable, literal arguments and current project directory before confirming launch. Your keyboard controls the Agent; Ctrl+C is forwarded and Ctrl+] terminates the session. Gamepad session mapping starts paused: release buttons, then press/release Options to enable. D-pad sends arrows, X Enter, O Escape, L1 Tab and R1 Shift+Tab. Options pauses/resumes mapping; reconnect always requires rearming. Status appears in the terminal title where supported. Padcode does not collect credentials or record session content.
 
 See the [terminal setup guide](docs/setup.md) for the complete flow and macOS permission boundaries, and the [Bluetooth acceptance report](docs/stages/p0-config-validation.md) for physical test status.
 
@@ -34,7 +34,7 @@ After building and testing locally, create a package for the current platform. N
 ```sh
 mkdir -p artifacts
 npm pack --ignore-scripts --pack-destination artifacts
-npm install -g ./artifacts/padcode-0.1.0-dev.6.tgz
+npm install -g ./artifacts/padcode-0.1.0-dev.7.tgz
 padcode
 ```
 
@@ -83,7 +83,7 @@ No coding agent is bundled, and no vendor API is mandatory. Structured agent ada
 
 ## Development workflow
 
-The current [Bluetooth-first onboarding stage](docs/stages/p0-config-bluetooth.md) builds on Controller Lab. The [P0-2 PTY session bridge](docs/stages/p0-2-pty-session.md) now provides keyboard forwarding. Real-agent/terminal compatibility is pending; gamepad key mapping remains P0-3. Submit each task through a PR; all automated checks and required physical acceptance must pass before marking an implementation PR ready.
+The current [Bluetooth-first onboarding stage](docs/stages/p0-config-bluetooth.md) builds on Controller Lab. The [P0-2 PTY session bridge](docs/stages/p0-2-pty-session.md) now provides keyboard forwarding. The [P0-3 gamepad mapping stage](docs/stages/p0-3-gamepad-agent-input.md) adds basic controller keys, pause and disconnect protection. Real-agent/terminal compatibility and new physical acceptance remain pending. Submit each task through a PR; all automated checks and required physical acceptance must pass before marking an implementation PR ready.
 
 Repository content, commit messages and PR titles/descriptions must be in English.
 

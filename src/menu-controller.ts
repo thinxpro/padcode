@@ -22,6 +22,8 @@ export class GamepadMenus implements MenuInput {
   private devices = new Map<number, InputDevice>();
   private target: Config['controller'] | undefined;
   private failed = false;
+  private automatic = false;
+  private settledAt = 0;
   constructor(private factory: () => MenuFeed = () => new ControllerProbe()) {}
   subscribeAction(listener: (action: MenuAction) => void): () => void {
     this.events.on('action', listener); return () => this.events.removeListener('action', listener);
@@ -33,20 +35,27 @@ export class GamepadMenus implements MenuInput {
   private compatible(device: InputDevice): boolean {
     return Boolean(this.target && identityMatch(device, this.target.transport, this.target.address) !== 'mismatch');
   }
-  async activate(target: Config['controller'], signal: AbortSignal): Promise<void> {
+  async activate(target: Config['controller'], signal: AbortSignal, automatic = false): Promise<void> {
     await this.stop();
-    this.target = target; this.failed = false;
+    this.target = target; this.failed = false; this.automatic = automatic; this.settledAt = Date.now() + 250;
     const feed = this.factory(); this.feed = feed;
     try {
       await feed.start(signal);
+      this.settledAt = Date.now() + 250;
       this.devices = new Map(feed.snapshot().map(device => [device.device, device]));
       this.release = feed.subscribe((event, error) => this.receive(event, error));
-      this.status('GAMEPAD MENUS / D-pad up/down, X confirm, O back/cancel. Press X on your controller to take control. Keyboard remains available.');
+      this.selectConfigured();
+      if (this.selected === undefined) this.status('GAMEPAD MENUS / D-pad to navigate, or X to claim. O back/cancel. Keyboard available.');
     } catch (error) {
       await this.stop();
       signal.throwIfAborted();
       this.status(`GAMEPAD UNAVAILABLE / ${(error as Error).message} Use the keyboard to continue.`);
     }
+  }
+  private selectConfigured(): void {
+    if (!this.automatic || !this.target?.address || this.selected !== undefined) return;
+    const matches = [...this.devices.values()].filter(device => identityMatch(device, this.target!.transport, this.target!.address) === 'match');
+    if (matches.length === 1) { this.selected = matches[0]!.device; this.status('GAMEPAD READY / D-pad up/down, X confirm, O back/cancel.'); }
   }
   private receive(event?: Event, error?: Error): void {
     if (error) {
@@ -54,7 +63,7 @@ export class GamepadMenus implements MenuInput {
       this.status('GAMEPAD INPUT LOST / Use the keyboard to continue or restart setup.'); return;
     }
     if (!event || this.failed) return;
-    if (event.type === 'connected') this.devices.set(event.device, event);
+    if (event.type === 'connected') { this.settledAt = Date.now() + 250; this.devices.set(event.device, event); this.selectConfigured(); }
     if (event.type === 'disconnected') {
       this.devices.delete(event.device);
       if (this.selected === event.device) {
@@ -63,15 +72,15 @@ export class GamepadMenus implements MenuInput {
       }
       return;
     }
-    if (event.type !== 'button' || !event.down) return;
+    if (event.type !== 'button' || !event.down || (this.automatic && Date.now() < this.settledAt)) return;
     const device = this.devices.get(event.device);
     if (!device || !this.compatible(device)) return;
     if (this.selected === undefined) {
-      if (event.button !== 'south') return;
+      if (!['south', 'dpad_up', 'dpad_down'].includes(event.button)) return;
       this.selected = device.device;
       this.status('GAMEPAD READY / D-pad up/down, X confirm, O back/cancel.');
       // The claiming press never selects a menu item.
-      return;
+      if (event.button === 'south') return;
     }
     if (this.selected !== event.device) return;
     const action: MenuAction | undefined = ({ dpad_up: 'up', dpad_down: 'down', south: 'confirm', east: 'cancel' } as Record<string, MenuAction>)[event.button];

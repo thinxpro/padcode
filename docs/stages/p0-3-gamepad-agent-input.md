@@ -28,3 +28,11 @@ Stack on PR #8 (`feature/pty-agent-session`), without merging or publishing. The
 ## Physical checklist (pending)
 
 Install dev.7. In Player Hub, use the configured PS4's D-pad and X without a separate claiming press. Start an Agent in a disposable project. Release all buttons, then press/release Options to enable mapping; check the terminal title where supported. Verify each mapped key, typing with the keyboard, a single Enter per X press, and no repeated submission while holding X. Pause with Options, press mapped keys and confirm nothing reaches the Agent; resume and verify no delayed actions. Disconnect/reconnect while paused or holding a button, then explicitly resume with Options. Exit with Ctrl+] and confirm the terminal and helper are restored/closed. Report terminal/Agent versions and observed results. P0-2's broader compatibility matrix remains separately pending.
+
+## Automated validation
+
+- Plan committed before implementation: `3ef5a7b`.
+- Final local `npm run check`: 90 tests passed, zero failures/skips, on macOS arm64 / Node 23.5.0.
+- Added state-machine, identity, settling, held-input, reconnect, helper-failure, tagged-queue cancellation and configured-menu tests. Production JSONL controller events reach a real Agent PTY in normal, emergency-exit, external-signal and helper-failure scenarios; assertions cover every mapped byte, Unicode keyboard coexistence, title restoration, raw-mode restoration and helper cleanup. Status-output failure also restores the terminal and stops the helper.
+- Offline scripts-disabled npm installation repeats the mapped PTY scenarios outside the checkout. Package version is `0.1.0-dev.7` for the local current-platform artifact.
+- CI runs the same complete gate on macOS and Ubuntu; results are tracked on the PR. G7 and the P0-2 two-terminal/two-Agent matrix remain pending. No real Agent was launched and no physical controller was paired or disconnected during implementation.

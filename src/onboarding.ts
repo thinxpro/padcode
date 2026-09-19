@@ -166,6 +166,7 @@ export async function onboarding(edit = false): Promise<number> {
   const io = new TerminalPrompt(controller.signal, cancel, menus);
   let action = 'quit';
   let selectedAgent: Config['agent'] = null;
+  let selectedController: Config['controller'] | undefined;
   try {
     let config: Config | null;
     try { config = await loadConfig(); }
@@ -174,7 +175,7 @@ export async function onboarding(edit = false): Promise<number> {
       if (await io.choose('Existing file will only be replaced after a successful save', [{ label: 'Reconfigure', value: 'reset' }, { label: 'Exit and preserve file', value: 'exit' }]) === 'exit') return 1;
       config = null; edit = true;
     }
-    if (config && (config.controller.address || config.controller.transport === 'usb')) await menus.activate(config.controller, controller.signal);
+    if (config && (config.controller.address || config.controller.transport === 'usb')) await menus.activate(config.controller, controller.signal, true);
     if (!config || edit) {
       config = await setup(io, {
         bluetooth: new NativeBluetooth(), probe: () => menus.probe(), activateMenus: target => menus.activate(target, controller.signal), agents: discoverAgents, resolve: resolveExecutable, save: saveConfig,
@@ -186,7 +187,7 @@ export async function onboarding(edit = false): Promise<number> {
     io.say(`LINK ${config.controller.transport.toUpperCase()} / ${config.controller.name ?? 'not selected'}`);
     io.say(`INPUT ${config.controller.inputVerified ? 'last setup check passed (not a live connection status)' : 'UNVERIFIED'}`);
     io.say(`AGENT ${config.agent?.command ?? 'not selected'}`);
-    io.say('Keyboard Agent sessions ready / gamepad key mapping comes next.');
+    io.say('AGENT CONTROLS / D-pad, X, O, L1, R1 / Options pauses mapping.');
     action = await io.choose('Ready when you are', [
       { label: 'Controller lab / test live input', value: 'controllers' },
       { label: 'Edit configuration', value: 'config' },
@@ -194,14 +195,14 @@ export async function onboarding(edit = false): Promise<number> {
       { label: 'Exit', value: 'quit' },
       ...(config.agent ? [{ label: 'Start agent session', value: 'run' }] : []),
     ]);
-    if (action === 'run' && config.agent && await confirmAgent(io, config.agent, process.cwd())) selectedAgent = config.agent;
+    if (action === 'run' && config.agent && await confirmAgent(io, config.agent, process.cwd())) { selectedAgent = config.agent; selectedController = config.controller; }
   } catch (error) {
     if (controller.signal.aborted) { io.say('Setup cancelled. No pending configuration changes saved.'); return exitCode; }
     io.say(`SETUP STOPPED: ${(error as Error).message}`); return (error as Error).message === 'Setup cancelled.' ? 0 : 1;
   } finally {
     await menus.stop(); io.close(); process.removeListener('SIGINT', cancel); process.removeListener('SIGTERM', terminate);
   }
-  if (selectedAgent) return runAgent(selectedAgent);
+  if (selectedAgent) return runAgent(selectedAgent, selectedController ? { controller: selectedController } : {});
   if (action === 'config') return onboarding(true);
   if (action === 'controllers' || action === 'demo') return session({ demo: action === 'demo', json: false });
   return 0;

@@ -4,7 +4,7 @@ import { mkdtemp, rm, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
-test('local npm tarball installs outside the checkout with CLI, setup and native helpers', { timeout: 90000 }, async t => {
+test('local npm tarball installs outside the checkout with CLI, setup and native helpers', { timeout: 120000 }, async t => {
   const root = await mkdtemp(join(tmpdir(), 'padcode-install-')); t.after(() => rm(root, { recursive: true, force: true }));
   const npm = (args) => {
     const r = spawnSync('npm', [...args, '--cache', join(root, 'cache'), '--offline', '--no-audit', '--no-fund'], { encoding: 'utf8', timeout: 25000 });
@@ -29,6 +29,8 @@ test('local npm tarball installs outside the checkout with CLI, setup and native
   assert.ok(names.includes('build/pty/prebuilds/' + process.platform + '-' + process.arch + '/pty.node'));
   const agent = spawnSync('python3', ['test/agent_pty.py', join(installed, 'dist/cli.js')], { encoding: 'utf8', timeout: 25000, env: { ...process.env, PADCODE_NODE: process.execPath } });
   assert.equal(agent.status, 0, `${agent.error ?? ''}\n${agent.stdout}\n${agent.stderr}`);
+  const mapped = spawnSync('python3', ['test/gamepad-agent-pty.py', installed], { encoding: 'utf8', timeout: 35000, env: { ...process.env, PADCODE_NODE: process.execPath } });
+  assert.equal(mapped.status, 0, `${mapped.error ?? ''}\n${mapped.stdout}\n${mapped.stderr}`);
   if (process.platform === 'darwin') {
     const permission = spawnSync(join(installed, 'build/native/padcode-bluetooth'), ['diagnose-permission'], { encoding: 'utf8', timeout: 5000 });
     assert.equal(permission.status, 0, permission.stderr);

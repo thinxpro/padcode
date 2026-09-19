@@ -1,3 +1,4 @@
+import { AgentGamepad } from './agent-gamepad.js';
 import { fileURLToPath } from 'node:url';
 import { hostChannel } from './host-channel.js';
 import { createRequire } from 'node:module';
@@ -20,13 +21,15 @@ export async function confirmAgent(io: PromptPort, agent: Agent, cwd: string): P
   io.banner('MISSION START / AGENT SESSION');
   io.say(`EXEC ${agent.command}`); io.say(`ARGS ${JSON.stringify(agent.args)}`); io.say(`PROJECT ${cwd}`);
   io.say('Keyboard controls the Agent. Ctrl+C goes to the Agent; Ctrl+] ends this session.');
-  io.say('Gamepad controls Padcode menus only in this stage. Agent permissions remain in your Agent.');
+  io.say('GAMEPAD / starts PAUSED. Release buttons, then press/release Options to enable.');
+  io.say('D-pad arrows / X Enter / O Escape / L1 Tab / R1 Shift+Tab / Options pause.');
+  io.say('Mapping status appears in the terminal title where supported. Keyboard stays available.');
   return await io.choose('Launch this Agent in the current project?', [
     { label: 'Start agent session', value: 'start' }, { label: 'Cancel / return without launching', value: 'cancel' },
   ], 1) === 'start';
 }
 
-export async function runAgent(agent: Agent, options: { cwd?: string; input?: Input; output?: Output; stallTimeout?: number } = {}): Promise<number> {
+export async function runAgent(agent: Agent, options: { cwd?: string; input?: Input; output?: Output; stallTimeout?: number; controller?: Config['controller']; gamepad?: AgentGamepad } = {}): Promise<number> {
   const input = options.input ?? process.stdin, output = options.output ?? process.stdout;
   if (!input.isTTY || !output.isTTY) throw new Error('Agent sessions require an interactive terminal.');
   if (!['darwin', 'linux'].includes(process.platform)) throw new Error('Agent sessions currently support macOS and Linux only.');
@@ -36,6 +39,9 @@ export async function runAgent(agent: Agent, options: { cwd?: string; input?: In
   const runtime = createRequire(import.meta.url)('../build/pty') as typeof import('node-pty');
   const size = () => ({ cols: Math.max(1, output.columns || 80), rows: Math.max(1, output.rows || 24) });
   const channel = await hostChannel();
+  const gamepad = options.gamepad ?? (options.controller ? new AgentGamepad(options.controller) : undefined);
+  const mappingAbort = new AbortController();
+  let mappingStarted = Promise.resolve(), unsubscribeMapping = () => {};
   try {
     const pty = runtime.spawn(process.execPath, [fileURLToPath(new URL('./agent-host.js', import.meta.url)), channel.path, agent.command, ...agent.args], { ...size(), cwd: options.cwd ?? process.cwd(), env: { ...process.env }, name: process.env.TERM || 'xterm-256color', encoding: null }) as IPty & { fd: number; on: (name: string, cb: (error: Error) => void) => void; destroy: () => void };
     const wasRaw = Boolean(input.isRaw);
@@ -52,7 +58,7 @@ export async function runAgent(agent: Agent, options: { cwd?: string; input?: In
         }, 50);
       };
       channel.onExit(() => {
-        agentExited = true; writer.close(); input.pause();
+        agentExited = true; writer.close(); gamepad?.suspend(); input.pause();
         finalDrain = setTimeout(() => stop(1, new Error('Agent final output did not drain within 10 seconds.')), stallTimeout);
         acknowledge();
       });
@@ -69,7 +75,7 @@ export async function runAgent(agent: Agent, options: { cwd?: string; input?: In
       const writer = new PtyWriter(pty.fd, () => input.pause(), () => { if (!stopping && !ended && !agentExited) input.resume(); }, error => stop(1, error), stallTimeout);
       const complete = () => {
         if (finished || !ended || !groupDone || pending) return;
-        finished = true; writer.close(); clearTimeout(stall); clearTimeout(escalation); clearTimeout(deadline); clearTimeout(quiet); clearTimeout(finalDrain);
+        finished = true; writer.close(); mappingAbort.abort(); unsubscribeMapping(); clearTimeout(stall); clearTimeout(escalation); clearTimeout(deadline); clearTimeout(quiet); clearTimeout(finalDrain);
         input.pause(); input.removeListener('data', receive); input.removeListener('end', eof); input.removeListener('error', failed);
         output.removeListener('resize', resize); output.removeListener('drain', drain);
         process.removeListener('SIGINT', interrupt); process.removeListener('SIGTERM', terminate);
@@ -80,12 +86,12 @@ export async function runAgent(agent: Agent, options: { cwd?: string; input?: In
           if (restored) return; restored = true; clearTimeout(restoreDeadline);
           output.removeListener('error', failed); if (failure) reject(failure); else resolve(code);
         };
-        try { if (!output.destroyed && process.env.TERM !== 'dumb') output.write(restoreTerminal, done); else done(); }
+        try { if (!output.destroyed && process.env.TERM !== 'dumb') output.write(restoreTerminal + (gamepad ? '\x1b[23;0t' : ''), done); else done(); }
         catch (error) { failure ??= error as Error; done(); }
       };
       const stop = (exitCode: number, error?: Error) => {
         if (finished || stopping) return;
-        stopping = true; code = exitCode; failure = error; writer.close(); input.pause(); cleanupGroup();
+        stopping = true; code = exitCode; failure = error; writer.close(); gamepad?.suspend(); input.pause(); cleanupGroup();
         pty.resume();
         deadline = setTimeout(() => { pty.destroy(); ended = true; pending = 0; complete(); }, 1500);
       };
@@ -117,12 +123,24 @@ export async function runAgent(agent: Agent, options: { cwd?: string; input?: In
         if (!stopping) code = event.signal ? 128 + event.signal : event.exitCode;
         cleanupGroup(); complete();
       });
+      if (gamepad) {
+        const showStatus = (status: string) => {
+          if (finished || stopping || agentExited || output.destroyed) return;
+          const text = process.env.TERM === 'dumb' ? `\r\nPADCODE GAMEPAD ${status}\r\n` : `\x1b]0;PADCODE | GAMEPAD ${status}\x07`;
+          try { output.write(text, error => { if (error) failed(error); }); } catch (error) { failed(error as Error); }
+        };
+        try { if (process.env.TERM !== 'dumb') output.write('\x1b[22;0t', error => { if (error) failed(error); }); } catch (error) { failed(error as Error); }
+        unsubscribeMapping = gamepad.subscribe(bytes => {
+          if (!stopping && !ended && !agentExited && !finished) writer.push(bytes, true);
+        }, showStatus, () => writer.discardController());
+        mappingStarted = gamepad.start(mappingAbort.signal).catch(() => gamepad.suspend('UNAVAILABLE / Keyboard available'));
+      }
       input.on('data', receive); input.on('end', eof); input.on('error', failed);
       output.on('resize', resize); output.on('drain', drain); output.on('error', failed);
       process.on('SIGINT', interrupt); process.on('SIGTERM', terminate);
       try { input.setRawMode?.(true); input.resume(); } catch (error) { failed(error as Error); }
     });
-  } finally { await channel.close(); }
+  } finally { mappingAbort.abort(); await mappingStarted; unsubscribeMapping(); await gamepad?.stop(); await channel.close(); }
 }
 
 export async function runConfiguredAgent(): Promise<number> {
@@ -137,12 +155,12 @@ export async function runConfiguredAgent(): Promise<number> {
   let launch = false;
   process.on('SIGINT', abort); process.on('SIGTERM', terminate);
   try {
-    if (config.controller.address || config.controller.transport === 'usb') await menus.activate(config.controller, controller.signal);
+    if (config.controller.address || config.controller.transport === 'usb') await menus.activate(config.controller, controller.signal, true);
     launch = await confirmAgent(io, config.agent, process.cwd());
   } catch (error) {
     if (controller.signal.aborted) return exitCode;
     if ((error as Error).message === 'Setup cancelled.') return 0;
     throw error;
   } finally { await menus.stop(); io.close(); process.removeListener('SIGINT', abort); process.removeListener('SIGTERM', terminate); }
-  return launch ? runAgent(config.agent) : 0;
+  return launch ? runAgent(config.agent, { controller: config.controller }) : 0;
 }

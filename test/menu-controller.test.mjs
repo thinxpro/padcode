@@ -19,7 +19,7 @@ const signal = new AbortController().signal;
 test('menu input requires a fresh claim, filters identity and reclaims after disconnect', async () => {
   const f = fixture(); await f.menus.activate(target, signal);
   const press = (button, device = 1, down = true) => f.emit({ type: 'button', device, button, down });
-  press('dpad_down'); assert.deepEqual(f.actions, []);
+  press('dpad_left'); assert.deepEqual(f.actions, []);
   f.emit({ ...pad, device: 2, serial: '00:00:00:00:00:00' }); press('south', 2);
   press('south'); assert.deepEqual(f.actions, []);
   press('south', 1, false); press('dpad_down'); press('dpad_up'); press('south'); press('east'); press('west');
