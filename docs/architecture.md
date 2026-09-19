@@ -28,7 +28,7 @@ flowchart LR
 
 No Electron, React, xterm.js, HTTP backend, database or cloud server is needed. The PTY forwards data between the existing terminal and child process; the terminal handles rendering.
 
-P0-2 pins node-pty 1.1.0 and bundles its Unix runtime and current-platform native binary in the local npm artifact. macOS uses the upstream prebuild; Linux builds during development/CI. Installation runs no scripts and requires no compiler. The pinned Unix fd accessor supplies bounded asynchronous writes; a documented exit-timer patch preserves paused final output. See the [stage plan](stages/p0-2-pty-session.md). Universal distribution remains a later gate.
+P0-2 pins node-pty 1.1.0 and bundles its Unix runtime and current-platform native binary in the local npm artifact. macOS uses the upstream prebuild; Linux builds during development/CI. Installation runs no scripts and requires no compiler. The pinned Unix fd accessor supplies bounded asynchronous writes; a small Node session host keeps the PTY alive until output drain is acknowledged over a private lifecycle socket. The upstream runtime is unmodified. See the [stage plan](stages/p0-2-pty-session.md). Universal distribution remains a later gate.
 
 ## Process responsibilities
 

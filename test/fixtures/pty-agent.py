@@ -3,6 +3,13 @@ mode = sys.argv[1]
 if mode == 'tail':
     os.write(1, b'Z' * 524288 + b'FINAL_TAIL\n')
     sys.exit(17)
+if mode == 'descendant':
+    child = os.fork()
+    if child == 0:
+        signal.signal(signal.SIGTERM, signal.SIG_IGN)
+        signal.signal(signal.SIGHUP, signal.SIG_IGN)
+        while True: os.write(1, b'Q' * 4096)
+    sys.exit(0)
 if mode == 'stall':
     tty.setraw(0)
     print('READY', flush=True)

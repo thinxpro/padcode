@@ -92,7 +92,7 @@ Install the current-platform dev.6 package, change into a project, then run `pad
 - Ctrl+C goes to the Agent, preserving its interrupt/approval behavior. Ctrl+] is reserved for ending the session and cannot be sent as literal input.
 - Normal Agent exit returns its status. Emergency exit/external SIGINT return 130; external SIGTERM returns 143.
 - On exit, Padcode restores terminal raw mode and common cursor/screen/input modes, and terminates its owned PTY process group with bounded escalation. Deliberately daemonized processes are outside this contract.
-- Input is paused at 64 KiB and rejected above 1 MiB queued data. Input/output stalls lasting 10 seconds stop the session. This is an interactive terminal bridge, not a bulk transfer tool.
+- Input is paused at 64 KiB and rejected above 1 MiB queued data. Input/output stalls lasting 10 seconds stop the session. Final output must drain within 10 seconds after the selected Agent exits; a lingering descendant that prevents drain causes an explicit failure. This is an interactive terminal bridge, not a bulk transfer tool.
 - Padcode stores no session transcript. Agent accounts, network use and permissions remain the Agent's responsibility.
 
 Manual compatibility is pending. See the [stage checklist](stages/p0-2-pty-session.md); automation uses local fixtures, not real Agent accounts.

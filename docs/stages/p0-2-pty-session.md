@@ -33,7 +33,7 @@ The PTY package must remain current-platform-only until broader release validati
 
 Pin node-pty 1.1.0 as a development dependency and copy its Unix runtime, full license and current-platform native files into `build/pty`. macOS uses its shipped prebuild; Linux builds at development/CI time. The resulting package has no runtime npm dependency or install script. Normalize the macOS spawn-helper executable bit before packing.
 
-Use the pinned Unix `fd` accessor with a bounded asynchronous writer to avoid node-pty's unbounded write queue. Pause terminal input at 64 KiB, reject more than 1 MiB queued input and terminate after 10 seconds without progress. Pause PTY output on stdout backpressure and enforce the same stall timeout. A narrowly checked runtime patch defers node-pty's 200 ms exit socket timer while output is paused, avoiding truncation during slow final-output delivery. Cover this coupling with actual PTY and slow-consumer regression tests; retain upstream copyright/license and document the modification.
+Use the pinned Unix `fd` accessor with a bounded asynchronous writer to avoid node-pty's unbounded write queue. Pause terminal input at 64 KiB, reject more than 1 MiB queued input and terminate after 10 seconds without progress. Pause PTY output on stdout backpressure and enforce the same stall timeout. The final session-host handshake below preserves output before the PTY leader exits, keeping the upstream runtime unmodified. Cover the pinned fd accessor and lifecycle handshake with actual PTY and slow-consumer regression tests; retain upstream and native header dependency licenses.
 
 
 ## Manual compatibility checklist (pending)
@@ -58,6 +58,8 @@ No real Agent was launched during implementation. This PR remains Draft until T7
 
 ## Linux CI correction
 
+This intermediate approach was superseded by the final-output handshake below. The maintained node-pty runtime is unmodified.
+
 The first Linux run exposed PTY EOF reported as `EIO` and buffered output lost at close during backpressure. Keep the original byte-count/exit-status assertions. Treat only the PTY reader's `EIO` as EOF (as upstream does internally), not as an input/output stream failure. Extend the guarded upstream patch to drain already-buffered readable bytes before its error/close handling and defer forced close while buffered bytes remain. The buffer is bounded by the native read stream; normal stdout backpressure and stall handling still apply. Verify the unchanged full suite on both CI platforms before handing over dev.6.
 
 ## Final-output handshake amendment
@@ -65,3 +67,5 @@ The first Linux run exposed PTY EOF reported as `EIO` and buffered output lost a
 The isolated Linux reproduction confirmed that the child wrote all 524,299 fixture bytes but closing the PTY session leader still lost the final bytes, even after readable-buffer fixes. Retaining a small supervisor until drain preserved every byte. Replace the upstream JavaScript patches with an unmodified node-pty runtime and a bundled Node session host. The host spawns the exact configured executable/argument array with inherited terminal descriptors, cwd and environment; no shell interpolation is introduced.
 
 A private temporary Unix socket carries only child-exited/drained lifecycle messages, never terminal content. After child exit, the host retains the controlling terminal until Padcode has delivered pending output and observed a quiet read interval. Padcode then acknowledges drain and the host exits with the child's status. Ctrl+C reaches the child process group; the host ignores it. Emergency termination still uses group TERM/KILL. Add a 10-second final-drain deadline to bound a descendant that keeps producing output after the selected Agent exits; exceeding it is an explicit failure, never a successful truncated exit. This refines the original timeout criterion for an observed lifecycle issue. Remove the ineffective upstream timeout/buffer modifications and retain the existing full-byte assertions on both platforms.
+
+The final handshake passed all 15 PTY tests in both local macOS and an isolated Linux arm64 / Node 22 container, including full 512 KiB output plus the final marker. The disposable container was removed after validation.

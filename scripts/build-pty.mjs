@@ -5,7 +5,7 @@ import { join } from 'node:path';
 if (!['darwin', 'linux'].includes(process.platform)) throw new Error('PTY builds support macOS and Linux only.');
 const source = 'node_modules/node-pty', target = 'build/pty';
 const pkg = JSON.parse(await readFile(join(source, 'package.json'), 'utf8'));
-if (pkg.version !== '1.1.0') throw new Error('Review PTY runtime patches before changing node-pty.');
+if (pkg.version !== '1.1.0') throw new Error('Review PTY compatibility before changing node-pty.');
 let native = join(source, 'prebuilds', `${process.platform}-${process.arch}`);
 try { await access(join(native, 'pty.node')); }
 catch {
@@ -24,23 +24,6 @@ if (process.platform === 'darwin') {
   await cp(join(native, 'spawn-helper'), join(destNative, 'spawn-helper'));
   await chmod(join(destNative, 'spawn-helper'), 0o755);
 }
-const file = join(target, 'lib/unixTerminal.js');
-let runtime = await readFile(file, 'utf8');
-const original = 'var timeout_1 = setTimeout(function () {\n                    timeout_1 = null;';
-if (runtime.split(original).length !== 2) throw new Error('Upstream PTY drain patch no longer matches.');
-runtime = runtime.replace(original, 'var timeout_1 = setTimeout(function waitForDrain() {\n                    // Padcode: respect output backpressure; the bridge bounds stalls.\n                    if (_this._socket.isPaused() || _this._socket.readableLength) {\n                        timeout_1 = setTimeout(waitForDrain, DESTROY_SOCKET_TIMEOUT_MS);\n                        return;\n                    }\n                    timeout_1 = null;');
-const closeMarker = "        // setup\n        _this._socket.on('error', function (err) {";
-if (runtime.split(closeMarker).length !== 2) throw new Error('Upstream PTY EOF patch no longer matches.');
-runtime = runtime.replace(closeMarker, `        // Padcode: emit buffered bytes before upstream marks the stream unreadable.
-        var drainBuffered = function () {
-            while (_this._socket.readableLength > 0) {
-                if (_this._socket.read() === null) break;
-            }
-        };
-        _this._socket.on('error', drainBuffered);
-        _this._socket.on('close', drainBuffered);
-` + closeMarker);
-await writeFile(file, runtime);
 await writeFile(join(target, 'package.json'), JSON.stringify({ name: 'node-pty', version: pkg.version, main: 'lib/index.js', license: 'MIT' }) + '\n');
 await writeFile(join(target, 'platform.json'), JSON.stringify({ platform: process.platform, arch: process.arch }) + '\n');
 console.log(`Bundled node-pty ${pkg.version} for ${process.platform}/${process.arch}`);

@@ -1,3 +1,8 @@
+import { mkdtemp, writeFile, chmod, rm, stat, access } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
+import { connect } from 'node:net';
+import { hostChannel } from '../dist/host-channel.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { PassThrough, Writable } from 'node:stream';
@@ -100,4 +105,28 @@ test('native spawn failure leaves terminal modes untouched', async () => {
 test('real outer terminal confirms launch, forwards Ctrl+C and restores flags on every exit route', { timeout: 30000 }, () => {
   const result = spawnSync('python3', ['test/agent_pty.py'], { encoding: 'utf8', timeout: 25000, env: { ...process.env, PADCODE_NODE: process.execPath } });
   assert.equal(result.status, 0, `${result.error ?? ''}\n${result.stdout}\n${result.stderr}`);
+});
+
+test('private host lifecycle channel is bounded and removes its socket directory', async () => {
+  const channel = await hostChannel(); const peer = connect(channel.path);
+  try {
+    await once(peer, 'connect');
+    assert.equal((await stat(dirname(channel.path))).mode & 0o777, 0o700);
+    let ended = 0; channel.onExit(() => ended++);
+    peer.write('exit'); peer.write('ed\n'); await until(() => ended === 1);
+    const received = once(peer, 'data'); channel.acknowledge(); assert.equal((await received)[0].toString(), 'drained\n');
+    const closed = once(peer, 'close'); peer.write('x'.repeat(100)); await closed;
+  } finally { peer.destroy(); await channel.close(); }
+  await assert.rejects(access(dirname(channel.path)), { code: 'ENOENT' });
+});
+test('host reports an executable with a missing interpreter as failed launch', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'pc-bad-exec-'));
+  try {
+    const command = join(root, 'agent'); await writeFile(command, '#!/missing-padcode-interpreter\n'); await chmod(command, 0o755);
+    const t = terminal(); assert.equal(await runAgent({ command, args: [] }, t), 1); assert.match(t.text(), /Agent launch failed/); assert.equal(t.input.isRaw, false);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+test('continuous descendant output after Agent exit hits the explicit final-drain deadline', async () => {
+  const t = terminal({ delay: 1, stallTimeout: 200 });
+  await assert.rejects(runAgent(agent('descendant'), t), /final output did not drain/); assert.equal(t.input.isRaw, false);
 });

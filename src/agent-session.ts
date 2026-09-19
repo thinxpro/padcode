@@ -1,3 +1,5 @@
+import { fileURLToPath } from 'node:url';
+import { hostChannel } from './host-channel.js';
 import { createRequire } from 'node:module';
 import { readFileSync } from 'node:fs';
 import type { Readable, Writable } from 'node:stream';
@@ -33,78 +35,94 @@ export async function runAgent(agent: Agent, options: { cwd?: string; input?: In
   if (built.platform !== process.platform || built.arch !== process.arch) throw new Error(`PTY runtime was built for ${built.platform}/${built.arch}. Use a package built for this computer.`);
   const runtime = createRequire(import.meta.url)('../build/pty') as typeof import('node-pty');
   const size = () => ({ cols: Math.max(1, output.columns || 80), rows: Math.max(1, output.rows || 24) });
-  const pty = runtime.spawn(agent.command, [...agent.args], { ...size(), cwd: options.cwd ?? process.cwd(), env: { ...process.env }, name: process.env.TERM || 'xterm-256color', encoding: null }) as IPty & { fd: number; on: (name: string, cb: (error: Error) => void) => void; destroy: () => void };
-  const wasRaw = Boolean(input.isRaw);
-  const stallTimeout = options.stallTimeout ?? 10000;
-  return await new Promise<number>((resolve, reject) => {
-    let ended = false, stopping = false, finished = false, code = 0, failure: Error | undefined;
-    let groupDone = false, pending = 0;
-    let stall: NodeJS.Timeout | undefined, escalation: NodeJS.Timeout | undefined, deadline: NodeJS.Timeout | undefined;
-    const killGroup = (signal: NodeJS.Signals) => {
-      if (pty.pid <= 1 || pty.pid === process.pid) return;
-      try { process.kill(-pty.pid, signal); } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ESRCH') failure ??= error as Error; }
-    };
-    const cleanupGroup = () => {
-      if (escalation) return;
-      killGroup('SIGTERM');
-      escalation = setTimeout(() => { killGroup('SIGKILL'); groupDone = true; complete(); }, 750);
-    };
-    const writer = new PtyWriter(pty.fd, () => input.pause(), () => { if (!stopping && !ended) input.resume(); }, error => stop(1, error), stallTimeout);
-    const complete = () => {
-      if (finished || !ended || !groupDone || pending) return;
-      finished = true; writer.close(); clearTimeout(stall); clearTimeout(escalation); clearTimeout(deadline);
-      input.pause(); input.removeListener('data', receive); input.removeListener('end', eof); input.removeListener('error', failed);
-      output.removeListener('resize', resize); output.removeListener('drain', drain);
-      process.removeListener('SIGINT', interrupt); process.removeListener('SIGTERM', terminate);
-      try { input.setRawMode?.(wasRaw); } catch (error) { failure ??= error as Error; }
-      let restored = false;
-      const restoreDeadline = setTimeout(() => done(), 250);
-      const done = () => {
-        if (restored) return; restored = true; clearTimeout(restoreDeadline);
-        output.removeListener('error', failed); if (failure) reject(failure); else resolve(code);
+  const channel = await hostChannel();
+  try {
+    const pty = runtime.spawn(process.execPath, [fileURLToPath(new URL('./agent-host.js', import.meta.url)), channel.path, agent.command, ...agent.args], { ...size(), cwd: options.cwd ?? process.cwd(), env: { ...process.env }, name: process.env.TERM || 'xterm-256color', encoding: null }) as IPty & { fd: number; on: (name: string, cb: (error: Error) => void) => void; destroy: () => void };
+    const wasRaw = Boolean(input.isRaw);
+    const stallTimeout = options.stallTimeout ?? 10000;
+    return await new Promise<number>((resolve, reject) => {
+      let ended = false, stopping = false, finished = false, code = 0, failure: Error | undefined;
+      let groupDone = false, pending = 0, agentExited = false, acknowledged = false;
+      let quiet: NodeJS.Timeout | undefined, finalDrain: NodeJS.Timeout | undefined;
+      const acknowledge = () => {
+        clearTimeout(quiet);
+        if (!agentExited || acknowledged || stopping || finished || pending) return;
+        quiet = setTimeout(() => {
+          if (!pending && !stopping && !finished) { acknowledged = true; channel.acknowledge(); }
+        }, 50);
       };
-      try { if (!output.destroyed && process.env.TERM !== 'dumb') output.write(restoreTerminal, done); else done(); }
-      catch (error) { failure ??= error as Error; done(); }
-    };
-    const stop = (exitCode: number, error?: Error) => {
-      if (finished || stopping) return;
-      stopping = true; code = exitCode; failure = error; writer.close(); input.pause(); cleanupGroup();
-      pty.resume();
-      deadline = setTimeout(() => { pty.destroy(); ended = true; pending = 0; complete(); }, 1500);
-    };
-    const failed = (error: Error) => stop(1, error);
-    const receive = (data: Buffer | string) => {
-      const buffer = Buffer.isBuffer(data) ? data : Buffer.from(data);
-      const escape = buffer.indexOf(0x1d);
-      if (escape !== -1) { stop(130); return; }
-      writer.push(buffer);
-    };
-    const eof = () => stop(130), interrupt = () => stop(130), terminate = () => stop(143);
-    const resize = () => { if (!ended && !stopping) { try { const s = size(); pty.resize(s.cols, s.rows); } catch (error) { failed(error as Error); } } };
-    const drain = () => { clearTimeout(stall); stall = undefined; if (!stopping) pty.resume(); };
-    pty.on('error', error => {
-      // Linux PTY readers report EIO when the slave closes; onExit supplies status.
-      if ((error as NodeJS.ErrnoException).code !== 'EIO') failed(error);
+      channel.onExit(() => {
+        agentExited = true; writer.close(); input.pause();
+        finalDrain = setTimeout(() => stop(1, new Error('Agent final output did not drain within 10 seconds.')), stallTimeout);
+        acknowledge();
+      });
+      let stall: NodeJS.Timeout | undefined, escalation: NodeJS.Timeout | undefined, deadline: NodeJS.Timeout | undefined;
+      const killGroup = (signal: NodeJS.Signals) => {
+        if (pty.pid <= 1 || pty.pid === process.pid) return;
+        try { process.kill(-pty.pid, signal); } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ESRCH') failure ??= error as Error; }
+      };
+      const cleanupGroup = () => {
+        if (escalation) return;
+        killGroup('SIGTERM');
+        escalation = setTimeout(() => { killGroup('SIGKILL'); groupDone = true; complete(); }, 750);
+      };
+      const writer = new PtyWriter(pty.fd, () => input.pause(), () => { if (!stopping && !ended && !agentExited) input.resume(); }, error => stop(1, error), stallTimeout);
+      const complete = () => {
+        if (finished || !ended || !groupDone || pending) return;
+        finished = true; writer.close(); clearTimeout(stall); clearTimeout(escalation); clearTimeout(deadline); clearTimeout(quiet); clearTimeout(finalDrain);
+        input.pause(); input.removeListener('data', receive); input.removeListener('end', eof); input.removeListener('error', failed);
+        output.removeListener('resize', resize); output.removeListener('drain', drain);
+        process.removeListener('SIGINT', interrupt); process.removeListener('SIGTERM', terminate);
+        try { input.setRawMode?.(wasRaw); } catch (error) { failure ??= error as Error; }
+        let restored = false;
+        const restoreDeadline = setTimeout(() => done(), 250);
+        const done = () => {
+          if (restored) return; restored = true; clearTimeout(restoreDeadline);
+          output.removeListener('error', failed); if (failure) reject(failure); else resolve(code);
+        };
+        try { if (!output.destroyed && process.env.TERM !== 'dumb') output.write(restoreTerminal, done); else done(); }
+        catch (error) { failure ??= error as Error; done(); }
+      };
+      const stop = (exitCode: number, error?: Error) => {
+        if (finished || stopping) return;
+        stopping = true; code = exitCode; failure = error; writer.close(); input.pause(); cleanupGroup();
+        pty.resume();
+        deadline = setTimeout(() => { pty.destroy(); ended = true; pending = 0; complete(); }, 1500);
+      };
+      const failed = (error: Error) => stop(1, error);
+      const receive = (data: Buffer | string) => {
+        const buffer = Buffer.isBuffer(data) ? data : Buffer.from(data);
+        const escape = buffer.indexOf(0x1d);
+        if (escape !== -1) { stop(130); return; }
+        writer.push(buffer);
+      };
+      const eof = () => stop(130), interrupt = () => stop(130), terminate = () => stop(143);
+      const resize = () => { if (!ended && !stopping) { try { const s = size(); pty.resize(s.cols, s.rows); } catch (error) { failed(error as Error); } } };
+      const drain = () => { clearTimeout(stall); stall = undefined; if (!stopping) pty.resume(); };
+      pty.on('error', error => {
+        // Linux PTY readers report EIO when the slave closes; onExit supplies status.
+        if ((error as NodeJS.ErrnoException).code !== 'EIO') failed(error);
+      });
+      pty.onData(data => {
+        if (stopping || finished) return;
+        clearTimeout(quiet); pending++;
+        try {
+          if (!output.write(data, error => { pending--; if (error) failed(error); acknowledge(); complete(); })) {
+            pty.pause(); stall ??= setTimeout(() => stop(1, new Error('Terminal output stalled.')), stallTimeout);
+          }
+        } catch (error) { pending--; failed(error as Error); }
+      });
+      pty.onExit(event => {
+        ended = true; writer.close(); input.pause();
+        if (!stopping) code = event.signal ? 128 + event.signal : event.exitCode;
+        cleanupGroup(); complete();
+      });
+      input.on('data', receive); input.on('end', eof); input.on('error', failed);
+      output.on('resize', resize); output.on('drain', drain); output.on('error', failed);
+      process.on('SIGINT', interrupt); process.on('SIGTERM', terminate);
+      try { input.setRawMode?.(true); input.resume(); } catch (error) { failed(error as Error); }
     });
-    pty.onData(data => {
-      if (stopping || finished) return;
-      pending++;
-      try {
-        if (!output.write(data, error => { pending--; if (error) failed(error); complete(); })) {
-          pty.pause(); stall ??= setTimeout(() => stop(1, new Error('Terminal output stalled.')), stallTimeout);
-        }
-      } catch (error) { pending--; failed(error as Error); }
-    });
-    pty.onExit(event => {
-      ended = true; writer.close(); input.pause();
-      if (!stopping) code = event.signal ? 128 + event.signal : event.exitCode;
-      cleanupGroup(); complete();
-    });
-    input.on('data', receive); input.on('end', eof); input.on('error', failed);
-    output.on('resize', resize); output.on('drain', drain); output.on('error', failed);
-    process.on('SIGINT', interrupt); process.on('SIGTERM', terminate);
-    try { input.setRawMode?.(true); input.resume(); } catch (error) { failed(error as Error); }
-  });
+  } finally { await channel.close(); }
 }
 
 export async function runConfiguredAgent(): Promise<number> {
