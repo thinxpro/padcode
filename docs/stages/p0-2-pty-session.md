@@ -55,3 +55,7 @@ No real Agent was launched during implementation. This PR remains Draft until T7
 - T1–T6 local coverage includes explicit launch/cancel from `run` and Player Hub, literal arguments/cwd/environment, real child TTYs, Unicode/control sequences, resize, normal exit status, Ctrl+C delivery, Ctrl+], external signals, ignored-TERM process-group cleanup, input EOF, missing/spawn failures, input overflow/stalls, output failures/stalls and slow final-output drain.
 - An empty-cache, offline npm installation with scripts disabled runs both onboarding and Agent PTY scenarios outside the checkout. No real Agent account or process is used by automation.
 - CI runs the same gate on macOS and Ubuntu with Node 22; results are tracked on the PR. T7 is still pending and the PR remains Draft.
+
+## Linux CI correction
+
+The first Linux run exposed PTY EOF reported as `EIO` and buffered output lost at close during backpressure. Keep the original byte-count/exit-status assertions. Treat only the PTY reader's `EIO` as EOF (as upstream does internally), not as an input/output stream failure. Extend the guarded upstream patch to drain already-buffered readable bytes before its error/close handling and defer forced close while buffered bytes remain. The buffer is bounded by the native read stream; normal stdout backpressure and stall handling still apply. Verify the unchanged full suite on both CI platforms before handing over dev.6.
