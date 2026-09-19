@@ -26,3 +26,17 @@ This task stacks on PR #6 (`feature/gamepad-terminal-menus`). No merge or hardwa
 ## Prior-stage user evidence
 
 On 2026-09-19 the user reported the dev.4 requested controller-menu test passed. This covers the reported menu flow; it does not establish completion of every separate physical stress/stability criterion.
+
+## Local validation evidence
+
+- Plan commit before implementation: `fdff225`.
+- `npm run check` passes all 65 tests with zero failures/skips on macOS 27 arm64 / Node 23.5.0. Existing real PTY gamepad-menu and isolated npm installation tests remain green.
+- Added address normalization/deduplication, authoritative refreshed state, cached-name handling, partial-warning preservation, empty/error scans, status refresh failure, stale inquiry removal and cancellation tests.
+- Setup integration verifies that a connected controller remains selectable after an empty or failed scan without restarting setup or calling pair/connect. Cached selection explicitly calls connect before proceeding.
+- Nearby counts exclude known-only devices. Picker labels identify source and cached state. No actual device was paired, disconnected or unpaired during implementation.
+- CI is tracked on this task's PR. Package version is `0.1.0-dev.5` for the local macOS arm64 development artifact; no registry publication.
+- K5 physical regression remains pending; keep Draft until the connected-controller scan flow is confirmed. The prior dev.4 menu-flow acceptance is recorded separately above.
+
+## Physical regression
+
+Keep the PS4 connected. Install dev.5, run `padcode config`, choose Bluetooth, then Scan nearby. Confirm the controller remains listed as connected/known even when the inquiry finds nothing new. Select it directly, continue through input check and save, and verify that no restart or repeated pairing was required. Report any incorrect state label or missing controller.

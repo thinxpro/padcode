@@ -10,6 +10,7 @@ function harness(choices, answers = [], overrides = {}) {
     ask: async () => { assert.ok(answers.length, 'missing scripted text answer'); return answers.shift(); },
     choose: async (label, options, selected = 0) => {
       output.push(`${label} DEFAULT:${options[selected]?.value}`);
+      output.push(options.map(option => option.label).join(' | '));
       assert.ok(choices.length, `missing choice: ${label}`); const value = choices.shift();
       if (value === 'CANCEL') throw new Error('Setup cancelled.');
       assert.ok(options.some(option => option.value === value), `invalid scripted choice ${value}: ${label}`); return value;
@@ -34,7 +35,7 @@ test('Bluetooth-first setup scans, explicitly pairs, verifies input, selects Age
   const h = harness(['bluetooth', 'scan', '0', 'connect', 'test', '1', '0', 'terminal-basic', 'save']);
   const config = await setup(h.io, h.services, signal);
   assert.equal(config.controller.transport, 'bluetooth'); assert.equal(config.controller.inputVerified, true); assert.equal(config.agent.command, '/opt/my-agent');
-  assert.deepEqual(h.operations, ['list', 'scan', 'pair', 'connect', 'probe', 'press:1', 'stop']);
+  assert.deepEqual(h.operations, ['list', 'scan', 'list', 'pair', 'connect', 'probe', 'press:1', 'stop']);
   assert.match(h.output.join('\n'), /Connection route DEFAULT:bluetooth/);
   assert.equal(h.saved.length, 1);
 });
@@ -97,5 +98,35 @@ test('partial discovery shows a warning and permits explicit selection without c
   assert.match(h.output.join('\n'), /SCAN INCOMPLETE/);
   assert.ok(!h.output.some(line => line.startsWith('Discovery complete')));
   assert.equal(config.controller.address, pad.address); assert.equal(config.controller.inputVerified, false);
-  assert.deepEqual(h.operations, ['list', 'scan', 'pair', 'connect']);
+  assert.deepEqual(h.operations, ['list', 'scan', 'list', 'pair', 'connect']);
+});
+test('connected controller stays selectable after an empty scan without leaving setup or reconnecting', async () => {
+  const calls = [];
+  const h = harness(['bluetooth', 'scan', '0', 'connect', 'skip', 'later', 'terminal-basic', 'save'], [], {
+    bluetooth: { list: async scan => { calls.push(scan ? 'scan' : 'status'); return scan ? [] : [{ ...pad, paired: true, connected: true }]; }, pair: async () => assert.fail('unnecessary pairing'), connect: async () => assert.fail('unnecessary connection') },
+  });
+  const config = await setup(h.io, h.services, signal);
+  assert.equal(config.controller.address, pad.address); assert.deepEqual(calls, ['status', 'scan', 'status']);
+  assert.match(h.output.join('\n'), /connected \/ known/); assert.match(h.output.join('\n'), /No nearby devices found/);
+  assert.match(h.output.join('\n'), /Use this connected controller/);
+});
+test('scan failure keeps known controller in the same picker without a recovery detour', async () => {
+  const h = harness(['bluetooth', 'scan', '0', 'connect', 'skip', 'later', 'terminal-basic', 'save'], [], {
+    bluetooth: { list: async scan => { if (scan) throw new Error('inquiry timed out'); return [{ ...pad, paired: true, connected: true }]; } },
+  });
+  assert.equal((await setup(h.io, h.services, signal)).controller.address, pad.address);
+  assert.match(h.output.join('\n'), /SCAN NOT COMPLETED/);
+  assert.ok(!h.output.includes('Recovery DEFAULT:bluetooth'));
+});
+test('cached known controller selection checks its connection instead of trusting old status', async () => {
+  let reads = 0, connects = 0;
+  const h = harness(['bluetooth', 'scan', '0', 'connect', 'skip', 'later', 'terminal-basic', 'save'], [], {
+    bluetooth: {
+      list: async () => { if (++reads > 1) throw new Error('status unavailable'); return [{ ...pad, paired: true, connected: true }]; },
+      connect: async () => { connects++; return { ...pad, paired: true, connected: true }; },
+      pair: async () => assert.fail('known paired controller should not be paired again'),
+    },
+  });
+  assert.equal((await setup(h.io, h.services, signal)).controller.address, pad.address);
+  assert.equal(connects, 1); assert.match(h.output.join('\n'), /status unknown \/ cached/);
 });

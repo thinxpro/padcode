@@ -1,6 +1,6 @@
 {
   "name": "padcode",
-  "version": "0.1.0-dev.4",
+  "version": "0.1.0-dev.5",
   "private": true,
   "license": "MIT",
   "description": "Gamepad controls for your own coding agent — controller lab prototype",

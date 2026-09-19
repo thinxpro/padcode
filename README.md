@@ -19,6 +19,8 @@ node dist/cli.js
 
 The first native build downloads checksum-pinned SDL source from its official GitHub release and requires network access. `demo` is explicitly simulated; `controllers` shows real device state. Q / Esc exits the dashboard; Ctrl+C interrupts. `controllers --json` emits pipe-friendly events. The interface supports narrow terminals, `NO_COLOR` and `TERM=dumb`, and waits for a connection when no controller is present.
 
+Bluetooth discovery keeps known paired/connected controllers visible, even when no nearby device is discovered.
+
 After connection, press X once to take control of menus; use D-pad up/down, X to confirm and O to go back/cancel. Keyboard input remains available, and custom command text still uses the keyboard.
 
 Interactive startup without arguments opens setup, or the Player Hub if configuration exists. Use `node dist/cli.js config` to reconfigure. Configuration lives at `$XDG_CONFIG_HOME/padcode/config.json` when that variable is an absolute path, otherwise `~/.config/padcode/config.json`. The current build only saves the selected agent command and arguments; it does not launch the agent or collect credentials.
@@ -32,7 +34,7 @@ After building and testing locally, create a package for the current platform. N
 ```sh
 mkdir -p artifacts
 npm pack --ignore-scripts --pack-destination artifacts
-npm install -g ./artifacts/padcode-0.1.0-dev.4.tgz
+npm install -g ./artifacts/padcode-0.1.0-dev.5.tgz
 padcode
 ```
 
