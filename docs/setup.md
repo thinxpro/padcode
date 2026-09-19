@@ -23,7 +23,7 @@ Incomplete verification is labeled UNVERIFIED. Deferral is allowed but never rep
 - `padcode controllers --json`: structured diagnostics. Connection events may contain device serial numbers; inspect logs before sharing.
 - `padcode demo`: simulated interface preview.
 
-The current development build saves agent configuration and the key profile but does not execute them. Player Hub explicitly states that agent sessions are not implemented. Historical input verification does not prove a device is currently online.
+Saving configuration never starts an agent. Select Start agent session in Player Hub or run `padcode run` from your project, review the executable/arguments/directory, then explicitly confirm. Keyboard PTY forwarding is available; gamepad-to-agent key mapping remains P0-3. Historical input verification does not prove a device is currently online.
 
 ## macOS system boundaries
 
@@ -82,3 +82,17 @@ Hold events do not repeat selections. Confirmations are not queued across menus.
 An empty or failed scan leaves known controllers in the same picker. Select a connected controller and choose `Use this connected controller` to continue without restarting configuration or repeating pairing/connection. SDL input verification remains separate.
 
 If the known-device status refresh also fails, previously known entries remain labeled `status unknown / cached`. Selecting one checks its connection instead of assuming the old connected state is still true. Previous inquiry-only entries are not retained across later scans. Cancelling still stops the operation.
+
+
+## Agent sessions (dev.6)
+
+Install the current-platform dev.6 package, change into a project, then run `padcode run`. An existing configured Agent is required; use `padcode config` to choose another. The confirmation defaults to Cancel. It supports the existing gamepad menu controls; once launched, use the keyboard for this stage.
+
+- The Agent receives the current directory, inherited environment and literal configured arguments. No shell command string or Agent API proxy is used.
+- Ctrl+C goes to the Agent, preserving its interrupt/approval behavior. Ctrl+] is reserved for ending the session and cannot be sent as literal input.
+- Normal Agent exit returns its status. Emergency exit/external SIGINT return 130; external SIGTERM returns 143.
+- On exit, Padcode restores terminal raw mode and common cursor/screen/input modes, and terminates its owned PTY process group with bounded escalation. Deliberately daemonized processes are outside this contract.
+- Input is paused at 64 KiB and rejected above 1 MiB queued data. Input/output stalls lasting 10 seconds stop the session. This is an interactive terminal bridge, not a bulk transfer tool.
+- Padcode stores no session transcript. Agent accounts, network use and permissions remain the Agent's responsibility.
+
+Manual compatibility is pending. See the [stage checklist](stages/p0-2-pty-session.md); automation uses local fixtures, not real Agent accounts.

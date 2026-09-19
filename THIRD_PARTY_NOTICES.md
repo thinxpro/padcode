@@ -26,4 +26,10 @@ freely, subject to the following restrictions:
 3. This notice may not be removed or altered from any source distribution.
 ```
 
-Build-only npm dependencies and their licenses are captured in `package-lock.json` and the installed packages; they are not bundled into the CLI runtime.
+Other build-only npm dependencies and their licenses are captured in `package-lock.json` and the installed packages; they are not bundled into the CLI runtime.
+
+## node-pty 1.1.0 (MIT)
+
+Source: https://github.com/microsoft/node-pty/tree/1.1.0
+
+The current-platform npm artifact includes node-pty's Unix JavaScript runtime and native binary in `build/pty`. Its complete upstream license, including component copyright notices, is included at `build/pty/LICENSE`. The development build normalizes the macOS spawn-helper executable permission and modifies the exit socket timeout to wait while output is paused; Padcode bounds stalled consumers separately. See `scripts/build-pty.mjs` for the exact guarded modification. node-addon-api is a build-only header dependency.

@@ -34,3 +34,24 @@ The PTY package must remain current-platform-only until broader release validati
 Pin node-pty 1.1.0 as a development dependency and copy its Unix runtime, full license and current-platform native files into `build/pty`. macOS uses its shipped prebuild; Linux builds at development/CI time. The resulting package has no runtime npm dependency or install script. Normalize the macOS spawn-helper executable bit before packing.
 
 Use the pinned Unix `fd` accessor with a bounded asynchronous writer to avoid node-pty's unbounded write queue. Pause terminal input at 64 KiB, reject more than 1 MiB queued input and terminate after 10 seconds without progress. Pause PTY output on stdout backpressure and enforce the same stall timeout. A narrowly checked runtime patch defers node-pty's 200 ms exit socket timer while output is paused, avoiding truncation during slow final-output delivery. Cover this coupling with actual PTY and slow-consumer regression tests; retain upstream copyright/license and document the modification.
+
+
+## Manual compatibility checklist (pending)
+
+Use two terminal applications (for example Warp and Terminal.app) and two already installed/authenticated Agent CLIs. Record application and CLI versions and each combination tested.
+
+1. Install dev.6 and change into a disposable project. Configure the first Agent. Confirm saving does not launch it.
+2. Run `padcode run`; verify the executable, arguments and project shown. Cancel once, then launch explicitly.
+3. Confirm the Agent renders normally; try navigation, text including Unicode, a terminal resize and its own approval flow. Use a harmless request rather than a destructive project change.
+4. Verify Ctrl+C behaves as in the Agent directly. Exit normally; the terminal must accept input with normal echo/cursor. Relaunch and verify Ctrl+] stops the session and restores the terminal.
+5. Repeat with the second terminal and Agent; report specific combinations and any missing output, redraw glitches or orphaned processes. Controller selection on Padcode menus remains supported, but gamepad-to-agent input is intentionally the next stage.
+
+No real Agent was launched during implementation. This PR remains Draft until T7 passes.
+
+## Automated evidence
+
+- Plan commits before implementation: `7ab7c4b`, `853d5ce`.
+- Local `npm run check`: 77 tests passed, zero failures/skips, on macOS 27 arm64 with Node 23.5.0. The tightened native-spawn assertion was also rerun successfully.
+- T1–T6 local coverage includes explicit launch/cancel from `run` and Player Hub, literal arguments/cwd/environment, real child TTYs, Unicode/control sequences, resize, normal exit status, Ctrl+C delivery, Ctrl+], external signals, ignored-TERM process-group cleanup, input EOF, missing/spawn failures, input overflow/stalls, output failures/stalls and slow final-output drain.
+- An empty-cache, offline npm installation with scripts disabled runs both onboarding and Agent PTY scenarios outside the checkout. No real Agent account or process is used by automation.
+- CI runs the same gate on macOS and Ubuntu with Node 22; results are tracked on the PR. T7 is still pending and the PR remains Draft.

@@ -1,6 +1,6 @@
 # Roadmap and acceptance
 
-The current priority is [Bluetooth-first terminal setup](stages/p0-config-bluetooth.md), built on P0-1 Controller Lab. Check items only after their full acceptance criteria pass; simulated tests do not replace physical validation.
+The current priority is [P0-2 PTY session compatibility](stages/p0-2-pty-session.md), following Bluetooth-first terminal setup and its user-confirmed dev.5 scan regression. Check items only after their full acceptance criteria pass; simulated tests do not replace physical validation.
 
 ## P0: Technical validation
 
@@ -14,6 +14,8 @@ The current priority is [Bluetooth-first terminal setup](stages/p0-config-blueto
 Acceptance: sustained use and repeated reconnections produce no stuck keys, repeated submissions or crashes; event logs explain state changes.
 
 ### P0-2: Transparent terminal forwarding
+
+Implementation and fixture automation are available in dev.6. The checklist remains open until the two-terminal/two-Agent manual acceptance below is recorded.
 
 - [ ] Validate node-pty launching a user-configured executable and arguments.
 - [ ] Forward keyboard/Unicode input, output, colors, window resizing and exit status.

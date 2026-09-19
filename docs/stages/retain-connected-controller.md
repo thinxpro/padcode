@@ -21,7 +21,7 @@ This task stacks on PR #6 (`feature/gamepad-terminal-menus`). No merge or hardwa
 | K2 | Source labels and discovered counts distinguish known devices from inquiry results; status refresh is authoritative | merge/UI tests |
 | K3 | Scan failure stays in the picker; status failure retains cached known entries without false connected claims; abort stops | failure + setup tests |
 | K4 | Already-connected selection avoids unnecessary pair/connect; cached selection verifies connection; existing keyboard/gamepad flows pass | setup + full gate |
-| K5 | User scans while PS4 is already connected and continues without restarting config | physical regression, pending |
+| K5 | User scans while PS4 is already connected and continues without restarting config | physical regression, user-confirmed |
 
 ## Prior-stage user evidence
 
@@ -35,7 +35,7 @@ On 2026-09-19 the user reported the dev.4 requested controller-menu test passed.
 - Setup integration verifies that a connected controller remains selectable after an empty or failed scan without restarting setup or calling pair/connect. Cached selection explicitly calls connect before proceeding.
 - Nearby counts exclude known-only devices. Picker labels identify source and cached state. No actual device was paired, disconnected or unpaired during implementation.
 - CI is tracked on this task's PR. Package version is `0.1.0-dev.5` for the local macOS arm64 development artifact; no registry publication.
-- K5 physical regression remains pending; keep Draft until the connected-controller scan flow is confirmed. The prior dev.4 menu-flow acceptance is recorded separately above.
+- On 2026-09-20 the user confirmed the requested dev.5 connected-controller scan flow passed. K5 is accepted; this does not establish unrelated stress/stability criteria. The prior dev.4 menu-flow acceptance is recorded separately above.
 
 ## Physical regression
 

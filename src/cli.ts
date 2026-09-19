@@ -2,6 +2,7 @@
 import { readFileSync } from 'node:fs';
 import { session } from './session.js';
 import { colorEnabled, help, safeLabel } from './ui.js';
+import { runConfiguredAgent } from './agent-session.js';
 import { onboarding } from './onboarding.js';
 
 async function main(): Promise<number> {
@@ -11,6 +12,7 @@ async function main(): Promise<number> {
     return 0;
   }
   if (!args.length || (args.length === 1 && args[0] === 'config')) return onboarding(args[0] === 'config');
+  if (args.length === 1 && args[0] === 'run') return runConfiguredAgent();
   if (args.length === 1 && args[0] === '--version') {
     const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as { version: string };
     process.stdout.write(`${pkg.version}\n`);
