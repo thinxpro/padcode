@@ -25,6 +25,7 @@ test('local npm tarball installs outside the checkout with CLI, setup and native
   const pty = spawnSync('python3', ['test/onboarding_pty.py', join(installed, 'dist/cli.js')], { encoding: 'utf8', timeout: 20000, env: { ...process.env, PADCODE_NODE: process.execPath } });
   assert.equal(pty.status, 0, `${pty.stdout}\n${pty.stderr}`);
   assert.ok(names.includes('build/pty/LICENSE'));
+  assert.ok(names.includes('build/pty/LICENSE-node-addon-api.md'));
   assert.ok(names.includes('build/pty/prebuilds/' + process.platform + '-' + process.arch + '/pty.node'));
   const agent = spawnSync('python3', ['test/agent_pty.py', join(installed, 'dist/cli.js')], { encoding: 'utf8', timeout: 25000, env: { ...process.env, PADCODE_NODE: process.execPath } });
   assert.equal(agent.status, 0, `${agent.error ?? ''}\n${agent.stdout}\n${agent.stderr}`);

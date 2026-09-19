@@ -82,7 +82,10 @@ export async function runAgent(agent: Agent, options: { cwd?: string; input?: In
     const eof = () => stop(130), interrupt = () => stop(130), terminate = () => stop(143);
     const resize = () => { if (!ended && !stopping) { try { const s = size(); pty.resize(s.cols, s.rows); } catch (error) { failed(error as Error); } } };
     const drain = () => { clearTimeout(stall); stall = undefined; if (!stopping) pty.resume(); };
-    pty.on('error', failed);
+    pty.on('error', error => {
+      // Linux PTY readers report EIO when the slave closes; onExit supplies status.
+      if ((error as NodeJS.ErrnoException).code !== 'EIO') failed(error);
+    });
     pty.onData(data => {
       if (stopping || finished) return;
       pending++;
