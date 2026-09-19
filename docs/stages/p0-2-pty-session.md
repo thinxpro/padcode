@@ -28,3 +28,9 @@ This PR stacks on PR #7 (`fix/retain-connected-controller`), with no implicit me
 | T7 | At least two terminals and two user-provided interactive CLIs pass the core flow, with versions and limitations recorded | manual compatibility checklist; Draft pending |
 
 The PTY package must remain current-platform-only until broader release validation. No direct agent API integration or account/model service is introduced.
+
+## Runtime packaging decision
+
+Pin node-pty 1.1.0 as a development dependency and copy its Unix runtime, full license and current-platform native files into `build/pty`. macOS uses its shipped prebuild; Linux builds at development/CI time. The resulting package has no runtime npm dependency or install script. Normalize the macOS spawn-helper executable bit before packing.
+
+Use the pinned Unix `fd` accessor with a bounded asynchronous writer to avoid node-pty's unbounded write queue. Pause terminal input at 64 KiB, reject more than 1 MiB queued input and terminate after 10 seconds without progress. Pause PTY output on stdout backpressure and enforce the same stall timeout. A narrowly checked runtime patch defers node-pty's 200 ms exit socket timer while output is paused, avoiding truncation during slow final-output delivery. Cover this coupling with actual PTY and slow-consumer regression tests; retain upstream copyright/license and document the modification.
