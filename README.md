@@ -67,7 +67,9 @@ Currently, `padcode` provides setup and the Player Hub, and `padcode config` is 
 
 The initial target is macOS with a DualShock 4 over Bluetooth and one foreground terminal session. USB is an alternative. Generic mode will launch a user-provided interactive CLI, map basic controller inputs to terminal keys and preserve keyboard input. Physical controller support on Windows/Linux will only be claimed after platform-specific validation.
 
-No coding agent is bundled, and no vendor API is mandatory. Structured agent adapters, voice, global mouse control, multiple sessions and background residency are deferred.
+No coding agent is bundled, and no vendor API is mandatory. Structured agent adapters, global mouse control, multiple sessions and background residency are deferred. Voice follows continuous controller session acceptance under the next stage plan.
+
+The next planned work is [continuous controller sessions and voice drafts](docs/stages/p0-4-continuous-controller-and-voice.md). It addresses the reported loss of controller control after entering Codex, then adds an isolated terminal control panel and opt-in voice review. These changes are not implemented yet.
 
 ## Design documents
 
