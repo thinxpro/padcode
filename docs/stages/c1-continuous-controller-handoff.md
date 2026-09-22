@@ -47,4 +47,4 @@ The PR remains draft until C1-H1 through C1-H4 pass. C1-H5 is conditional diagno
 
 ## Validation record
 
-Plan commit: `f54721d`. On macOS arm64 with Node 24.21.0, `npm run check` passed 93 tests with zero failures or skips. The controlled real-PTY fixture passed automatic neutral handoff, exact key delivery, Unicode keyboard coexistence, disconnect/rearm, helper failure, signals and cleanup. C1-A1 through C1-A9 pass locally; CI remains required for the implementation commit. C1-H1 through C1-H4 remain pending, so the implementation PR stays draft.
+Plan commit: `f54721d`; implementation commit: `1916def`. On macOS 27.0 arm64 with Node 24.21.0, `npm run check` passed 93 tests with zero failures or skips. The controlled real-PTY fixture passed automatic neutral handoff, exact key delivery, Unicode keyboard coexistence, disconnect/rearm, helper failure, signals and cleanup. The current-platform artifact is `padcode-0.1.0-dev.8.tgz`, npm SHA-1 `ab2ccbb3d465ed9a89078166c8fd3b708aa433b4`. C1-A1 through C1-A9 pass locally; CI remains required. C1-H1 through C1-H4 remain pending, so the implementation PR stays draft.
