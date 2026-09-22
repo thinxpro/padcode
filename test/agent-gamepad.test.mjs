@@ -5,10 +5,10 @@ import { PtyWriter } from '../dist/pty-writer.js';
 import { GamepadMenus } from '../dist/menu-controller.js';
 export const target = { transport: 'bluetooth', address: 'aa:bb:cc:dd:ee:ff', inputVerified: true };
 export const pad = { type: 'connected', device: 1, name: 'Fixture PS4', connection: 'wireless', serial: target.address };
-export function fixture(startError) {
+export function fixture(startError, settings = {}) {
   let listener, clock = 0, stopped = 0;
   const feed = { start: async () => { if (startError) throw startError; }, stop: async () => { stopped++; }, snapshot: () => [pad], subscribe: fn => { listener = fn; return () => { listener = undefined; }; } };
-  const gamepad = new AgentGamepad(target, () => feed, () => clock), bytes = [], statuses = []; let cancellations = 0;
+  const gamepad = new AgentGamepad(target, { factory: () => feed, now: () => clock, ...settings }), bytes = [], statuses = []; let cancellations = 0;
   gamepad.subscribe(data => bytes.push(data.toString()), text => statuses.push(text), () => cancellations++);
   const emit = event => listener?.(event);
   const edge = (button, down, device = 1) => emit({ type: 'button', device, button, down });
@@ -23,6 +23,54 @@ test('mapping starts paused, settles held Options and uses exact terminal key by
   assert.deepEqual(f.bytes, ['\x1b[A','\x1b[B','\x1b[C','\x1b[D','\r','\x1b','\t','\x1b[Z']);
   f.press('north'); f.press('guide'); assert.equal(f.bytes.length, 8);
   await f.gamepad.stop(); assert.equal(f.stopped(), 1);
+});
+test('adopted menu feed activates after a neutral barrier without replaying launch buttons', async () => {
+  let listener, starts = 0, stops = 0;
+  const feed = { start: async () => { starts++; }, stop: async () => { stops++; }, snapshot: () => [pad], subscribe: fn => { listener = fn; return () => { listener = undefined; }; } };
+  const menu = new GamepadMenus(() => feed); const controller = new AbortController();
+  await menu.activate(target, controller.signal, true); assert.equal(starts, 1);
+  const adopted = menu.handoff(); assert.equal(adopted, feed); await menu.stop(); assert.equal(stops, 0);
+  const traces = [], bytes = [], statuses = [];
+  const gamepad = new AgentGamepad(target, { factory: () => adopted, feedStarted: true, automaticHandoff: true, trace: (...entry) => traces.push(entry) });
+  gamepad.subscribe(data => bytes.push(data.toString()), text => statuses.push(text), () => {});
+  await gamepad.start(controller.signal);
+  listener({ type: 'button', device: 1, button: 'south', down: true });
+  listener({ type: 'button', device: 1, button: 'start', down: true });
+  listener({ type: 'button', device: 1, button: 'south', down: false });
+  listener({ type: 'button', device: 1, button: 'start', down: false });
+  await new Promise(resolve => setTimeout(resolve, 275));
+  assert.deepEqual(bytes, []); assert.match(statuses.at(-1), /ACTIVE/);
+  listener({ type: 'button', device: 1, button: 'south', down: true });
+  listener({ type: 'button', device: 1, button: 'south', down: false });
+  assert.deepEqual(bytes, ['\r']); assert.equal(starts, 1);
+  assert.ok(traces.some(([event]) => event === 'feed-adopted'));
+  assert.ok(traces.every(entry => !entry.join(' ').includes(target.address) && !entry.join(' ').includes('\r')));
+  await gamepad.stop(); assert.equal(stops, 1);
+});
+test('automatic handoff requires one exact identity and reconnect still requires Options', async () => {
+  let listener;
+  const extra = { ...pad, device: 2 };
+  const feed = { start: async () => {}, stop: async () => {}, snapshot: () => [pad, extra], subscribe: fn => { listener = fn; return () => {}; } };
+  const bytes = [], statuses = [], gamepad = new AgentGamepad(target, { factory: () => feed, feedStarted: true, automaticHandoff: true });
+  gamepad.subscribe(data => bytes.push(data.toString()), text => statuses.push(text), () => {});
+  await gamepad.start(signal); await new Promise(resolve => setTimeout(resolve, 275));
+  listener({ type: 'button', device: 1, button: 'south', down: true }); listener({ type: 'button', device: 1, button: 'south', down: false });
+  assert.deepEqual(bytes, []); assert.doesNotMatch(statuses.at(-1), /ACTIVE/); await gamepad.stop();
+
+  const f = fixture(undefined, { automaticHandoff: true, feedStarted: true, now: Date.now }); await f.gamepad.start(signal);
+  await new Promise(resolve => setTimeout(resolve, 275)); f.press('south'); assert.deepEqual(f.bytes, ['\r']);
+  f.emit({ type: 'disconnected', device: 1 }); f.emit(pad); await new Promise(resolve => setTimeout(resolve, 275));
+  f.press('south'); assert.deepEqual(f.bytes, ['\r']); f.press('start'); f.press('south'); assert.deepEqual(f.bytes, ['\r', '\r']);
+  await f.gamepad.stop();
+});
+test('late events from an ended routing generation are discarded', async () => {
+  let listener; const traces = [], bytes = [];
+  const feed = { start: async () => {}, stop: async () => {}, snapshot: () => [pad], subscribe: fn => { listener = fn; return () => {}; } };
+  const gamepad = new AgentGamepad(target, { factory: () => feed, feedStarted: true, automaticHandoff: true, trace: (...entry) => traces.push(entry) });
+  gamepad.subscribe(data => bytes.push(data.toString()), () => {}, () => {});
+  await gamepad.start(signal); await gamepad.stop();
+  listener({ type: 'button', device: 1, button: 'south', down: true });
+  assert.deepEqual(bytes, []); assert.ok(traces.some(([event]) => event === 'stale-event-discarded'));
 });
 test('held buttons do not repeat or replay across pause and resume', async () => {
   const f = fixture(); await f.gamepad.start(signal); f.advance(); f.press('start');

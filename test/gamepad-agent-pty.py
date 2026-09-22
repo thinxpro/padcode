@@ -26,10 +26,9 @@ def scenario(mode, plain=False):
             end=time.monotonic()+.15
             while time.monotonic()<end: pump(.01)
         try:
-            until(lambda:b'INFO:' in output and b'PAUSED' in output)
-            time.sleep(.3)
+            until(lambda:b'INFO:' in output and b'ARMING' in output)
             press('south'); quiet(); assert received()==b''
-            press('start'); until(lambda:b'ACTIVE' in output)
+            time.sleep(.3); until(lambda:b'ACTIVE' in output)
             expected=b''
             for button,key in [('dpad_up',b'\x1b[A'),('dpad_down',b'\x1b[B'),('dpad_left',b'\x1b[D'),('dpad_right',b'\x1b[C'),('south',b'\r'),('east',b'\x1b'),('left_shoulder',b'\t'),('right_shoulder',b'\x1b[Z')]:
                 press(button); expected+=key; until(lambda:received()==expected)

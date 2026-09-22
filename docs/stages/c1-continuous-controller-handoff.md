@@ -1,6 +1,6 @@
 # C1: Continuous controller handoff
 
-Status: implementation pending. This plan is committed before runtime changes.
+Status: implemented in dev.8; automated acceptance passes and physical acceptance is pending. The plan was committed before runtime changes.
 
 ## Scope
 
@@ -8,11 +8,11 @@ Fix the reported loss of controller control when Player Hub launches an Agent. R
 
 This PR does not add the isolated controls pane, change the Options mapping, add voice, infer Agent state or publish a package.
 
-## Root-cause hypothesis to verify
+## Root cause
 
-The current launch path stops `GamepadMenus`, including its SDL helper, before `runAgent` creates a new `AgentGamepad` and helper. `AgentGamepad` always starts paused and exposes its state mainly through the terminal title. Consequently, a working controller in Player Hub appears inactive inside Codex until a fresh Options press/release.
+The dev.7 launch path stopped `GamepadMenus`, including its SDL helper, before `runAgent` created a new `AgentGamepad` and helper. `AgentGamepad` always started paused and exposed its state mainly through the terminal title. Consequently, a working controller in Player Hub appeared inactive inside Codex until a fresh Options press/release.
 
-The implementation must record this as confirmed only when an end-to-end trace shows menu ownership, handoff, neutral activation and PTY delivery. If the physical report persists, keep the defect open and retain trace evidence without claiming a fix.
+Source inspection and the controlled end-to-end PTY trace confirm this lifecycle. The user's physical Codex report remains open until C1-H passes; if it persists, retain trace evidence and investigate another cause instead of claiming physical resolution.
 
 ## Design
 
@@ -47,5 +47,4 @@ The PR remains draft until C1-H1 through C1-H4 pass. C1-H5 is conditional diagno
 
 ## Validation record
 
-All C1 criteria are pending at plan commit. The prerequisite design PR passed 90 local tests and macOS/Linux CI, but those results do not satisfy this stage.
-
+Plan commit: `f54721d`. On macOS arm64 with Node 24.21.0, `npm run check` passed 93 tests with zero failures or skips. The controlled real-PTY fixture passed automatic neutral handoff, exact key delivery, Unicode keyboard coexistence, disconnect/rearm, helper failure, signals and cleanup. C1-A1 through C1-A9 pass locally; CI remains required for the implementation commit. C1-H1 through C1-H4 remain pending, so the implementation PR stays draft.

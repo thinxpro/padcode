@@ -91,6 +91,13 @@ export class GamepadMenus implements MenuInput {
     if (!feed || this.failed) return new ControllerProbe();
     return { start: async signal => signal.throwIfAborted(), devices: signal => feed.devices(signal), press: (device, signal) => feed.press(device, signal), stop: async () => {} };
   }
+  handoff(): MenuFeed | undefined {
+    const feed = this.feed;
+    if (!feed || this.failed) return undefined;
+    this.release?.(); this.release = undefined;
+    this.feed = undefined; this.selected = undefined; this.devices.clear();
+    return feed;
+  }
   async stop(): Promise<void> {
     this.release?.(); this.release = undefined;
     const feed = this.feed; this.feed = undefined;
