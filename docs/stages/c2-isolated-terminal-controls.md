@@ -1,6 +1,6 @@
 # C2: Isolated terminal controls
 
-Status: planned. This plan is committed before runtime changes. Stacked on PR #11 (`feature/continuous-controller-handoff`, C1); retarget to `main` after C1 merges. Do not merge C1 as part of this work.
+Status: implemented in dev.9; automated acceptance passes locally and physical/manual acceptance is pending. This plan was committed before runtime changes. Stacked on PR #11 (`feature/continuous-controller-handoff`, C1); retarget to `main` after C1 merges. Do not merge C1 as part of this work.
 
 ## Scope
 
@@ -36,7 +36,7 @@ padcode run (coordinator, child of the user's terminal)
 5. tmux runs with `status off`, `prefix None`, prefix and root key tables cleared, and only Agent-pane mouse bindings for wheel history and drag selection. Pane focus cannot move to the status pane. A `window-resized` hook keeps the status pane at its fixed height.
 6. While the Agent pane is in tmux history/copy mode, the coordinator holds controller input: events are consumed and no controller bytes reach the Agent. Leaving the mode re-applies the C1 neutral barrier (all buttons released for 250 ms) before routing resumes; no Options press is needed if mapping was active before. Keyboard input in copy mode belongs to tmux, as usual.
 7. Exit: the bridge reports the Agent's status and waits. The coordinator captures the Agent pane's final visible screen, detaches the client silently, kills the private server, prints the captured screen to the user's terminal, restores terminal modes and returns the Agent status. The capture is printed only to the user's own terminal and is never logged.
-8. Failure: a lost coordinator closes IPC, which makes the bridge stop the Agent process group and the panel exit; the private server then exits because no session remains (`exit-empty`, `exit-unattached`). A crashed status worker is respawned up to three times, then status falls back to the pane border message; the Agent continues. A bridge that disconnects without an exit report ends the session with status 1.
+8. Failure: a lost coordinator closes IPC, which makes the bridge stop the Agent process group and the panel exit; the private server then exits because no session remains (`exit-empty`, `exit-unattached`). A crashed status worker is replaced with a new status pane up to three times; after that the session continues without a status pane. The Agent continues in every case. A bridge that disconnects without an exit report ends the session with status 1.
 
 ## IPC schema
 
@@ -90,6 +90,13 @@ Record fixture-path controller-to-Agent latency (helper event to Agent read, inc
 
 The PR stays draft until C2-H passes and C1-H is recorded. Known limits to verify: native terminal scrollback is replaced by tmux history inside the session; the outer terminal's own selection may require its mouse-reporting bypass modifier.
 
+## Implementation notes
+
+- Plan adjustment (status worker recovery): the plan first proposed respawning the dead status pane in place and falling back to a border message. Keeping a dead pane (`remain-on-exit`) prevents the private server from exiting when every Padcode process is gone, which failed C2-A6 in the prototype. The status pane is therefore never kept dead; the coordinator splits a new one instead, and after three replacements the session continues without it. No border message is drawn.
+- tmux prints `[exited]`/`[server exited]` when a client loses its server. The coordinator detaches the client with `detach-client -E 'exit 0'` before stopping the server, so normal exits print only the captured Agent screen.
+- macOS sets the `PENDIN` termios state bit whenever canonical mode is re-enabled. The PTY suites compare terminal modes with that kernel state bit masked; all configuration flags are still compared exactly.
+- The packaged-install suite (`agent_pty.py`) now runs confirmation, Unicode input, Ctrl+C, normal exit, Ctrl+], SIGTERM and SIGINT in both panel and transparent (`PADCODE_PANEL=off`) modes.
+
 ## Validation record
 
-Pending.
+Plan commit: `7c0c676`. On macOS 27.0 arm64 with Node 24.21.0 and tmux 3.7c (Homebrew), `npm run check` passed 101 tests with zero failures or skips. C2-P1 through C2-P3 and C2-A1 through C2-A9 pass locally; the prototype criteria therefore pass on macOS. Fixture-path controller-to-Agent latency over 20 presses: p50 11.0 ms, p95 11.3 ms (includes the fixture helper's 10 ms polling; not hardware latency). The current-platform artifact is `padcode-0.1.0-dev.9.tgz`, npm SHA-1 `490346f7010f18c84b2f2a27f68fd09f6f6370f4`. macOS/Ubuntu CI with tmux installed is required and tracked on the PR. C2-H1 through C2-H7 have not been performed: no Warp, Terminal.app, Codex or physical controller session was run, so the PR stays draft.

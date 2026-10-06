@@ -38,7 +38,7 @@ Acceptance: in a test project, the user can start, enter a request, submit, read
 
 ### P0-4: Continuous controller sessions and voice drafts
 
-Follow the [C1-C6 implementation and acceptance sequence](stages/p0-4-continuous-controller-and-voice.md#implementation-sequence-and-acceptance), one PR per step. Dev.8 implements C1 continuous handoff with automated acceptance passing and physical acceptance pending. Preserve the native Agent TUI, add isolated controls in C2-C3, then add opt-in local capture, user-provided transcription and explicit draft insertion/submission in C4-C6.
+Follow the [C1-C6 implementation and acceptance sequence](stages/p0-4-continuous-controller-and-voice.md#implementation-sequence-and-acceptance), one PR per step. Dev.8 implements C1 continuous handoff and dev.9 implements the C2 tmux controls pane; both have automated acceptance passing and physical acceptance pending. Preserve the native Agent TUI, add isolated controls in C2-C3, then add opt-in local capture, user-provided transcription and explicit draft insertion/submission in C4-C6.
 
 ## P1: Installable personal-use release
 

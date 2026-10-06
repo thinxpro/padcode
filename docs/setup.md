@@ -116,3 +116,16 @@ Agent mapping starts **PAUSED** to avoid carrying the launch confirmation into t
 Each fresh button press sends one action; holding does not repeat. The X used to confirm Agent launch and every event during the 250 ms neutral barrier are consumed. Sticks, triggers and voice are not mapped. Keyboard input remains active while gamepad mapping is paused. After disconnect, release buttons, reconnect, then press/release Options; no buffered gamepad actions replay. Helper failure leaves keyboard operation available; restart the session to restore the input helper. Ctrl+] still terminates the session. For routing diagnosis, `PADCODE_INPUT_TRACE=1 padcode run` emits state, generation and device-number metadata without key bytes, typed text, controller serials or Agent output.
 
 Complete the [physical checklist](stages/p0-3-gamepad-agent-input.md) before claiming PS4/Agent compatibility. This is separate from the still-pending two-terminal/two-Agent P0-2 matrix.
+
+## Controls pane (dev.9)
+
+When tmux 3.2 or newer is installed, `padcode run` shows the Agent in its normal interface with a two-row Padcode status pane underneath (one row in terminals shorter than 12 rows). The Agent cannot draw over the pane, and Padcode no longer writes status into the terminal title in this mode. The launch confirmation shows `DISPLAY / Controls pane (tmux x.y)` or explains why it is using transparent mode.
+
+- Padcode never installs tmux. Install it yourself (`brew install tmux`, or `apt install tmux`). Set `PADCODE_PANEL=off` to keep the previous transparent mode.
+- The session runs on a private tmux server with its own socket and no user tmux configuration. All tmux key bindings are cleared, so every key, including Ctrl+B, reaches the Agent. Ctrl+] still ends the session.
+- Scroll with the mouse wheel to open tmux history for the Agent's output; press q or scroll back to the bottom to return. While history is open the status pane shows HISTORY and the gamepad is held. When you leave it, release all buttons; mapping resumes after 250 ms.
+- Drag to select text in the Agent pane; on macOS the selection is copied with `pbcopy`. Your terminal's own selection may need its mouse-reporting bypass modifier. Inside the session, tmux history replaces your terminal's native scrollback.
+- When the Agent exits, Padcode prints its final screen to your terminal before returning to the shell.
+- If the controls pane cannot start before the Agent launches, Padcode reports the reason and continues in transparent mode with the same controller.
+
+Manual Warp/Terminal.app and physical acceptance are pending; see the [C2 checklist](stages/c2-isolated-terminal-controls.md#physical-and-manual-acceptance-c2-h).
