@@ -1,6 +1,6 @@
 # P0-4: Continuous controller sessions and voice drafts
 
-Status: C1 continuous handoff is implemented in dev.8 with physical acceptance pending. C2-C6 remain design only.
+Status: C1 continuous handoff is implemented in dev.8 with physical acceptance pending. C2 has a committed [stage plan](c2-isolated-terminal-controls.md); C3-C6 remain design only.
 
 ## Problem and verified baseline
 
