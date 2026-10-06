@@ -2,6 +2,9 @@
 import fcntl, json, os, pty, select, signal, struct, subprocess, sys, tempfile, termios, time
 from pathlib import Path
 NODE = os.environ['PADCODE_NODE']
+def modes(attributes):
+    # BSD kernels set the PENDIN state bit whenever canonical mode is re-enabled; it is not a terminal setting.
+    copy = list(attributes); copy[3] &= ~getattr(termios, 'PENDIN', 0); return copy
 CLI = str(Path(sys.argv[1] if len(sys.argv) > 1 else 'dist/cli.js').resolve())
 with tempfile.TemporaryDirectory(prefix='padcode-agent-') as directory:
     root = Path(directory)
@@ -18,11 +21,13 @@ for line in sys.stdin:
 ''')
     config = root / 'padcode/config.json'
     config.write_text(json.dumps({'version':1, 'controller':{'transport':'bluetooth','inputVerified':False},'agent':{'command':sys.executable,'args':[str(fixture)]},'profile':'terminal-basic'}))
-    def scenario(mode, hub=False, plain=False):
+    def scenario(mode, hub=False, plain=False, display='panel'):
         master, slave = pty.openpty()
         before = termios.tcgetattr(slave)
         fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack('HHHH',30,100,0,0))
         env = dict(os.environ, XDG_CONFIG_HOME=directory, TERM='dumb' if plain else 'xterm-256color')
+        env.pop('TMUX', None)
+        if display == 'transparent': env['PADCODE_PANEL'] = 'off'
         proc = subprocess.Popen([NODE,CLI,*([] if hub else ['run'])],stdin=slave,stdout=slave,stderr=slave,env=env,cwd=directory)
         output = b''; cursor = 0
         def expect(token):
@@ -38,6 +43,8 @@ for line in sys.stdin:
             if hub:
                 expect(b'Select [1]'); os.write(master,b'5\n')
             expect(b'Select [2]')
+            # The controls pane needs tmux; the suite treats a missing tmux as a failure, not a skip.
+            assert (b'DISPLAY / Controls pane' in output) == (display == 'panel' and not plain), output[-600:]
             assert b'AGENT_READY' not in output
             if mode=='cancel': os.write(master,b'\n'); expected=0
             else:
@@ -54,18 +61,16 @@ for line in sys.stdin:
             while proc.poll() is None and time.monotonic()<deadline:
                 if select.select([master],[],[],.05)[0]: output+=os.read(master,65536)
             assert proc.poll()==expected,(proc.poll(),output)
-            assert termios.tcgetattr(slave)==before,'outer terminal flags not restored'
+            assert modes(termios.tcgetattr(slave))==modes(before),'outer terminal flags not restored'
             if mode=='cancel': assert b'AGENT_READY' not in output
             elif not plain: assert b'\x1b[?1049l' in output and b'\x1b[?25h' in output
         finally:
             if proc.poll() is None: proc.kill(); proc.wait()
             os.close(master);os.close(slave)
     scenario('cancel')
-    scenario('normal')
     scenario('normal',hub=True,plain=True)
-    scenario('escape')
-    scenario('term')
-    scenario('int')
+    for display in ('panel', 'transparent'):
+        for mode in ('normal', 'escape', 'term', 'int'): scenario(mode, display=display)
     config.unlink()
     master,slave=pty.openpty()
     try:
@@ -73,4 +78,4 @@ for line in sys.stdin:
         p.wait(timeout=5); assert p.returncode==1
         assert b'Choose an Agent first' in os.read(master,65536)
     finally: os.close(master);os.close(slave)
-print('Agent outer PTY passed: confirmation, hub, literal Unicode input, Ctrl+C, exits, emergency stop, external signals and terminal restoration.')
+print('Agent outer PTY passed in panel and transparent modes: confirmation, hub, literal Unicode input, Ctrl+C, exits, emergency stop, external signals and terminal restoration.')

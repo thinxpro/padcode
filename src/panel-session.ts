@@ -1,0 +1,154 @@
+import { spawn, type ChildProcess } from 'node:child_process';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import type { Writable } from 'node:stream';
+import type { AgentGamepad } from './agent-gamepad.js';
+import type { Config } from './config.js';
+import { resolveExecutable } from './config.js';
+import { restoreTerminal } from './agent-session.js';
+import { SessionServer } from './session-ipc.js';
+import { clientEnv, ControlClient, PrivateTmux } from './tmux.js';
+
+type Agent = NonNullable<Config['agent']>;
+type Output = Writable & { isTTY?: boolean; columns?: number; rows?: number };
+export interface PanelReady { socket: string; directory: string; agentPane: string; panelPane: string }
+export interface PanelOptions {
+  tmux: string; cwd?: string; gamepad?: AgentGamepad; output?: Output; env?: NodeJS.ProcessEnv;
+  onReady?: (ready: PanelReady) => void; startTimeout?: number;
+}
+export class PanelFallback extends Error {}
+const session = 'padcode';
+const panelRows = (rows: number) => rows < 12 ? 1 : 2;
+
+// Bindings refer only to the input-enabled Agent pane; the status pane has input disabled.
+export function tmuxConfig(platform: NodeJS.Platform, color: boolean): string {
+  const agentOnly = (action: string) => `if -F '#{pane_input_off}' '' "if -F '#{||:#{pane_in_mode},#{mouse_any_flag}}' 'send -M' '${action}'"`;
+  const appMouse = `if -F '#{&&:#{!=:#{pane_input_off},1},#{mouse_any_flag}}' 'send -M' ''`;
+  return [
+    'set -g status off', 'set -g prefix None', 'set -g prefix2 None', 'set -s escape-time 10', 'set -s extended-keys on',
+    'set -g history-limit 10000', 'set -g mouse on', 'set -g focus-events on', 'set -g set-titles off', 'set -g remain-on-exit off',
+    'set -g pane-border-lines single',
+    `set -g pane-border-style '${color ? 'fg=colour8' : 'default'}'`, `set -g pane-active-border-style '${color ? 'fg=colour8' : 'default'}'`,
+    ...(platform === 'darwin' ? ["set -s copy-command 'pbcopy'"] : []),
+    'unbind -a -T prefix', 'unbind -a -T root',
+    `bind -n WheelUpPane ${agentOnly('copy-mode -e')}`,
+    `bind -n MouseDrag1Pane ${agentOnly('copy-mode -M')}`,
+    `bind -n WheelDownPane ${appMouse}`, `bind -n MouseDown1Pane ${appMouse}`, `bind -n MouseUp1Pane ${appMouse}`,
+    '',
+  ].join('\n');
+}
+
+export async function runPanelAgent(agent: Agent, options: PanelOptions): Promise<number> {
+  const output = options.output ?? process.stdout, env = options.env ?? process.env;
+  if (!await resolveExecutable(agent.command)) throw new Error('Configured Agent executable is unavailable. Run padcode config.');
+  const directory = await mkdtemp(join(tmpdir(), 'pc-'));
+  const color = env.NO_COLOR === undefined;
+  const tmux = new PrivateTmux(options.tmux, join(directory, 't'), join(directory, 'c'));
+  const node = process.execPath, gamepad = options.gamepad;
+  const paneAgent = fileURLToPath(new URL('./pane-agent.js', import.meta.url));
+  const panePanel = fileURLToPath(new URL('./pane-panel.js', import.meta.url));
+  let server: SessionServer | undefined, control: ControlClient | undefined, client: ChildProcess | undefined;
+  let launched = false, serverStarted = false, finished = false;
+  const signals: [NodeJS.Signals, number][] = [['SIGINT', 130], ['SIGTERM', 143], ['SIGHUP', 129]];
+  const handlers = new Map<NodeJS.Signals, () => void>();
+  let gamepadStarted: Promise<void> | undefined;
+  const teardown = async () => {
+    for (const [signal, handler] of handlers) process.removeListener(signal, handler);
+    // An unstarted source is left for the transparent fallback; a started one is released here.
+    if (gamepadStarted) { await gamepadStarted; await gamepad?.stop(); }
+    await control?.close().catch(() => {});
+    if (serverStarted) await tmux.run(['kill-server']).catch(() => {});
+    if (client && client.exitCode === null && client.signalCode === null) {
+      client.kill('SIGTERM');
+      await new Promise(resolve => { const timer = setTimeout(resolve, 1000); client!.once('close', () => { clearTimeout(timer); resolve(undefined); }); });
+    }
+    await server?.close().catch(() => {});
+    await rm(directory, { recursive: true, force: true });
+  };
+  try {
+    await writeFile(join(directory, 'c'), tmuxConfig(process.platform, color), { mode: 0o600 });
+    server = await SessionServer.listen(join(directory, 'i'));
+    const ipc = server, token = server.token;
+    const paneEnv = ['-e', `PADCODE_IPC=${join(directory, 'i')}`, '-e', `PADCODE_SESSION=${token}`];
+    const columns = Math.max(20, output.columns || 80), rows = Math.max(6, output.rows || 24), height = panelRows(rows);
+    const connected = (role: 'agent' | 'panel') => new Promise<void>((resolve, reject) => {
+      if (ipc.connected(role)) { resolve(); return; }
+      const timer = setTimeout(() => reject(new PanelFallback(`The ${role} pane did not start.`)), options.startTimeout ?? 5000);
+      ipc.on('connect', joined => { if (joined === role) { clearTimeout(timer); resolve(); } });
+    });
+    const agentJoined = connected('agent'), panelJoined = connected('panel');
+    agentJoined.catch(() => {}); panelJoined.catch(() => {});
+    serverStarted = true;
+    const [agentPane, agentPid] = (await tmux.run(['new-session', '-d', '-P', '-F', '#{pane_id} #{pane_pid}', '-s', session, '-x', String(columns), '-y', String(rows), '-c', options.cwd ?? process.cwd(), ...paneEnv, '--', node, paneAgent], clientEnv(env))).trim().split(' ');
+    if (!/^%\d+$/.test(agentPane ?? '') || !/^\d+$/.test(agentPid ?? '')) throw new PanelFallback('tmux returned unexpected pane identifiers.');
+    // Dead status panes are not kept: if every Padcode process is gone, the private server exits with its panes.
+    const createPanel = async (lines: number) => {
+      const pane = (await tmux.run(['split-window', '-v', '-d', '-l', String(lines), '-P', '-F', '#{pane_id}', '-t', agentPane!, ...paneEnv, '--', node, panePanel])).trim();
+      if (!/^%\d+$/.test(pane)) throw new PanelFallback('tmux returned unexpected pane identifiers.');
+      await tmux.run(['select-pane', '-d', '-t', pane, ';',
+        'set-hook', '-g', 'window-resized', `if -F '#{<:#{window_height},12}' 'resize-pane -t ${pane} -y 1' 'resize-pane -t ${pane} -y 2'`]);
+      return pane;
+    };
+    let panelPane = await createPanel(height);
+    await agentJoined;
+    await panelJoined.catch(() => {});
+    control = new ControlClient(tmux, session);
+    const live = control;
+    let latest = 'STARTING / Waiting for Agent', respawns = 0;
+    ipc.on('connect', role => { if (role === 'panel') ipc.send('panel', { t: 'status', text: latest }); });
+    ipc.send('panel', { t: 'status', text: latest });
+    ipc.on('disconnect', role => {
+      if (role !== 'panel' || finished) return;
+      // A crashed status worker is replaced; the Agent keeps running either way.
+      if (respawns++ >= 3) return;
+      tmux.run(['display', '-p', '-t', agentPane!, '#{window_height}'])
+        .then(rows => createPanel(panelRows(Number(rows) || 24))).then(pane => { panelPane = pane; }).catch(() => {});
+    });
+    let modes = Promise.resolve();
+    live.onMode(pane => {
+      if (pane !== agentPane || !gamepad) return;
+      modes = modes.then(async () => {
+        const [state] = await live.command(`display -p -t ${agentPane} '#{pane_in_mode}'`);
+        if (state === '1') gamepad.hold(); else gamepad.resume();
+      }).catch(() => {});
+    });
+    options.onReady?.({ socket: tmux.socket, directory, agentPane: agentPane!, panelPane });
+    // From here the Agent may run; failures end the session instead of relaunching it.
+    const result = new Promise<number>(resolve => {
+      ipc.on('exit', code => resolve(code));
+      ipc.on('disconnect', role => { if (role === 'agent') resolve(1); });
+    });
+    const outer: Record<string, string | null> = { TMUX: env.TMUX ?? null, TMUX_PANE: env.TMUX_PANE ?? null };
+    ipc.send('agent', { t: 'launch', launch: { command: agent.command, args: agent.args, cwd: options.cwd ?? process.cwd(), env: outer } });
+    launched = true;
+    let unsubscribe = () => {};
+    const abort = new AbortController();
+    if (gamepad) {
+      unsubscribe = gamepad.subscribe(bytes => ipc.send('agent', { t: 'keys', data: bytes.toString('base64') }),
+        text => { latest = text; ipc.send('panel', { t: 'status', text }); }, () => ipc.send('agent', { t: 'cancel' }));
+      gamepadStarted = gamepad.start(abort.signal).catch(() => gamepad.suspend('UNAVAILABLE / Keyboard available'));
+    } else { latest = 'KEYBOARD ONLY / No controller configured'; ipc.send('panel', { t: 'status', text: latest }); }
+    let signalled: number | undefined;
+    const terminate = (code: number) => { signalled ??= code; try { process.kill(Number(agentPid), 'SIGTERM'); } catch { /* Already gone. */ } };
+    for (const [signal, code] of signals) { const handler = () => terminate(code); handlers.set(signal, handler); process.on(signal, handler); }
+    client = spawn(tmux.binary, tmux.args(['attach-session', '-t', session]), { stdio: 'inherit', env: clientEnv(env) });
+    client.on('error', () => terminate(1));
+    client.on('close', () => { if (!finished) terminate(signalled ?? 129); });
+    const code = await result;
+    finished = true; abort.abort(); unsubscribe(); gamepad?.suspend();
+    const screen = await tmux.run(['capture-pane', '-p', '-e', '-J', '-t', agentPane!]).catch(() => '');
+    ipc.send('agent', { t: 'close' });
+    await tmux.run(['detach-client', '-s', session, '-E', 'exit 0']).catch(() => {});
+    if (client.exitCode === null && client.signalCode === null) {
+      await new Promise(resolve => { const timer = setTimeout(resolve, 2000); client!.once('close', () => { clearTimeout(timer); resolve(undefined); }); });
+    }
+    const tail = screen.replace(/\s+$/u, '');
+    if (!output.destroyed) await new Promise<void>(resolve => output.write(`${restoreTerminal}${tail ? `${tail}\x1b[0m\n` : ''}`, () => resolve()));
+    return signalled ?? code;
+  } catch (error) {
+    if (!launched) throw error instanceof PanelFallback ? error : new PanelFallback((error as Error).message);
+    throw error;
+  } finally { await teardown(); }
+}

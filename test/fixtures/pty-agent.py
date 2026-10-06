@@ -32,6 +32,8 @@ if mode == 'basic':
         data = os.read(0, 4096)
         if not data: break
         print('BYTES:' + data.hex(), flush=True)
+        if os.environ.get('PADCODE_PTY_LOG'):
+            with open(os.environ['PADCODE_PTY_LOG'], 'a') as log: log.write(data.hex() + '\n')
         if b'exit!' in data:
             os.write(1, b'\x1b[?1049lFINAL\n')
             sys.exit(23)

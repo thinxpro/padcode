@@ -1,4 +1,5 @@
 import { confirmAgent, launchConfigured } from './agent-session.js';
+import { chooseDisplay, type Display } from './tmux.js';
 import { configPath, discoverAgents, loadConfig, resolveExecutable, saveConfig, type Config } from './config.js';
 import { NativeBluetooth, type BluetoothPort } from './bluetooth.js';
 import { identityMatch, type ProbePort } from './probe.js';
@@ -166,7 +167,7 @@ export async function onboarding(edit = false, menus = new GamepadMenus()): Prom
   let action = 'quit';
   let selectedAgent: Config['agent'] = null;
   let selectedController: Config['controller'] | undefined;
-  let handedOff: MenuFeed | undefined;
+  let handedOff: MenuFeed | undefined, display: Display | undefined;
   try {
     let config: Config | null;
     try { config = await loadConfig(); }
@@ -195,14 +196,14 @@ export async function onboarding(edit = false, menus = new GamepadMenus()): Prom
       { label: 'Exit', value: 'quit' },
       ...(config.agent ? [{ label: 'Start agent session', value: 'run' }] : []),
     ]);
-    if (action === 'run' && config.agent && await confirmAgent(io, config.agent, process.cwd())) { selectedAgent = config.agent; selectedController = config.controller; handedOff = menus.handoff(); }
+    if (action === 'run' && config.agent && await confirmAgent(io, config.agent, process.cwd(), display = await chooseDisplay())) { selectedAgent = config.agent; selectedController = config.controller; handedOff = menus.handoff(); }
   } catch (error) {
     if (controller.signal.aborted) { io.say('Setup cancelled. No pending configuration changes saved.'); return exitCode; }
     io.say(`SETUP STOPPED: ${(error as Error).message}`); return (error as Error).message === 'Setup cancelled.' ? 0 : 1;
   } finally {
     await menus.stop(); io.close(); process.removeListener('SIGINT', cancel); process.removeListener('SIGTERM', terminate);
   }
-  if (selectedAgent && selectedController) return launchConfigured(selectedAgent, selectedController, handedOff);
+  if (selectedAgent && selectedController && display) return launchConfigured(selectedAgent, selectedController, handedOff, display);
   if (action === 'config') return onboarding(true);
   if (action === 'controllers' || action === 'demo') return session({ demo: action === 'demo', json: false });
   return 0;
