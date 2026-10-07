@@ -111,9 +111,9 @@ def normal():
         os.write(s.master, 'é🎮'.encode()); expected += 'é🎮'.encode(); s.until(lambda: s.received() == expected)
         # C2-P2: native alternate screen and colors stay in the Agent pane, never the status text.
         assert '\x1b[31mCOLOR' in s.capture('agentPane', True)
-        for _ in range(3): s.press('start'); s.quiet(.05)
-        s.until(lambda: 'PAUSED' in s.panel())
-        s.press('start'); s.until(lambda: 'ACTIVE' in s.panel())
+        # Status updates from the controls menu never draw into the Agent pane.
+        s.press('start'); s.until(lambda: 'MENU' in s.panel())
+        s.press('start'); s.until(lambda: 'GAMEPAD ACTIVE' in s.panel())
         assert 'PADCODE' not in s.agent() and 'GAMEPAD' not in s.agent()
         # C2-P3: resize reaches the Agent PTY and keeps the status pane height fixed.
         s.resize(40, 100); s.until(lambda: 'SIZE:[100, 37]' in s.agent().replace('\n', ''))
@@ -163,7 +163,12 @@ def terminate():
     s = Session('group')
     try:
         s.ready(); pids = group_pids(s)
+        # C3-A8: an open controls popup is closed and reaped with the session.
+        s.until(lambda: 'GAMEPAD ACTIVE' in s.panel()); s.press('start'); s.until(lambda: 'MENU' in s.panel())
+        s.until(lambda: b'PADCODE CONTROLS' in s.output)
         s.proc.send_signal(signal.SIGTERM); finish(s, 143)
+        popups = subprocess.run(['pgrep', '-f', s.info['socket'] + '.*display-popup'], capture_output=True, text=True).stdout.split()
+        assert not popups, ('controls popup survived', popups)
         assert gone(pids), 'Agent process group survived SIGTERM'
     finally: s.close()
 
@@ -190,5 +195,63 @@ def fallback():
         assert Path(str(s.events) + '.starts').read_text() == 'start\n', 'fallback relaunched the input helper'
     finally: s.close()
 
-for scenario in (normal, escape, terminate, crash, fallback): scenario()
-print('Panel PTY passed: exact keys, CPR, isolation, resize, history hold, worker respawn, exits, crash cleanup and fallback.')
+def controls():
+    """C3: the Options menu, pause, interrupt, history, popup keyboard and confirmed end session."""
+    s = Session('lines')
+    try:
+        s.ready(); s.until(lambda: 'GAMEPAD ACTIVE' in s.panel())
+        s.until(lambda: 'HISTORY LINE 199' in s.agent())
+        base = s.received()
+        def menu():
+            mark = len(s.output); s.press('start')
+            s.until(lambda: 'MENU' in s.panel() and b'PADCODE CONTROLS' in s.output[mark:], message='controls popup did not open')
+        def choose(index):
+            menu()
+            for _ in range(index): s.press('dpad_down'); s.quiet(.05)
+            s.press('south')
+        def active(): s.until(lambda: 'GAMEPAD ACTIVE' in s.panel())
+        # C3-A2: 100 X presses in Agent context are exactly 100 Enter bytes.
+        for _ in range(100): s.press('south')
+        expected = base + b'\r' * 100; s.until(lambda: s.received() == expected)
+        # Menu presses never reach the Agent; Resume re-arms after release.
+        menu()
+        for button in ('dpad_down', 'dpad_up', 'left_shoulder', 'right_shoulder', 'dpad_left', 'dpad_right', 'north', 'west'): s.press(button); s.quiet(.03)
+        s.press('south'); s.until(lambda: 'ARMING' in s.panel() or 'GAMEPAD ACTIVE' in s.panel()); active()
+        assert s.received() == expected, 'menu input reached the Agent'
+        assert s.tmux('list-panes', '-F', '#{pane_width}x#{pane_height}').stdout.split()[0] == '90x27', 'popup resized the Agent'
+        # Pause from the menu; Options then resumes as in C1.
+        choose(1); s.until(lambda: 'PAUSED' in s.panel()); s.press('south'); s.quiet(.3)
+        assert s.received() == expected
+        s.press('start'); active(); s.press('south'); expected += b'\r'; s.until(lambda: s.received() == expected)
+        # C3-A4: interrupt writes exactly one Esc.
+        choose(3); expected += b'\x1b'; s.until(lambda: s.received() == expected); active(); s.quiet(.3)
+        assert s.received() == expected
+        # C3-A7: the popup accepts the keyboard: number 4 picks Send interrupt.
+        menu(); os.write(s.master, b'4'); expected += b'\x1b'; s.until(lambda: s.received() == expected); active()
+        menu(); os.write(s.master, b'\x1b[B'); s.quiet(.2); os.write(s.master, b'\x1b'); active()
+        assert s.received() == expected
+        # C3-A5: history from the menu scrolls with the D-pad and leaves on O.
+        for _ in range(3): s.press('south')
+        expected += b'\r' * 3; s.until(lambda: s.received() == expected)
+        choose(2); s.until(lambda: 'HISTORY' in s.panel())
+        s.until(lambda: s.tmux('display', '-p', '-t', s.info['agentPane'], '#{pane_in_mode}').stdout.strip() == '1')
+        for button in ('dpad_up', 'dpad_up', 'left_shoulder', 'south', 'west'): s.press(button); s.quiet(.05)
+        s.until(lambda: int(s.tmux('display', '-p', '-t', s.info['agentPane'], '#{scroll_position}').stdout.strip() or 0) > 0, message='history did not scroll')
+        s.press('east'); active()
+        assert s.tmux('display', '-p', '-t', s.info['agentPane'], '#{pane_in_mode}').stdout.strip() == '0'
+        assert s.received() == expected, 'history input reached the Agent'
+        # C3-A6: a disconnect closes the menu and requires the C1 rearm.
+        menu(); s.event(dict(type='disconnected', device=1)); s.until(lambda: 'DISCONNECTED' in s.panel())
+        s.event(dict(type='connected', device=1, name='Fixture PS4', connection='wireless', serial='aa:bb:cc:dd:ee:ff')); time.sleep(.3)
+        s.press('south'); s.quiet(.3); assert s.received() == expected
+        s.press('start'); active()
+        # C3-A4: End session needs the confirmation; the default keeps the session running.
+        choose(4); s.until(lambda: 'END SESSION?' in s.panel()); s.press('south'); s.until(lambda: 'MENU' in s.panel())
+        s.press('east'); active(); assert s.proc.poll() is None
+        choose(4); s.until(lambda: 'END SESSION?' in s.panel()); s.press('dpad_down'); s.quiet(.05); s.press('south')
+        finish(s, 130)
+        assert s.received() == expected
+    finally: s.close()
+
+for scenario in (normal, controls, escape, terminate, crash, fallback): scenario()
+print('Panel PTY passed: controls menu, exact keys, CPR, isolation, resize, history hold, worker respawn, exits, crash cleanup and fallback.')

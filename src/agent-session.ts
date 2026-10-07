@@ -25,9 +25,11 @@ export async function confirmAgent(io: PromptPort, agent: Agent, cwd: string, di
   io.say('Keyboard controls the Agent. Ctrl+C goes to the Agent; Ctrl+] ends this session.');
   io.say('GAMEPAD / saved controller continues automatically after buttons are released.');
   io.say('Unidentified controllers and reconnects start PAUSED; press/release Options to enable.');
-  io.say('D-pad arrows / X Enter / O Escape / L1 Tab / R1 Shift+Tab / Options pause.');
-  if (display?.kind === 'panel') io.say(`DISPLAY / Controls pane (${display.version}). Mouse wheel opens history; gamepad holds while it is open.`);
-  else {
+  if (display?.kind === 'panel') {
+    io.say('D-pad arrows / X Enter / O Escape / L1 Tab / R1 Shift+Tab / Options controls menu.');
+    io.say(`DISPLAY / Controls pane (${display.version}). Options opens resume, pause, history, interrupt and end session.`);
+  } else {
+    io.say('D-pad arrows / X Enter / O Escape / L1 Tab / R1 Shift+Tab / Options pause.');
     if (display) io.say(`DISPLAY / Transparent. ${display.reason}`);
     io.say('Mapping status appears in the terminal title where supported. Keyboard stays available.');
   }

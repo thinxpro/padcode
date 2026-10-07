@@ -3,11 +3,13 @@ import { connect, createServer, type Socket } from 'node:net';
 import { randomBytes } from 'node:crypto';
 
 // Private, per-session protocol between the coordinator and its tmux panes.
-export type Role = 'agent' | 'panel';
+export type Role = 'agent' | 'panel' | 'menu';
 export interface Launch { command: string; args: string[]; cwd: string; env: Record<string, string | null> }
 export type ToAgent = { t: 'launch'; launch: Launch } | { t: 'keys'; data: string } | { t: 'cancel' } | { t: 'close' };
 export type FromAgent = { t: 'exit'; code: number };
 export type ToPanel = { t: 'status'; text: string };
+export type ToMenu = { t: 'menu'; title: string; items: string[]; selected: number; hint: string } | { t: 'close' };
+export type FromMenu = { t: 'action'; name: 'up' | 'down' | 'confirm' | 'back' } | { t: 'action'; name: 'pick'; index: number };
 export const maxLine = 4096;
 const maxKeys = 64;
 
@@ -32,8 +34,8 @@ function decode(line: string): Record<string, unknown> {
 }
 export function parseHello(line: string, session: string): Role {
   const value = decode(line);
-  if (value.t !== 'hello' || !exact(value, ['t', 'role', 'session']) || value.session !== session || (value.role !== 'agent' && value.role !== 'panel')) throw new Error('Invalid IPC hello.');
-  return value.role;
+  if (value.t !== 'hello' || !exact(value, ['t', 'role', 'session']) || value.session !== session || !['agent', 'panel', 'menu'].includes(value.role as string)) throw new Error('Invalid IPC hello.');
+  return value.role as Role;
 }
 export function parseFromAgent(line: string): FromAgent {
   const value = decode(line);
@@ -60,6 +62,23 @@ export function parseToPanel(line: string): ToPanel {
   const value = decode(line);
   if (value.t === 'status' && exact(value, ['t', 'text']) && text(value.text, 256)) return { t: 'status', text: value.text };
   throw new Error('Invalid coordinator message for the status pane.');
+}
+
+export function parseToMenu(line: string): ToMenu {
+  const value = decode(line);
+  if (value.t === 'close' && exact(value, ['t'])) return { t: 'close' };
+  if (value.t === 'menu' && exact(value, ['t', 'title', 'items', 'selected', 'hint']) && text(value.title, 64) && text(value.hint, 128)
+    && Array.isArray(value.items) && value.items.length >= 1 && value.items.length <= 9 && value.items.every(item => text(item, 64))
+    && Number.isInteger(value.selected) && (value.selected as number) >= 0 && (value.selected as number) < value.items.length) {
+    return { t: 'menu', title: value.title, items: [...value.items] as string[], selected: value.selected as number, hint: value.hint };
+  }
+  throw new Error('Invalid coordinator message for the menu popup.');
+}
+export function parseFromMenu(line: string): FromMenu {
+  const value = decode(line);
+  if (value.t === 'action' && exact(value, ['t', 'name']) && ['up', 'down', 'confirm', 'back'].includes(value.name as string)) return { t: 'action', name: value.name as 'up' };
+  if (value.t === 'action' && exact(value, ['t', 'name', 'index']) && value.name === 'pick' && Number.isInteger(value.index) && (value.index as number) >= 0 && (value.index as number) < 9) return { t: 'action', name: 'pick', index: value.index as number };
+  throw new Error('Invalid menu popup message.');
 }
 
 export class SessionServer {
@@ -99,18 +118,21 @@ export class SessionServer {
             const message = parseFromAgent(line);
             if (this.agentExited) throw new Error('Duplicate Agent exit.');
             this.agentExited = true; this.events.emit('exit', message.code);
-          } else throw new Error('The status pane cannot send messages.');
+          } else if (role === 'menu') this.events.emit('action', parseFromMenu(line));
+          else throw new Error('The status pane cannot send messages.');
         }
       } catch { reject(); }
     });
   }
   on(event: 'connect' | 'disconnect', listener: (role: Role) => void): void;
   on(event: 'exit', listener: (code: number) => void): void;
+  on(event: 'action', listener: (action: FromMenu) => void): void;
   on(event: string, listener: (value: any) => void): void { this.events.on(event, listener); }
   connected(role: Role): boolean { return this.peers.has(role); }
   send(role: 'agent', message: ToAgent): void;
   send(role: 'panel', message: ToPanel): void;
-  send(role: Role, message: ToAgent | ToPanel): void {
+  send(role: 'menu', message: ToMenu): void;
+  send(role: Role, message: ToAgent | ToPanel | ToMenu): void {
     const socket = this.peers.get(role);
     if (socket && !socket.destroyed) socket.write(`${JSON.stringify(message)}\n`);
   }
@@ -121,14 +143,15 @@ export class SessionServer {
   }
 }
 
-export interface SessionPeer<T> { send(message: FromAgent): void; close(): void; onMessage(listener: (message: T) => void): void; onClose(listener: () => void): void }
+export interface SessionPeer<T, S = FromAgent> { send(message: S): void; close(): void; onMessage(listener: (message: T) => void): void; onClose(listener: () => void): void }
 export async function joinSession(path: string, session: string, role: 'agent'): Promise<SessionPeer<ToAgent>>;
 export async function joinSession(path: string, session: string, role: 'panel'): Promise<SessionPeer<ToPanel>>;
-export async function joinSession(path: string, session: string, role: Role): Promise<SessionPeer<ToAgent | ToPanel>> {
+export async function joinSession(path: string, session: string, role: 'menu'): Promise<SessionPeer<ToMenu, FromMenu>>;
+export async function joinSession(path: string, session: string, role: Role): Promise<SessionPeer<ToAgent | ToPanel | ToMenu, FromAgent | FromMenu>> {
   const socket = connect(path);
   await new Promise<void>((resolve, reject) => { socket.once('connect', resolve); socket.once('error', reject); });
   const events = new EventEmitter(), reader = new LineReader();
-  const parse = role === 'agent' ? parseToAgent : parseToPanel;
+  const parse = role === 'agent' ? parseToAgent : role === 'panel' ? parseToPanel : parseToMenu;
   socket.on('error', () => {});
   socket.on('close', () => events.emit('close'));
   socket.on('data', chunk => {

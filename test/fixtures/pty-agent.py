@@ -22,6 +22,16 @@ if mode == 'group':
         while True: time.sleep(1)
     print('GROUP:%s:%s' % (os.getpid(), child), flush=True)
     while True: time.sleep(1)
+if mode == 'lines':
+    # Main-screen output with tmux history, for controller history scrolling.
+    tty.setraw(0)
+    os.write(1, b''.join(b'HISTORY LINE %d\r\n' % n for n in range(200)))
+    while True:
+        data = os.read(0, 4096)
+        if not data: break
+        if os.environ.get('PADCODE_PTY_LOG'):
+            with open(os.environ['PADCODE_PTY_LOG'], 'a') as log: log.write(data.hex() + '\n')
+        if b'exit!' in data: sys.exit(23)
 if mode == 'basic':
     tty.setraw(0)
     print('INFO:' + json.dumps({'tty': [os.isatty(x) for x in (0,1,2)], 'cwd': os.getcwd(), 'args': sys.argv[2:], 'env': os.environ.get('PADCODE_PTY_FIXTURE'), 'size': list(os.get_terminal_size())}), flush=True)

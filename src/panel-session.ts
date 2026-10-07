@@ -9,6 +9,7 @@ import type { Config } from './config.js';
 import { resolveExecutable } from './config.js';
 import { restoreTerminal } from './agent-session.js';
 import { SessionServer } from './session-ipc.js';
+import { SessionControls, type HistoryCommand, type MenuView } from './session-controls.js';
 import { clientEnv, ControlClient, PrivateTmux } from './tmux.js';
 
 type Agent = NonNullable<Config['agent']>;
@@ -49,6 +50,7 @@ export async function runPanelAgent(agent: Agent, options: PanelOptions): Promis
   const node = process.execPath, gamepad = options.gamepad;
   const paneAgent = fileURLToPath(new URL('./pane-agent.js', import.meta.url));
   const panePanel = fileURLToPath(new URL('./pane-panel.js', import.meta.url));
+  const paneMenu = fileURLToPath(new URL('./pane-menu.js', import.meta.url));
   let server: SessionServer | undefined, control: ControlClient | undefined, client: ChildProcess | undefined;
   let launched = false, serverStarted = false, finished = false;
   const signals: [NodeJS.Signals, number][] = [['SIGINT', 130], ['SIGTERM', 143], ['SIGHUP', 129]];
@@ -83,6 +85,8 @@ export async function runPanelAgent(agent: Agent, options: PanelOptions): Promis
     serverStarted = true;
     const [agentPane, agentPid] = (await tmux.run(['new-session', '-d', '-P', '-F', '#{pane_id} #{pane_pid}', '-s', session, '-x', String(columns), '-y', String(rows), '-c', options.cwd ?? process.cwd(), ...paneEnv, '--', node, paneAgent], clientEnv(env))).trim().split(' ');
     if (!/^%\d+$/.test(agentPane ?? '') || !/^\d+$/.test(agentPid ?? '')) throw new PanelFallback('tmux returned unexpected pane identifiers.');
+    // Popups inherit the private channel from the session environment rather than command-line arguments.
+    await tmux.run(['set-environment', '-t', session, 'PADCODE_IPC', join(directory, 'i'), ';', 'set-environment', '-t', session, 'PADCODE_SESSION', token]);
     // Dead status panes are not kept: if every Padcode process is gone, the private server exits with its panes.
     const createPanel = async (lines: number) => {
       const pane = (await tmux.run(['split-window', '-v', '-d', '-l', String(lines), '-P', '-F', '#{pane_id}', '-t', agentPane!, ...paneEnv, '--', node, panePanel])).trim();
@@ -106,12 +110,53 @@ export async function runPanelAgent(agent: Agent, options: PanelOptions): Promis
       tmux.run(['display', '-p', '-t', agentPane!, '#{window_height}'])
         .then(rows => createPanel(panelRows(Number(rows) || 24))).then(pane => { panelPane = pane; }).catch(() => {});
     });
+    let signalled: number | undefined;
+    const terminate = (code: number) => { signalled ??= code; try { process.kill(Number(agentPid), 'SIGTERM'); } catch { /* Already gone. */ } };
+    // The controls popup is drawn over the Agent pane, so the Agent is neither resized nor overwritten.
+    let popup: ChildProcess | undefined, menuView: MenuView | null = null, closingPopup = false;
+    const openPopup = async () => {
+      if (popup || finished || !menuView) return;
+      const clients = await tmux.run(['list-clients', '-F', '#{client_name} #{client_control_mode}']).catch(() => '');
+      const name = clients.split('\n').map(line => line.split(' ')).find(([, controlMode]) => controlMode === '0')?.[0];
+      if (!name || popup || !menuView) { if (!name) controls.lost(); return; }
+      const shell = (text: string) => `'${text.replace(/'/g, `'\\''`)}'`;
+      popup = spawn(tmux.binary, tmux.args(['display-popup', '-c', name, '-E', '-w', '46', '-h', String(menuView.items.length + 6), '-x', 'C', '-y', 'C', `${shell(node)} ${shell(paneMenu)}`]), { stdio: 'ignore', env: clientEnv(env) });
+      popup.on('error', () => {});
+      popup.on('close', () => {
+        popup = undefined;
+        if (finished) return;
+        if (closingPopup) { closingPopup = false; if (menuView) void openPopup(); }
+        else if (menuView) controls.lost();
+      });
+    };
+    const showMenu = (view: MenuView | null) => {
+      menuView = view;
+      if (!view) { if (popup) { closingPopup = true; ipc.send('menu', { t: 'close' }); } return; }
+      if (popup && !closingPopup) ipc.send('menu', { t: 'menu', ...view }); else void openPopup();
+    };
+    ipc.on('connect', role => { if (role === 'menu') ipc.send('menu', menuView && !closingPopup ? { t: 'menu', ...menuView } : { t: 'close' }); });
+    const historyCommands: Record<HistoryCommand, string[]> = {
+      enter: ['copy-mode', '-e', '-t', agentPane!], up: ['send-keys', '-X', '-t', agentPane!, 'scroll-up'], down: ['send-keys', '-X', '-t', agentPane!, 'scroll-down'],
+      'page-up': ['send-keys', '-X', '-t', agentPane!, 'page-up'], 'page-down': ['send-keys', '-X', '-t', agentPane!, 'page-down'], exit: ['send-keys', '-X', '-t', agentPane!, 'cancel'],
+    };
+    let history = Promise.resolve();
+    const controls = new SessionControls({
+      capture: (handler, status) => gamepad?.capture(handler, status),
+      release: resume => gamepad?.releaseCapture(resume),
+      // Esc stops the running task in Claude Code; Ctrl+C there clears input and a second one exits.
+      interrupt: () => ipc.send('agent', { t: 'keys', data: Buffer.from([0x1b]).toString('base64') }),
+      showMenu,
+      history: command => { history = history.then(() => tmux.run(historyCommands[command])).then(() => {}, () => {}); },
+      end: () => terminate(130),
+    });
+    ipc.on('action', action => { if (action.name === 'pick') controls.key('confirm', action.index); else controls.key(action.name); });
+    gamepad?.onControl(event => { if (event === 'menu') controls.openMenu(); else controls.lost(); });
     let modes = Promise.resolve();
     live.onMode(pane => {
-      if (pane !== agentPane || !gamepad) return;
+      if (pane !== agentPane) return;
       modes = modes.then(async () => {
         const [state] = await live.command(`display -p -t ${agentPane} '#{pane_in_mode}'`);
-        if (state === '1') gamepad.hold(); else gamepad.resume();
+        if (state === '1') controls.historyEntered(); else controls.historyLeft();
       }).catch(() => {});
     });
     options.onReady?.({ socket: tmux.socket, directory, agentPane: agentPane!, panelPane });
@@ -128,16 +173,16 @@ export async function runPanelAgent(agent: Agent, options: PanelOptions): Promis
     if (gamepad) {
       unsubscribe = gamepad.subscribe(bytes => ipc.send('agent', { t: 'keys', data: bytes.toString('base64') }),
         text => { latest = text; ipc.send('panel', { t: 'status', text }); }, () => ipc.send('agent', { t: 'cancel' }));
+      gamepad.enableMenu();
       gamepadStarted = gamepad.start(abort.signal).catch(() => gamepad.suspend('UNAVAILABLE / Keyboard available'));
     } else { latest = 'KEYBOARD ONLY / No controller configured'; ipc.send('panel', { t: 'status', text: latest }); }
-    let signalled: number | undefined;
-    const terminate = (code: number) => { signalled ??= code; try { process.kill(Number(agentPid), 'SIGTERM'); } catch { /* Already gone. */ } };
     for (const [signal, code] of signals) { const handler = () => terminate(code); handlers.set(signal, handler); process.on(signal, handler); }
     client = spawn(tmux.binary, tmux.args(['attach-session', '-t', session]), { stdio: 'inherit', env: clientEnv(env) });
     client.on('error', () => terminate(1));
     client.on('close', () => { if (!finished) terminate(signalled ?? 129); });
     const code = await result;
-    finished = true; abort.abort(); unsubscribe(); gamepad?.suspend();
+    controls.lost(); finished = true; abort.abort(); unsubscribe(); gamepad?.suspend();
+    if (popup) { ipc.send('menu', { t: 'close' }); popup.kill('SIGTERM'); }
     const screen = await tmux.run(['capture-pane', '-p', '-e', '-J', '-t', agentPane!]).catch(() => '');
     ipc.send('agent', { t: 'close' });
     await tmux.run(['detach-client', '-s', session, '-E', 'exit 0']).catch(() => {});

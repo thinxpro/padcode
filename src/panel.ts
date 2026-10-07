@@ -2,10 +2,10 @@ import { safeLabel } from './ui.js';
 
 const tones: Record<string, string> = {
   ACTIVE: '\x1b[1;92m', ARMING: '\x1b[1;96m', PAUSED: '\x1b[1;93m', HISTORY: '\x1b[1;93m', RECONNECTED: '\x1b[1;93m',
-  DISCONNECTED: '\x1b[1;91m', 'INPUT LOST': '\x1b[1;91m', UNAVAILABLE: '\x1b[1;91m',
+  MENU: '\x1b[1;95m', 'END SESSION?': '\x1b[1;91m', DISCONNECTED: '\x1b[1;91m', 'INPUT LOST': '\x1b[1;91m', UNAVAILABLE: '\x1b[1;91m',
 };
 const reset = '\x1b[0m', dim = '\x1b[2;37m', brand = '\x1b[1;96m';
-const hints = [['D-PAD', 'ARROWS'], ['X', 'ENTER'], ['O', 'ESC'], ['L1', 'TAB'], ['R1', 'SHIFT+TAB'], ['WHEEL', 'HISTORY']] as const;
+const hints = [['D-PAD', 'ARROWS'], ['X', 'ENTER'], ['O', 'ESC'], ['L1', 'TAB'], ['R1', 'SHIFT+TAB'], ['OPTIONS', 'MENU'], ['WHEEL', 'HISTORY']] as const;
 
 // Fit segments by priority; earlier segments survive narrower widths.
 function fit(parts: string[], width: number, gap: string): string[] {
