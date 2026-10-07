@@ -93,3 +93,7 @@ User report (2026-10-07): with voice configured, holding L2 in Claude Code showe
 Fix: when a recording fails with `permission-required`, the session asks macOS for access itself (`MIC PERMISSION / Answer the macOS dialog for Padcode Audio`), ignores L2 while the dialog is open, then shows `MIC READY / Hold L2 again to record` or, if declined, `MIC DENIED` with the System Settings path. An explicit denial is not re-requested. Unit test: "lost macOS grant". Known limit until release signing (Developer ID, tracked under distribution): each Padcode update asks for microphone access once more.
 
 `npm run check` passed 117 tests with zero failures or skips. Artifact `padcode-0.1.0-dev.17.tgz`, npm SHA-1 `7022f18f5dff5acc76f0ca0406589ff326c2d92e`.
+
+### User-reported physical acceptance
+
+On 2026-10-07 the user reported that testing dev.17 passed: after the macOS dialog for Padcode Audio, L2 recording in a Claude Code 2.1.292 session and playback from the controls menu worked, with the DS4 over Bluetooth and the MOMENTUM 4 Bluetooth headset microphone configured. Per-item counts (10 recordings, cancel, disconnect, a non-Bluetooth microphone, L2 threshold ergonomics) were not reported individually; this record covers only the user's statement.
