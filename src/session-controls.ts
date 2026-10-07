@@ -9,6 +9,7 @@ export interface ControlEffects {
   capture(handler: (button: Button) => void, status: string): void;
   release(resume: boolean): void;
   interrupt(): void;
+  clear?(): void;
   showMenu(view: MenuView | null): void;
   history(command: HistoryCommand): void;
   end(): void;
@@ -19,8 +20,8 @@ export interface ControlEffects {
   canUndo?(): boolean;
   undo?(rerecord: boolean): void;
 }
-export const menuItems = ['Resume Agent controls', 'Pause gamepad mapping', 'Browse history', 'Send interrupt (Esc)', 'End session...'];
-const menuIds = ['resume', 'pause', 'history', 'interrupt', 'end'] as const;
+export const menuItems = ['Resume Agent controls', 'Pause gamepad mapping', 'Browse history', 'Send interrupt (Esc)', 'Clear input', 'End session...'];
+const menuIds = ['resume', 'pause', 'history', 'interrupt', 'clear', 'end'] as const;
 type MenuId = typeof menuIds[number] | 'play' | 'draft' | 'undo' | 'rerecord';
 export const draftItems = ['Insert into Agent', 'Keep draft', 'Rerecord', 'Discard'];
 export const confirmItems = ['Keep the session running', 'End the Agent session'];
@@ -41,9 +42,11 @@ export class SessionControls {
   // Play last recording appears before End session only while a recording exists.
   private entries(): { id: MenuId; label: string }[] {
     const entries: { id: MenuId; label: string }[] = menuIds.map((id, index) => ({ id, label: menuItems[index]! }));
-    if (this.fx.hasRecording?.()) entries.splice(4, 0, { id: 'play', label: 'Play last recording' });
-    if (this.draftText) entries.splice(4, 0, { id: 'draft', label: 'Review voice draft' });
-    if (this.fx.canUndo?.()) entries.splice(4, 0, { id: 'undo', label: 'Undo voice insert' }, { id: 'rerecord', label: 'Undo and rerecord' });
+    // Voice actions sit together just before End session.
+    const voice = entries.length - 1;
+    if (this.fx.hasRecording?.()) entries.splice(voice, 0, { id: 'play', label: 'Play last recording' });
+    if (this.draftText) entries.splice(voice, 0, { id: 'draft', label: 'Review voice draft' });
+    if (this.fx.canUndo?.()) entries.splice(voice, 0, { id: 'undo', label: 'Undo voice insert' }, { id: 'rerecord', label: 'Undo and rerecord' });
     return entries;
   }
   private endIndex(): number { return this.entries().findIndex(entry => entry.id === 'end'); }
@@ -105,6 +108,7 @@ export class SessionControls {
     else if (id === 'pause') this.close(false);
     else if (id === 'history') { this.enter('history'); this.fx.history('enter'); }
     else if (id === 'interrupt') { this.fx.interrupt(); this.close(); }
+    else if (id === 'clear') { this.fx.clear?.(); this.close(); }
     else if (id === 'play') { this.close(); this.fx.play?.(); }
     else if (id === 'draft') this.enter('draft');
     else if (id === 'undo' || id === 'rerecord') { this.close(); this.fx.undo?.(id === 'rerecord'); }

@@ -235,7 +235,7 @@ def voice():
         # Options > Play last recording (inserted before End session).
         mark = len(s.output); s.press('start')
         s.until(lambda: b'Play last recording' in s.output[mark:], message='play item missing')
-        for _ in range(4): s.press('dpad_down'); s.quiet(.05)
+        for _ in range(5): s.press('dpad_down'); s.quiet(.05)
         s.press('south'); s.until(lambda: 'PLAYING' in s.panel()); active()
         s.until(lambda: os.path.exists(play_log) and open(play_log).read().strip().endswith(recordings[0]))
         # A new recording replaces the previous file; O cancels and keeps none.
@@ -273,7 +273,7 @@ def draft():
         assert s.received() == b'', 'draft review wrote to the Agent'
         mark = len(s.output); s.press('start')
         s.until(lambda: b'Review voice draft' in s.output[mark:], message='menu lacks Review voice draft')
-        for _ in range(4): s.press('dpad_down'); s.quiet(.05)
+        for _ in range(5): s.press('dpad_down'); s.quiet(.05)
         mark = len(s.output); s.press('south')
         s.until(lambda: 'VOICE DRAFT' in s.panel() and '帮我修复'.encode() in s.output[mark:])
         os.write(s.master, b'3'); s.until(lambda: 'DRAFT DISCARDED' in s.panel()); active()   # Popup keyboard: 3 = Discard.
@@ -323,6 +323,12 @@ def insert():
         s.until(lambda: 'GAMEPAD ACTIVE' in s.panel(), message='insert step 8')
         menu_pick(s, 'Undo voice insert'); s.until(lambda: 'UNDO UNAVAILABLE' in s.panel(), message='undo after typing was not refused')
         s.quiet(.3); assert s.received() == expected, 'refused undo still wrote bytes'
+        # Clear input after an insertion makes undo unsafe as well.
+        s.until(lambda: 'GAMEPAD ACTIVE' in s.panel(), message='active before clear'); time.sleep(.3)
+        record(s); expected += b'\x1b[200~' + sentence + b'\x1b[201~'; s.until(lambda: s.received() == expected, message='insert before clear')
+        menu_pick(s, 'Clear input'); expected += b'\x05\x15'; s.until(lambda: s.received() == expected, message='clear bytes')
+        menu_pick(s, 'Undo voice insert'); s.until(lambda: 'UNDO UNAVAILABLE' in s.panel(), message='undo after clear was not refused')
+        s.quiet(.3); assert s.received() == expected
         # A controller key after the insertion also makes undo unsafe.
         s.until(lambda: 'GAMEPAD ACTIVE' in s.panel(), message='insert step 9'); time.sleep(.3)
         record(s); expected += b'\x1b[200~' + sentence + b'\x1b[201~'; s.until(lambda: s.received() == expected, message='insert step 10')
@@ -401,9 +407,11 @@ def controls():
         s.press('south'); s.quiet(.3); assert s.received() == expected
         s.press('start'); active()
         # C3-A4: End session needs the confirmation; the default keeps the session running.
-        choose(4); s.until(lambda: 'END SESSION?' in s.panel()); s.press('south'); s.until(lambda: 'MENU' in s.panel())
+        choose(5); s.until(lambda: 'END SESSION?' in s.panel()); s.press('south'); s.until(lambda: 'MENU' in s.panel())
         s.press('east'); active(); assert s.proc.poll() is None
-        choose(4); s.until(lambda: 'END SESSION?' in s.panel()); s.press('dpad_down'); s.quiet(.05); s.press('south')
+        # Clear input sends exactly Ctrl+E Ctrl+U.
+        choose(4); expected += b'\x05\x15'; s.until(lambda: s.received() == expected); active()
+        choose(5); s.until(lambda: 'END SESSION?' in s.panel()); s.press('dpad_down'); s.quiet(.05); s.press('south')
         finish(s, 130)
         assert s.received() == expected
     finally: s.close()

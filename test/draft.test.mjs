@@ -83,7 +83,7 @@ test('C5 draft review context: keep, rerecord, discard, reopen and every button'
   handler('east'); assert.equal(controls.context, 'agent'); assert.equal(controls.draftText, '帮我修复 bug'); assert.deepEqual(calls.slice(-2), ['menu:close', 'release:true']);
   // Reopen from the controls menu: "Review voice draft" sits before End session.
   calls.length = 0; controls.openMenu(); assert.match(calls.at(-1), /Review voice draft\|End session/);
-  for (let i = 0; i < 4; i++) handler('dpad_down');
+  for (let i = 0; i < 5; i++) handler('dpad_down');
   handler('south'); assert.equal(controls.context, 'draft');
   handler('dpad_down'); handler('dpad_down'); handler('south'); assert.equal(controls.draftText, undefined); assert.ok(calls.includes('notice:DRAFT DISCARDED / Hold L2 to record again'));
   controls.openDraft('second'); handler('dpad_up'); handler('south'); assert.equal(controls.draftText, undefined); assert.ok(calls.includes('notice:DRAFT DISCARDED'));

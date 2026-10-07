@@ -216,6 +216,8 @@ export async function runPanelAgent(agent: Agent, options: PanelOptions): Promis
       release: resume => gamepad?.releaseCapture(resume),
       // Esc stops the running task in Claude Code; Ctrl+C there clears input and a second one exits.
       interrupt: () => ipc.send('agent', { t: 'keys', data: Buffer.from([0x1b]).toString('base64') }),
+      // Ctrl+E Ctrl+U clears a readline-style input line; Ctrl+C or double Esc could exit or rewind instead.
+      clear: () => ipc.send('agent', { t: 'keys', data: Buffer.from([0x05, 0x15]).toString('base64') }),
       showMenu,
       history: command => { history = history.then(() => tmux.run(historyCommands[command])).then(() => {}, () => {}); },
       end: () => terminate(130),
