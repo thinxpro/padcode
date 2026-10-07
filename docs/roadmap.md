@@ -1,6 +1,6 @@
 # Roadmap and acceptance
 
-The current priority is [P0-3 gamepad Agent input](stages/p0-3-gamepad-agent-input.md), with P0-2 compatibility acceptance still pending, following Bluetooth-first terminal setup and its user-confirmed dev.5 scan regression. Check items only after their full acceptance criteria pass; simulated tests do not replace physical validation.
+The current priority is [P0-4 continuous controller sessions and voice drafts](stages/p0-4-continuous-controller-and-voice.md). The user reports losing controller control after entering Codex; diagnosis and seamless handoff come before voice. P0-2 compatibility and P0-3 physical acceptance remain pending, following Bluetooth-first setup and the user-confirmed dev.5 scan regression. Check items only after their full acceptance criteria pass; simulated tests do not replace physical validation.
 
 ## P0: Technical validation
 
@@ -36,6 +36,10 @@ Dev.7 implements the basic key profile, explicit pause/resume and disconnect pro
 
 Acceptance: in a test project, the user can start, enter a request, submit, read output, continue and exit. Observe accidental actions and terminal failures. Finish P0 with a validation record and a decision on entering P1.
 
+### P0-4: Continuous controller sessions and voice drafts
+
+Design only. Follow the [C1-C6 implementation and acceptance sequence](stages/p0-4-continuous-controller-and-voice.md#implementation-sequence-and-acceptance), one PR per step. Preserve the native Agent TUI, establish continuous controller ownership and isolated controls, then add opt-in local capture, user-provided transcription and explicit draft insertion/submission. All C1-C6 criteria are pending.
+
 ## P1: Installable personal-use release
 
 - [ ] CLI entry point, setup, schema validation and configuration migrations.
@@ -52,7 +56,7 @@ Acceptance: installation follows the documentation on a fresh environment withou
 - [ ] Validate additional controllers; Bluetooth stability was moved into the first stage.
 - [ ] Agent-specific profiles and version records.
 - [ ] Optional desktop mode with explicit switching and permission guidance.
-- [ ] Optional external voice interface with user-selected transcription tools.
+- [ ] Additional voice providers after the user-prioritized P0-4 local transcription flow.
 - [ ] Evaluate structured adapters against real needs.
 - [ ] Validate Windows/Linux feasibility and platform artifacts.
 

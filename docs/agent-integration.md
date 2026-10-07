@@ -46,7 +46,9 @@ The working directory defaults to the directory where `padcode` was invoked. All
 
 Adapters declare capabilities such as task launch, interruption, streaming output and confirmation requests. The interface only offers supported actions.
 
-Codex app-server is one candidate; pin its version and verify its protocol. Structured services usually require Padcode to render conversations and confirmations, so the original agent TUI may not be reusable. This is a separate enhancement path, not a silent replacement for generic launch.
+Codex app-server is one candidate; pin its version and verify its protocol. Its [official documentation](https://developers.openai.com/codex/app-server) describes a remote connection from the original Codex terminal UI, so structured integration does not necessarily require replacing that UI. Other adapters may require custom rendering. This remains a separate enhancement path, not a silent replacement for generic launch.
+
+The next [continuous controller and voice plan](stages/p0-4-continuous-controller-and-voice.md) retains the PTY, separates Padcode controls from the Agent screen and treats voice as a reviewed draft. Generic PTY output cannot reliably identify a composer or approval prompt; profile verification and explicit destination confirmation are required before voice insertion.
 
 The initial release does not automatically download or execute third-party adapters. If plugins are added later, require explicit installation and disclose their access to local processes and projects.
 
