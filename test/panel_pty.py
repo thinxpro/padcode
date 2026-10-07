@@ -319,7 +319,7 @@ def insert():
         s.until(lambda: s.received() == expected, message='undo did not remove exactly the inserted characters'); s.until(lambda: 'VOICE INSERT UNDONE' in s.panel(), message='insert step 4')
         s.until(lambda: 'GAMEPAD ACTIVE' in s.panel(), message='insert step 5'); time.sleep(.3)
         record(s); expected += b'\x1b[200~' + sentence + b'\x1b[201~'; s.until(lambda: s.received() == expected, message='insert step 6')
-        os.write(s.master, b'x'); expected += b'x'; s.until(lambda: s.received() == expected, message='insert step 7')
+        no_popup(s); os.write(s.master, b'x'); expected += b'x'; s.until(lambda: s.received() == expected, message='insert step 7')
         s.until(lambda: 'GAMEPAD ACTIVE' in s.panel(), message='insert step 8')
         menu_pick(s, 'Undo voice insert'); s.until(lambda: 'UNDO UNAVAILABLE' in s.panel(), message='undo after typing was not refused')
         s.quiet(.3); assert s.received() == expected, 'refused undo still wrote bytes'
@@ -330,7 +330,7 @@ def insert():
         s.press('dpad_left'); expected += b'\x1b[D'; s.until(lambda: s.received() == expected, message='insert step 12')
         menu_pick(s, 'Undo voice insert'); s.until(lambda: 'UNDO UNAVAILABLE' in s.panel(), message='undo after a controller key was not refused')
         s.quiet(.3); assert s.received() == expected
-        os.write(s.master, b'exit!'); finish(s, 23)
+        no_popup(s); os.write(s.master, b'exit!'); finish(s, 23)
     finally: s.close()
     # Without bracketed paste the text is still one line: no CR/LF or ESC ever reaches the Agent.
     s = Session('lines', extra={'PADCODE_VOICE': '1', 'PADCODE_TRANSCRIBER': 'mixed'})
@@ -338,7 +338,7 @@ def insert():
         s.ready(); s.until(lambda: 'GAMEPAD ACTIVE' in s.panel(), message='insert step 13')
         record(s); s.until(lambda: s.received() == 'fix 🎮 登录 第二行 é'.encode(), message='plain insertion was not one cleaned line')
         s.quiet(.3); assert s.received() == 'fix 🎮 登录 第二行 é'.encode()
-        os.write(s.master, b'exit!'); finish(s, 23)
+        no_popup(s); os.write(s.master, b'exit!'); finish(s, 23)
     finally: s.close()
     # A one-character transcript opens the draft popup; X inserts it from there.
     s = Session('paste', extra={'PADCODE_VOICE': '1', 'PADCODE_TRANSCRIBER': 'short'})
@@ -347,7 +347,7 @@ def insert():
         record(s); s.until(lambda: 'VOICE DRAFT' in s.panel(), message='short answer was not held for review')
         s.quiet(.3); assert s.received() == b'', 'short answer was inserted without review'
         s.press('south'); s.until(lambda: s.received() == b'\x1b[200~1\x1b[201~', message='insert step 15')
-        os.write(s.master, b'exit!'); finish(s, 23)
+        no_popup(s); os.write(s.master, b'exit!'); finish(s, 23)
     finally: s.close()
 
 def controls():
