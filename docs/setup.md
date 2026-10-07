@@ -56,3 +56,21 @@ Scanning now disables remote name updates and lists only devices returned by the
 macOS can delay, fail or omit the inquiry-completion callback. After a 20-second inquiry deadline, devices already found remain selectable with a SCAN INCOMPLETE warning; partial results are also preserved when macOS reports a native completion error. Neither case is labeled a complete scan or verified input. Cancellation and OS aborts remain failures. If no devices were found, the error distinguishes a missing start callback, active timeout or native error.
 
 The process allows up to 35 seconds including macOS initialization, then is terminated if necessary. Before retrying, close other discovery windows, wait 15 seconds and re-enter SHARE + PS pairing mode. For direct native diagnostics, run `PADCODE_BLUETOOTH_DEBUG=1 build/native/padcode-bluetooth scan` from the installed package directory. Phase diagnostics on stderr contain no device identifiers; the normal JSON device list on stdout does contain identifiers, so inspect it before sharing. The terminal wizard captures native stderr internally rather than displaying debug traces.
+
+## Controller-operated menus (dev.4)
+
+After connecting over Bluetooth or choosing USB, the setup menus start the SDL input stream. Press **cross (X)** once on the intended controller to claim menu control. This first press does not confirm an option. When configuration already identifies a controller, startup also enables menu input in Player Hub and configuration editing.
+
+| Input | Menu action |
+| --- | --- |
+| D-pad up/down | Move the highlighted selection; wrap at the ends |
+| Cross (X) | Confirm the highlighted option |
+| Circle (O) | Select an explicit Back/Cancel/Exit option when available; otherwise cancel setup without saving pending changes |
+| Keyboard arrows | Move selection |
+| Number + Enter | Select the numbered option |
+| Enter | Confirm the highlighted/default option |
+| q / Ctrl+C | Cancel; Ctrl+C returns an interrupted exit status |
+
+Input-check choices, installed-agent selection, key profiles, save confirmation and Player Hub are all controller-operable. Custom executable paths and arguments remain keyboard text fields; controller actions are ignored there. This is menu navigation, not agent-session key injection.
+
+Hold events do not repeat selections. Confirmations are not queued across menus. Input is restricted to the claimed compatible controller; missing identity metadata is resolved by the physical claim press instead of guessing a device. A disconnect leaves keyboard input available; reconnect and press X again to reclaim control. Helper failures provide keyboard recovery. The input check and menus share one helper, which is stopped before entering Controller Lab or exiting.

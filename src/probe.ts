@@ -60,6 +60,12 @@ export class ControllerProbe implements ProbePort {
     }));
     await this.wait(() => this.ready ? true : undefined, signal, 5000, 'Input engine did not become ready.');
   }
+  snapshot(): InputDevice[] { return [...this.connected.values()]; }
+  subscribe(listener: (event: Event | undefined, error?: Error) => void): () => void {
+    const changed = (event?: Event) => listener(event, this.failure);
+    this.events.on('change', changed);
+    return () => this.events.removeListener('change', changed);
+  }
   private async wait<T>(check: (event?: Event) => T | undefined, signal: AbortSignal, timeout: number, message: string): Promise<T> {
     signal.throwIfAborted();
     if (this.failure) throw this.failure;
@@ -90,7 +96,7 @@ export class ControllerProbe implements ProbePort {
   async press(device: number, signal: AbortSignal): Promise<string> {
     if (!this.connected.has(device)) throw new Error('Selected controller disconnected.');
     return await this.wait(event => {
-      if (!this.connected.has(device)) { this.failure = new Error('Selected controller disconnected.'); throw this.failure; }
+      if (!this.connected.has(device)) throw new Error('Selected controller disconnected.');
       return event?.type === 'button' && event.device === device && event.down ? event.button : undefined;
     }, signal, 20000, 'No fresh button press from the selected controller within 20 seconds.');
   }

@@ -50,3 +50,13 @@ test('input waiting can be cancelled and stopped repeatedly without leaks', asyn
   } finally { await probe.stop(); await probe.stop(); }
   await new ControllerProbe().stop();
 });
+test('disconnect during input check does not poison the shared stream after reconnect', async () => {
+  const probe = new ControllerProbe(process.execPath, ['test/fixtures/probe.mjs', 'reconnect']);
+  const signal = new AbortController().signal;
+  try {
+    await probe.start(signal); await probe.devices(signal);
+    await assert.rejects(probe.press(1, signal), /disconnected/);
+    assert.equal((await probe.devices(signal))[0].device, 1);
+    assert.equal(await probe.press(1, signal), 'south');
+  } finally { await probe.stop(); }
+});

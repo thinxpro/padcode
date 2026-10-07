@@ -1,5 +1,7 @@
-import { createInterface, type Interface } from 'node:readline/promises';
+import { createInterface } from 'node:readline/promises';
+import { emitKeypressEvents, type Key } from 'node:readline';
 import { colorEnabled, safeLabel } from './ui.js';
+import type { MenuInput, MenuAction } from './menu-controller.js';
 
 export interface Choice { label: string; value: string }
 export interface PromptPort {
@@ -9,46 +11,92 @@ export interface PromptPort {
   choose(message: string, choices: Choice[], selected?: number): Promise<string>;
 }
 export class TerminalPrompt implements PromptPort {
-  private lines: Interface;
-  private closed = false;
   private color = colorEnabled(process.env, Boolean(process.stdout.isTTY));
-  constructor(private signal: AbortSignal, cancel: () => void) {
-    this.lines = createInterface({ input: process.stdin, output: process.stdout, terminal: process.env.TERM !== 'dumb' });
-    this.lines.on('SIGINT', cancel);
-    this.lines.on('close', () => { if (!this.closed) cancel(); });
+  constructor(private signal: AbortSignal, private cancel: () => void, private gamepad?: MenuInput) {}
+  private width(): number { return Math.max(12, Math.min(72, (process.stdout.columns || 80) - 1)); }
+  private wrap(text: string): string[] {
+    const line = safeLabel(text), lines = [];
+    for (let offset = 0; offset < line.length; offset += this.width()) lines.push(line.slice(offset, offset + this.width()));
+    return lines.length ? lines : [''];
   }
   banner(title: string): void {
-    const width = Math.max(12, Math.min(72, (process.stdout.columns || 80) - 1));
     this.say('');
     process.stdout.write(this.color ? '\x1b[1;96m' : '');
-    this.say('='.repeat(width)); this.say(`P A D C O D E  //  ${title}`); this.say('='.repeat(width));
+    this.say('='.repeat(this.width())); this.say(`P A D C O D E  //  ${title}`); this.say('='.repeat(this.width()));
     process.stdout.write(this.color ? '\x1b[0m' : '');
   }
-  say(text: string): void {
-    // Device names / config values must never introduce terminal control sequences.
-    const line = safeLabel(text), width = Math.max(12, Math.min(72, (process.stdout.columns || 80) - 1));
-    if (!line) { process.stdout.write('\n'); return; }
-    for (let offset = 0; offset < line.length; offset += width) process.stdout.write(`${line.slice(offset, offset + width)}\n`);
-  }
+  say(text: string): void { process.stdout.write(this.wrap(text).join('\n') + '\n'); }
   async ask(message: string): Promise<string> {
     this.signal.throwIfAborted();
-    return await this.lines.question(`${this.color ? '\x1b[95m' : ''}> ${safeLabel(message)}${this.color ? '\x1b[0m' : ''} `, { signal: this.signal });
+    this.say('KEYBOARD INPUT / Type text here; gamepad buttons do not enter text.');
+    const lines = createInterface({ input: process.stdin, output: process.stdout, terminal: process.env.TERM !== 'dumb' });
+    let answered = false;
+    lines.on('SIGINT', this.cancel);
+    lines.on('close', () => { if (!answered) this.cancel(); });
+    try {
+      const answer = await lines.question(`${this.color ? '\x1b[95m' : ''}> ${safeLabel(message)}${this.color ? '\x1b[0m' : ''} `, { signal: this.signal });
+      answered = true; return answer;
+    } finally { answered = true; lines.close(); process.stdin.pause(); }
   }
   async choose(message: string, choices: Choice[], selected = 0): Promise<string> {
-    this.say(message);
-    choices.forEach((choice, index) => this.say(`  ${index === selected ? '>' : ' '} [${index + 1}] ${choice.label}`));
-    for (;;) {
-      const answer = (await this.ask(`Select [${selected + 1}] (q to cancel):`)).trim();
-      if (answer.toLowerCase() === 'q') throw new Error('Setup cancelled.');
-      const index = answer === '' ? selected : /^[0-9]+$/.test(answer) ? Number(answer) - 1 : -1;
-      if (choices[index]) return choices[index]!.value;
-      this.say('Choose one of the displayed numbers.');
-    }
+    this.signal.throwIfAborted();
+    if (!choices.length || !choices[selected]) throw new Error('Menu has no valid default selection.');
+    const input = process.stdin, wasRaw = Boolean(input.isRaw);
+    const ansi = Boolean(process.stdout.isTTY) && process.env.TERM !== 'dumb';
+    let rows = 0, typed = '', status = this.gamepad ? this.gamepad.statusText ?? 'D-PAD select / X confirm / O back / keyboard available' : 'Arrow keys or numbers / Enter confirm';
+    const render = () => {
+      if (ansi && rows) process.stdout.write(`\r\x1b[${rows}A\x1b[0J`);
+      const lines = [message, ...choices.map((choice, index) => `  ${index === selected ? '>' : ' '} [${index + 1}] ${choice.label}`), status, `> Select [${selected + 1}] (q to cancel):`].flatMap(text => this.wrap(text));
+      rows = lines.length;
+      process.stdout.write(lines.map(line => this.color && line.startsWith('  >') ? `\x1b[1;96m${line}\x1b[0m` : line).join('\n') + '\n');
+    };
+    emitKeypressEvents(input);
+    input.setRawMode?.(true); input.resume();
+    try {
+      return await new Promise<string>((resolve, reject) => {
+        let done = false;
+        let offAction = () => {}, offStatus = () => {};
+        const finish = (value?: string, error?: Error) => {
+          if (done) return; done = true;
+          input.removeListener('keypress', keypress); input.removeListener('end', ended);
+          process.stdout.removeListener('resize', resized);
+          this.signal.removeEventListener('abort', abort); offAction(); offStatus();
+          if (error) reject(error); else resolve(value!);
+        };
+        const abort = () => finish(undefined, new Error('Setup cancelled.'));
+        const ended = () => { this.cancel(); abort(); };
+        const action = (action: MenuAction) => {
+          if (done) return;
+          typed = '';
+          if (action === 'up' || action === 'down') { selected = (selected + (action === 'up' ? -1 : 1) + choices.length) % choices.length; render(); }
+          else if (action === 'confirm') finish(choices[selected]!.value);
+          else {
+            const back = choices.find(choice => ['back', 'cancel', 'exit', 'quit'].includes(choice.value));
+            if (back) finish(back.value); else abort();
+          }
+        };
+        const keypress = (text: string | undefined, key: Key) => {
+          if (done) return;
+          if (key.ctrl && (key.name === 'c' || key.name === 'd')) { this.cancel(); abort(); return; }
+          if (key.name === 'up' || key.name === 'down') { action(key.name); return; }
+          if (key.name === 'escape') { action('cancel'); return; }
+          if (text?.toLowerCase() === 'q') { abort(); return; }
+          if (key.name === 'return' || key.name === 'enter') {
+            process.stdout.write('\n');
+            const index = typed ? Number(typed) - 1 : selected;
+            if (choices[index]) finish(choices[index]!.value);
+            else { typed = ''; this.say('Choose one of the displayed numbers.'); rows = 0; render(); }
+          } else if (key.name === 'backspace' && typed) { typed = typed.slice(0, -1); process.stdout.write('\b \b'); }
+          else if (text && /^[0-9]$/.test(text) && typed.length < 6) { typed += text; process.stdout.write(text); }
+        };
+        const resized = () => { rows = 0; render(); };
+        input.on('keypress', keypress); input.on('end', ended); process.stdout.on('resize', resized);
+        this.signal.addEventListener('abort', abort, { once: true });
+        offAction = this.gamepad?.subscribeAction(action) ?? offAction;
+        offStatus = this.gamepad?.subscribeStatus(text => { status = text; render(); }) ?? offStatus;
+        render();
+      });
+    } finally { input.setRawMode?.(wasRaw); input.pause(); }
   }
-  close(): void {
-    this.closed = true;
-    this.lines.close();
-    // Explicitly release input ownership before exiting or entering another mode.
-    process.stdin.pause();
-  }
+  close(): void { process.stdin.pause(); }
 }

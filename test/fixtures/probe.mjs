@@ -8,7 +8,11 @@ else {
   if (mode !== 'empty') {
     emit({ type: 'connected', device: 1, name: 'Controller', connection: 'wireless', serial: 'aa:bb:cc:dd:ee:ff' });
     if (mode === 'held') emit({ type: 'button', device: 1, button: 'south', down: true });
-    if (mode === 'disconnect') setTimeout(() => emit({ type: 'disconnected', device: 1 }), 120);
+    if (mode === 'reconnect') {
+      setTimeout(() => emit({ type: 'disconnected', device: 1 }), 80);
+      setTimeout(() => emit({ type: 'connected', device: 1, name: 'Controller', connection: 'wireless', serial: 'aa:bb:cc:dd:ee:ff' }), 150);
+      setTimeout(() => emit({ type: 'button', device: 1, button: 'south', down: true }), 230);
+    } else if (mode === 'disconnect') setTimeout(() => emit({ type: 'disconnected', device: 1 }), 120);
     else if (mode !== 'quiet') {
       setTimeout(() => emit({ type: 'button', device: mode === 'held' ? 1 : 2, button: 'south', down: true }), 80);
       setTimeout(() => emit({ type: 'button', device: 1, button: 'south', down: false }), 110);
