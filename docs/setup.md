@@ -74,3 +74,11 @@ After connecting over Bluetooth or choosing USB, the setup menus start the SDL i
 Input-check choices, installed-agent selection, key profiles, save confirmation and Player Hub are all controller-operable. Custom executable paths and arguments remain keyboard text fields; controller actions are ignored there. This is menu navigation, not agent-session key injection.
 
 Hold events do not repeat selections. Confirmations are not queued across menus. Input is restricted to the claimed compatible controller; missing identity metadata is resolved by the physical claim press instead of guessing a device. A disconnect leaves keyboard input available; reconnect and press X again to reclaim control. Helper failures provide keyboard recovery. The input check and menus share one helper, which is stopped before entering Controller Lab or exiting.
+
+## Keep connected controllers visible (dev.5)
+
+`Scan nearby` now combines fresh inquiry results with a refreshed list of known paired/connected devices. A controller that is already connected does not have to appear in a new inquiry to remain selectable. Entries are deduplicated by Bluetooth address, connected entries are prioritized, and labels distinguish `known`, `nearby` and `known + nearby`. The nearby count includes only inquiry results.
+
+An empty or failed scan leaves known controllers in the same picker. Select a connected controller and choose `Use this connected controller` to continue without restarting configuration or repeating pairing/connection. SDL input verification remains separate.
+
+If the known-device status refresh also fails, previously known entries remain labeled `status unknown / cached`. Selecting one checks its connection instead of assuming the old connected state is still true. Previous inquiry-only entries are not retained across later scans. Cancelling still stops the operation.

@@ -4,6 +4,7 @@ import { identityMatch, type ProbePort } from './probe.js';
 import { TerminalPrompt, type PromptPort } from './prompt.js';
 import { session } from './session.js';
 import { GamepadMenus } from './menu-controller.js';
+import { mergeDeviceChoices, scanDeviceChoices } from './bluetooth-picker.js';
 
 export interface SetupServices {
   activateMenus?: (controller: Config['controller']) => Promise<void>;
@@ -31,26 +32,29 @@ async function linkController(io: PromptPort, services: SetupServices, signal: A
     }
     try {
       io.say('Checking Bluetooth. macOS may ask for Bluetooth permission for padcode-bluetooth.');
-      let devices = await services.bluetooth.list(false, signal);
+      let devices = mergeDeviceChoices(await services.bluetooth.list(false, signal), []);
       for (;;) {
         const selected = await io.choose('Select a device, or discover a new controller', [
           { label: 'Scan nearby / hold SHARE + PS until the light flashes', value: 'scan' },
-          ...devices.map((device, i) => ({ label: `${cleanName(device.name)} / ${device.address} / ${device.connected ? 'connected' : device.paired ? 'paired' : 'new'}`, value: String(i) })),
+          ...devices.map((device, i) => ({ label: `${cleanName(device.name)} / ${device.address} / ${device.cached ? 'status unknown / cached' : device.connected ? 'connected' : device.paired ? 'paired' : 'new'} / ${device.source}`, value: String(i) })),
           { label: 'Use USB instead', value: 'usb' },
           { label: 'Configure Bluetooth later', value: 'later' },
         ]);
         if (selected === 'scan') {
           io.say('SCANNING... keep SHARE + PS pairing mode active (20-second scan; up to 35 seconds including macOS initialization).');
-          devices = await services.bluetooth.list(true, signal);
-          if (services.bluetooth.scanWarning) io.say(services.bluetooth.scanWarning);
-          else io.say(devices.length ? `Discovery complete: ${devices.length} nearby device(s). Select your controller.` : 'No nearby devices found. Keep SHARE + PS pairing active, wait 15 seconds, then scan again.');
+          const result = await scanDeviceChoices(services.bluetooth, devices, signal, () => io.say('Refreshing paired/connected devices...'));
+          devices = result.devices;
+          for (const warning of result.warnings) io.say(warning);
+          if (result.discovered !== undefined) io.say(result.discovered
+            ? `Nearby results: ${result.discovered} device(s). Known devices are also listed below.`
+            : 'No nearby devices found. Known devices are still listed below; select a connected controller directly.');
           continue;
         }
         if (selected === 'usb' || selected === 'later') { mode = selected; break; }
-        let device = devices[Number(selected)];
+        let device: import('./bluetooth.js').BluetoothDevice | undefined = devices[Number(selected)];
         if (!device) throw new Error('Selected Bluetooth device is no longer available.');
         if (await io.choose(`Connect ${cleanName(device.name)} (${device.address})?`, [
-          { label: 'Pair/connect this device', value: 'connect' }, { label: 'Back to device list', value: 'back' },
+          { label: device.connected ? 'Use this connected controller' : 'Pair/connect this device', value: 'connect' }, { label: 'Back to device list', value: 'back' },
         ]) === 'back') continue;
         if (!device.paired) { io.say('PAIRING...'); device = await services.bluetooth.pair(device.address, signal); }
         if (!device.connected) { io.say('CONNECTING...'); device = await services.bluetooth.connect(device.address, signal); }

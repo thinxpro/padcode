@@ -45,3 +45,7 @@ This task stacks on PR #5 (`fix/bluetooth-discovery-timeout`). Keep repository a
 5. Hold X: it must not confirm the next menu. Hold D-pad: it must not continuously scroll. Test circle cancellation at save and verify the prior configuration is retained.
 6. Disconnect/reconnect during a menu and during input verification. Keyboard must remain usable, and a fresh X press must restore controller menu control.
 7. Test Ctrl+C and check the terminal remains usable. Record terminal/version and any incorrect selections; no credentials are needed.
+
+## User acceptance update (2026-09-19)
+
+The user reported that the requested dev.4 menu test passed: controller-operated input check, installed-agent selection, save and Player Hub exit. Record that reported flow as passed. Separate hold/reconnect/stability scenarios were not individually reported and are not inferred. The user then identified a connected-device picker issue, addressed as a separate [known-controller retention task](retain-connected-controller.md).
