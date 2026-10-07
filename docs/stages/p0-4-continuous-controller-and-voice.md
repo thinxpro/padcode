@@ -1,6 +1,6 @@
 # P0-4: Continuous controller sessions and voice drafts
 
-Status: C1 continuous handoff is implemented in dev.8 with physical acceptance pending. C2-C6 remain design only.
+Status: C1 continuous handoff is implemented in dev.8 with physical acceptance pending. C2 isolated terminal controls are implemented in dev.9 under their [stage plan](c2-isolated-terminal-controls.md) with automated acceptance passing and manual/physical acceptance pending. C3-C6 remain design only.
 
 ## Problem and verified baseline
 
@@ -91,7 +91,7 @@ Use controlled children for deterministic byte, rendering and process assertions
 
 Each stage evidence record includes commit/package checksum, OS/CPU, Node, terminal, Agent, multiplexer and backend versions, controller transport, reproduction steps, expected/actual results and unresolved limits. Never include credentials or real session transcripts. User-reported passes apply only to the exact steps they tested.
 
-Current acceptance ledger: C1 automated acceptance passes locally in dev.8; C1 physical acceptance and C2-C6 remain pending. The user's loss-of-control report remains open until the dev.8 physical procedure passes. Previous Bluetooth/menu successes do not close these criteria.
+Current acceptance ledger: C1 automated acceptance passes locally in dev.8 and C2 automated acceptance passes locally in dev.9; C1 and C2 physical/manual acceptance and C3-C6 remain pending. The user's loss-of-control report remains open until the dev.8 physical procedure passes. Previous Bluetooth/menu successes do not close these criteria.
 
 ## Documentation PR acceptance
 

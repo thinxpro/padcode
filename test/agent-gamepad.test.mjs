@@ -136,3 +136,27 @@ test('status output failure still restores input mode and stops the gamepad help
   await assert.rejects(runAgent({ command: python, args: [resolve('test/fixtures/pty-agent.py'), 'stall'] }, { input, output, gamepad: f.gamepad }), /fixture status failure/);
   assert.equal(input.isRaw, false); assert.equal(f.stopped(), 1);
 });
+const wait = () => new Promise(resolve => setTimeout(resolve, 275));
+test('C2-A4 history hold consumes controller input and re-arms only after a neutral barrier', async () => {
+  const f = fixture(undefined, { automaticHandoff: true });
+  await f.gamepad.start(signal); f.advance(); await wait();
+  assert.match(f.statuses.at(-1), /ACTIVE/);
+  f.press('south'); assert.deepEqual(f.bytes, ['\r']);
+  const cancelled = f.cancellations();
+  f.gamepad.hold(); assert.match(f.statuses.at(-1), /HISTORY/); assert.equal(f.cancellations(), cancelled + 1);
+  f.press('south'); f.press('start'); f.edge('dpad_up', true); assert.deepEqual(f.bytes, ['\r']);
+  f.gamepad.resume(); assert.match(f.statuses.at(-1), /ARMING/);
+  f.advance(); await wait(); assert.match(f.statuses.at(-1), /ARMING/);
+  f.edge('dpad_up', false); f.advance(); await wait();
+  assert.match(f.statuses.at(-1), /ACTIVE/); assert.deepEqual(f.bytes, ['\r']);
+  f.press('east'); assert.deepEqual(f.bytes, ['\r', '\x1b']);
+  // Paused mapping stays paused after history; disconnect during history keeps the reconnect rule.
+  f.press('start'); assert.match(f.statuses.at(-1), /PAUSED/);
+  f.gamepad.hold(); f.gamepad.resume(); assert.match(f.statuses.at(-1), /PAUSED/); f.press('south'); assert.equal(f.bytes.length, 2);
+  f.press('start'); f.gamepad.hold(); f.emit({ type: 'disconnected', device: 1 }); f.gamepad.resume();
+  assert.match(f.statuses.at(-1), /DISCONNECTED/);
+  f.emit({ type: 'connected', device: 1, name: 'Fixture PS4', connection: 'wireless', serial: 'aa:bb:cc:dd:ee:ff' }); f.advance();
+  f.press('south'); assert.equal(f.bytes.length, 2);
+  await f.gamepad.stop();
+});
+

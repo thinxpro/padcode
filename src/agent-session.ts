@@ -1,4 +1,4 @@
-import { AgentGamepad } from './agent-gamepad.js';
+import { AgentGamepad, type ControllerSource } from './agent-gamepad.js';
 import { fileURLToPath } from 'node:url';
 import { hostChannel } from './host-channel.js';
 import { createRequire } from 'node:module';
@@ -10,13 +10,15 @@ import type { PromptPort } from './prompt.js';
 import { TerminalPrompt } from './prompt.js';
 import { GamepadMenus, type MenuFeed } from './menu-controller.js';
 import { PtyWriter } from './pty-writer.js';
+import { chooseDisplay, type Display } from './tmux.js';
+import { PanelFallback, runPanelAgent } from './panel-session.js';
 
 type Agent = NonNullable<Config['agent']>;
 type Input = Readable & { isTTY?: boolean; isRaw?: boolean; setRawMode?: (raw: boolean) => unknown };
 type Output = Writable & { isTTY?: boolean; columns?: number; rows?: number };
 export const restoreTerminal = '\x1b[?1000l\x1b[?1002l\x1b[?1003l\x1b[?1006l\x1b[?2004l\x1b[?1l\x1b>\x1b[?1049l\x1b[0m\x1b[?25h';
 
-export async function confirmAgent(io: PromptPort, agent: Agent, cwd: string): Promise<boolean> {
+export async function confirmAgent(io: PromptPort, agent: Agent, cwd: string, display?: Display): Promise<boolean> {
   if (!await resolveExecutable(agent.command)) throw new Error('Configured Agent executable is unavailable. Run padcode config.');
   io.banner('MISSION START / AGENT SESSION');
   io.say(`EXEC ${agent.command}`); io.say(`ARGS ${JSON.stringify(agent.args)}`); io.say(`PROJECT ${cwd}`);
@@ -24,13 +26,17 @@ export async function confirmAgent(io: PromptPort, agent: Agent, cwd: string): P
   io.say('GAMEPAD / saved controller continues automatically after buttons are released.');
   io.say('Unidentified controllers and reconnects start PAUSED; press/release Options to enable.');
   io.say('D-pad arrows / X Enter / O Escape / L1 Tab / R1 Shift+Tab / Options pause.');
-  io.say('Mapping status appears in the terminal title where supported. Keyboard stays available.');
+  if (display?.kind === 'panel') io.say(`DISPLAY / Controls pane (${display.version}). Mouse wheel opens history; gamepad holds while it is open.`);
+  else {
+    if (display) io.say(`DISPLAY / Transparent. ${display.reason}`);
+    io.say('Mapping status appears in the terminal title where supported. Keyboard stays available.');
+  }
   return await io.choose('Launch this Agent in the current project?', [
     { label: 'Start agent session', value: 'start' }, { label: 'Cancel / return without launching', value: 'cancel' },
   ], 1) === 'start';
 }
 
-export async function runAgent(agent: Agent, options: { cwd?: string; input?: Input; output?: Output; stallTimeout?: number; controller?: Config['controller']; gamepad?: AgentGamepad } = {}): Promise<number> {
+export async function runAgent(agent: Agent, options: { cwd?: string; input?: Input; output?: Output; stallTimeout?: number; controller?: Config['controller']; gamepad?: ControllerSource; titleStatus?: boolean } = {}): Promise<number> {
   const input = options.input ?? process.stdin, output = options.output ?? process.stdout;
   if (!input.isTTY || !output.isTTY) throw new Error('Agent sessions require an interactive terminal.');
   if (!['darwin', 'linux'].includes(process.platform)) throw new Error('Agent sessions currently support macOS and Linux only.');
@@ -41,6 +47,7 @@ export async function runAgent(agent: Agent, options: { cwd?: string; input?: In
   const size = () => ({ cols: Math.max(1, output.columns || 80), rows: Math.max(1, output.rows || 24) });
   const channel = await hostChannel();
   const gamepad = options.gamepad ?? (options.controller ? new AgentGamepad(options.controller) : undefined);
+  const titleStatus = options.titleStatus ?? true;
   const mappingAbort = new AbortController();
   let mappingStarted = Promise.resolve(), unsubscribeMapping = () => {};
   try {
@@ -87,7 +94,7 @@ export async function runAgent(agent: Agent, options: { cwd?: string; input?: In
           if (restored) return; restored = true; clearTimeout(restoreDeadline);
           output.removeListener('error', failed); if (failure) reject(failure); else resolve(code);
         };
-        try { if (!output.destroyed && process.env.TERM !== 'dumb') output.write(restoreTerminal + (gamepad ? '\x1b[23;0t' : ''), done); else done(); }
+        try { if (!output.destroyed && process.env.TERM !== 'dumb') output.write(restoreTerminal + (gamepad && titleStatus ? '\x1b[23;0t' : ''), done); else done(); }
         catch (error) { failure ??= error as Error; done(); }
       };
       const stop = (exitCode: number, error?: Error) => {
@@ -127,13 +134,13 @@ export async function runAgent(agent: Agent, options: { cwd?: string; input?: In
       if (gamepad) {
         let activationShown = false;
         const showStatus = (status: string) => {
-          if (finished || stopping || agentExited || output.destroyed) return;
+          if (!titleStatus || finished || stopping || agentExited || output.destroyed) return;
           const visible = status.startsWith('ACTIVE') && !activationShown ? `\r\nPADCODE GAMEPAD ${status}\r\n` : '';
           if (visible) activationShown = true;
           const text = process.env.TERM === 'dumb' ? `\r\nPADCODE GAMEPAD ${status}\r\n` : `${visible}\x1b]0;PADCODE | GAMEPAD ${status}\x07`;
           try { output.write(text, error => { if (error) failed(error); }); } catch (error) { failed(error as Error); }
         };
-        try { if (process.env.TERM !== 'dumb') output.write('\x1b[22;0t', error => { if (error) failed(error); }); } catch (error) { failed(error as Error); }
+        try { if (titleStatus && process.env.TERM !== 'dumb') output.write('\x1b[22;0t', error => { if (error) failed(error); }); } catch (error) { failed(error as Error); }
         unsubscribeMapping = gamepad.subscribe(bytes => {
           if (!stopping && !ended && !agentExited && !finished) writer.push(bytes, true);
         }, showStatus, () => writer.discardController());
@@ -157,10 +164,11 @@ export async function runConfiguredAgent(): Promise<number> {
   const terminate = () => { exitCode = 143; controller.abort(); };
   const io = new TerminalPrompt(controller.signal, abort, menus);
   let launch = false, handedOff: MenuFeed | undefined;
+  const display = await chooseDisplay();
   process.on('SIGINT', abort); process.on('SIGTERM', terminate);
   try {
     if (config.controller.address || config.controller.transport === 'usb') await menus.activate(config.controller, controller.signal, true);
-    launch = await confirmAgent(io, config.agent, process.cwd());
+    launch = await confirmAgent(io, config.agent, process.cwd(), display);
     if (launch) handedOff = menus.handoff();
   } catch (error) {
     if (controller.signal.aborted) return exitCode;
@@ -168,15 +176,23 @@ export async function runConfiguredAgent(): Promise<number> {
     throw error;
   } finally { await menus.stop(); io.close(); process.removeListener('SIGINT', abort); process.removeListener('SIGTERM', terminate); }
   if (!launch) return 0;
-  return launchConfigured(config.agent, config.controller, handedOff);
+  return launchConfigured(config.agent, config.controller, handedOff, display);
 }
 // Player Hub and padcode run share one launch path so the menu feed always transfers into the session.
-export async function launchConfigured(agent: Agent, controller: Config['controller'], handedOff?: MenuFeed): Promise<number> {
+export async function launchConfigured(agent: Agent, controller: Config['controller'], handedOff: MenuFeed | undefined, display: Display): Promise<number> {
   const trace = process.env.PADCODE_INPUT_TRACE === '1'
     ? (event: string, generation: number, device?: number) => { process.stderr.write(`PADCODE INPUT event=${event} generation=${generation}${device === undefined ? '' : ` device=${device}`}\n`); }
     : undefined;
   const gamepad = handedOff ? new AgentGamepad(controller, {
     factory: () => handedOff, feedStarted: true, automaticHandoff: true, ...(trace ? { trace } : {}),
   }) : new AgentGamepad(controller, trace ? { trace } : {});
+  if (display.kind === 'panel') {
+    try { return await runPanelAgent(agent, { tmux: display.tmux, gamepad }); }
+    catch (error) {
+      if (!(error instanceof PanelFallback)) throw error;
+      process.stderr.write(`Padcode: controls pane unavailable (${safeText(error.message)}). Continuing in transparent mode.\n`);
+    }
+  }
   return runAgent(agent, { controller, gamepad });
 }
+const safeText = (text: string) => text.replace(/[^\x20-\x7e]/g, '?').slice(0, 200);
