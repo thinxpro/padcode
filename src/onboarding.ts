@@ -1,10 +1,10 @@
-import { confirmAgent, runAgent } from './agent-session.js';
+import { confirmAgent, launchConfigured } from './agent-session.js';
 import { configPath, discoverAgents, loadConfig, resolveExecutable, saveConfig, type Config } from './config.js';
 import { NativeBluetooth, type BluetoothPort } from './bluetooth.js';
 import { identityMatch, type ProbePort } from './probe.js';
 import { TerminalPrompt, type PromptPort } from './prompt.js';
 import { session } from './session.js';
-import { GamepadMenus } from './menu-controller.js';
+import { GamepadMenus, type MenuFeed } from './menu-controller.js';
 import { mergeDeviceChoices, scanDeviceChoices } from './bluetooth-picker.js';
 
 export interface SetupServices {
@@ -155,18 +155,18 @@ export async function setup(io: PromptPort, services: SetupServices, signal: Abo
   return config;
 }
 
-export async function onboarding(edit = false): Promise<number> {
+export async function onboarding(edit = false, menus = new GamepadMenus()): Promise<number> {
   if (!process.stdin.isTTY || !process.stdout.isTTY) { process.stderr.write('Setup requires an interactive terminal. Run padcode --help for commands.\n'); return 2; }
   const controller = new AbortController();
   let exitCode = 130;
   const cancel = () => controller.abort();
   const terminate = () => { exitCode = 143; controller.abort(); };
   process.on('SIGINT', cancel); process.on('SIGTERM', terminate);
-  const menus = new GamepadMenus();
   const io = new TerminalPrompt(controller.signal, cancel, menus);
   let action = 'quit';
   let selectedAgent: Config['agent'] = null;
   let selectedController: Config['controller'] | undefined;
+  let handedOff: MenuFeed | undefined;
   try {
     let config: Config | null;
     try { config = await loadConfig(); }
@@ -195,14 +195,14 @@ export async function onboarding(edit = false): Promise<number> {
       { label: 'Exit', value: 'quit' },
       ...(config.agent ? [{ label: 'Start agent session', value: 'run' }] : []),
     ]);
-    if (action === 'run' && config.agent && await confirmAgent(io, config.agent, process.cwd())) { selectedAgent = config.agent; selectedController = config.controller; }
+    if (action === 'run' && config.agent && await confirmAgent(io, config.agent, process.cwd())) { selectedAgent = config.agent; selectedController = config.controller; handedOff = menus.handoff(); }
   } catch (error) {
     if (controller.signal.aborted) { io.say('Setup cancelled. No pending configuration changes saved.'); return exitCode; }
     io.say(`SETUP STOPPED: ${(error as Error).message}`); return (error as Error).message === 'Setup cancelled.' ? 0 : 1;
   } finally {
     await menus.stop(); io.close(); process.removeListener('SIGINT', cancel); process.removeListener('SIGTERM', terminate);
   }
-  if (selectedAgent) return runAgent(selectedAgent, selectedController ? { controller: selectedController } : {});
+  if (selectedAgent && selectedController) return launchConfigured(selectedAgent, selectedController, handedOff);
   if (action === 'config') return onboarding(true);
   if (action === 'controllers' || action === 'demo') return session({ demo: action === 'demo', json: false });
   return 0;

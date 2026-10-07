@@ -8,7 +8,7 @@ import type { IPty } from 'node-pty';
 import { loadConfig, resolveExecutable, type Config } from './config.js';
 import type { PromptPort } from './prompt.js';
 import { TerminalPrompt } from './prompt.js';
-import { GamepadMenus } from './menu-controller.js';
+import { GamepadMenus, type MenuFeed } from './menu-controller.js';
 import { PtyWriter } from './pty-writer.js';
 
 type Agent = NonNullable<Config['agent']>;
@@ -21,7 +21,8 @@ export async function confirmAgent(io: PromptPort, agent: Agent, cwd: string): P
   io.banner('MISSION START / AGENT SESSION');
   io.say(`EXEC ${agent.command}`); io.say(`ARGS ${JSON.stringify(agent.args)}`); io.say(`PROJECT ${cwd}`);
   io.say('Keyboard controls the Agent. Ctrl+C goes to the Agent; Ctrl+] ends this session.');
-  io.say('GAMEPAD / starts PAUSED. Release buttons, then press/release Options to enable.');
+  io.say('GAMEPAD / saved controller continues automatically after buttons are released.');
+  io.say('Unidentified controllers and reconnects start PAUSED; press/release Options to enable.');
   io.say('D-pad arrows / X Enter / O Escape / L1 Tab / R1 Shift+Tab / Options pause.');
   io.say('Mapping status appears in the terminal title where supported. Keyboard stays available.');
   return await io.choose('Launch this Agent in the current project?', [
@@ -124,9 +125,12 @@ export async function runAgent(agent: Agent, options: { cwd?: string; input?: In
         cleanupGroup(); complete();
       });
       if (gamepad) {
+        let activationShown = false;
         const showStatus = (status: string) => {
           if (finished || stopping || agentExited || output.destroyed) return;
-          const text = process.env.TERM === 'dumb' ? `\r\nPADCODE GAMEPAD ${status}\r\n` : `\x1b]0;PADCODE | GAMEPAD ${status}\x07`;
+          const visible = status.startsWith('ACTIVE') && !activationShown ? `\r\nPADCODE GAMEPAD ${status}\r\n` : '';
+          if (visible) activationShown = true;
+          const text = process.env.TERM === 'dumb' ? `\r\nPADCODE GAMEPAD ${status}\r\n` : `${visible}\x1b]0;PADCODE | GAMEPAD ${status}\x07`;
           try { output.write(text, error => { if (error) failed(error); }); } catch (error) { failed(error as Error); }
         };
         try { if (process.env.TERM !== 'dumb') output.write('\x1b[22;0t', error => { if (error) failed(error); }); } catch (error) { failed(error as Error); }
@@ -152,15 +156,27 @@ export async function runConfiguredAgent(): Promise<number> {
   const abort = () => controller.abort();
   const terminate = () => { exitCode = 143; controller.abort(); };
   const io = new TerminalPrompt(controller.signal, abort, menus);
-  let launch = false;
+  let launch = false, handedOff: MenuFeed | undefined;
   process.on('SIGINT', abort); process.on('SIGTERM', terminate);
   try {
     if (config.controller.address || config.controller.transport === 'usb') await menus.activate(config.controller, controller.signal, true);
     launch = await confirmAgent(io, config.agent, process.cwd());
+    if (launch) handedOff = menus.handoff();
   } catch (error) {
     if (controller.signal.aborted) return exitCode;
     if ((error as Error).message === 'Setup cancelled.') return 0;
     throw error;
   } finally { await menus.stop(); io.close(); process.removeListener('SIGINT', abort); process.removeListener('SIGTERM', terminate); }
-  return launch ? runAgent(config.agent, { controller: config.controller }) : 0;
+  if (!launch) return 0;
+  return launchConfigured(config.agent, config.controller, handedOff);
+}
+// Player Hub and padcode run share one launch path so the menu feed always transfers into the session.
+export async function launchConfigured(agent: Agent, controller: Config['controller'], handedOff?: MenuFeed): Promise<number> {
+  const trace = process.env.PADCODE_INPUT_TRACE === '1'
+    ? (event: string, generation: number, device?: number) => { process.stderr.write(`PADCODE INPUT event=${event} generation=${generation}${device === undefined ? '' : ` device=${device}`}\n`); }
+    : undefined;
+  const gamepad = handedOff ? new AgentGamepad(controller, {
+    factory: () => handedOff, feedStarted: true, automaticHandoff: true, ...(trace ? { trace } : {}),
+  }) : new AgentGamepad(controller, trace ? { trace } : {});
+  return runAgent(agent, { controller, gamepad });
 }

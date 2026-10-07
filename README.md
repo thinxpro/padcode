@@ -23,7 +23,7 @@ Bluetooth discovery keeps known paired/connected controllers visible, even when 
 
 A uniquely identity-matched saved controller can operate menus directly: D-pad up/down, X to confirm and O to go back/cancel. During initial setup or when identity is ambiguous, D-pad navigates and claims control, or X claims without confirming. Keyboard input remains available, and custom command text still uses the keyboard.
 
-Interactive startup without arguments opens setup, or the Player Hub if configuration exists. Use `node dist/cli.js config` to reconfigure. Configuration lives at `$XDG_CONFIG_HOME/padcode/config.json` when that variable is an absolute path, otherwise `~/.config/padcode/config.json`. Saving configuration never launches an agent. Run `padcode run`, or choose Start agent session in Player Hub, to review the executable, literal arguments and current project directory before confirming launch. Your keyboard controls the Agent; Ctrl+C is forwarded and Ctrl+] terminates the session. Gamepad session mapping starts paused: release buttons, then press/release Options to enable. D-pad sends arrows, X Enter, O Escape, L1 Tab and R1 Shift+Tab. Options pauses/resumes mapping; reconnect always requires rearming. Status appears in the terminal title where supported. Padcode does not collect credentials or record session content.
+Interactive startup without arguments opens setup, or the Player Hub if configuration exists. Use `node dist/cli.js config` to reconfigure. Configuration lives at `$XDG_CONFIG_HOME/padcode/config.json` when that variable is an absolute path, otherwise `~/.config/padcode/config.json`. Saving configuration never launches an agent. Run `padcode run`, or choose Start agent session in Player Hub, to review the executable, literal arguments and current project directory before confirming launch. Your keyboard controls the Agent; Ctrl+C is forwarded and Ctrl+] terminates the session. A uniquely matched saved controller transfers from Player Hub and activates automatically after all buttons are released for 250 ms; the launch-confirmation X is consumed. Unidentified controllers start paused and require Options. D-pad sends arrows, X Enter, O Escape, L1 Tab and R1 Shift+Tab. Options pauses/resumes mapping; reconnect always requires rearming. Activation is printed once and later status appears in the terminal title where supported. Set `PADCODE_INPUT_TRACE=1` only for metadata-only routing diagnostics. Padcode does not collect credentials or record session content.
 
 See the [terminal setup guide](docs/setup.md) for the complete flow and macOS permission boundaries, and the [Bluetooth acceptance report](docs/stages/p0-config-validation.md) for physical test status.
 
@@ -34,7 +34,7 @@ After building and testing locally, create a package for the current platform. N
 ```sh
 mkdir -p artifacts
 npm pack --ignore-scripts --pack-destination artifacts
-npm install -g ./artifacts/padcode-0.1.0-dev.7.tgz
+npm install -g ./artifacts/padcode-0.1.0-dev.8.tgz
 padcode
 ```
 

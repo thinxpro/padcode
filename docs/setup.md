@@ -86,7 +86,7 @@ If the known-device status refresh also fails, previously known entries remain l
 
 ## Agent sessions (dev.6)
 
-Install the current-platform dev.7 package, change into a project, then run `padcode run`. An existing configured Agent is required; use `padcode config` to choose another. The confirmation defaults to Cancel. It supports the existing gamepad menu controls; once launched, use the keyboard or enable gamepad mapping with Options.
+Install the current-platform dev.8 package, change into a project, then run `padcode run`. An existing configured Agent is required; use `padcode config` to choose another. The confirmation defaults to Cancel. A uniquely matched saved controller transfers from the menu and activates after its buttons are released; unidentified controllers still use Options to enable mapping.
 
 - The Agent receives the current directory, inherited environment and literal configured arguments. No shell command string or Agent API proxy is used.
 - Ctrl+C goes to the Agent, preserving its interrupt/approval behavior. Ctrl+] is reserved for ending the session and cannot be sent as literal input.
@@ -98,7 +98,7 @@ Install the current-platform dev.7 package, change into a project, then run `pad
 Manual compatibility is pending. See the [stage checklist](stages/p0-2-pty-session.md); automation uses local fixtures, not real Agent accounts.
 
 
-## Gamepad Agent controls (dev.7)
+## Gamepad Agent controls (dev.8)
 
 A uniquely identity-matched configured controller works directly in Player Hub and launch confirmation; no extra X claiming press is required. Initial setup or missing identity metadata still uses explicit claiming; D-pad up/down can claim and navigate together. On startup/reconnection, allow 250 ms for initial device state to settle and release held buttons.
 
@@ -113,6 +113,6 @@ Agent mapping starts **PAUSED** to avoid carrying the launch confirmation into t
 | R1 | Shift+Tab |
 | Options | Pause/resume mapping; never sent to the Agent |
 
-Each fresh button press sends one action; holding does not repeat. Sticks, triggers and voice are not mapped. Keyboard input remains active while gamepad mapping is paused. After disconnect, release buttons, reconnect, then press/release Options; no buffered gamepad actions replay. Helper failure leaves keyboard operation available; restart the session to restore the input helper. Ctrl+] still terminates the session.
+Each fresh button press sends one action; holding does not repeat. The X used to confirm Agent launch and every event during the 250 ms neutral barrier are consumed. Sticks, triggers and voice are not mapped. Keyboard input remains active while gamepad mapping is paused. After disconnect, release buttons, reconnect, then press/release Options; no buffered gamepad actions replay. Helper failure leaves keyboard operation available; restart the session to restore the input helper. Ctrl+] still terminates the session. For routing diagnosis, `PADCODE_INPUT_TRACE=1 padcode run` emits state, generation and device-number metadata without key bytes, typed text, controller serials or Agent output.
 
 Complete the [physical checklist](stages/p0-3-gamepad-agent-input.md) before claiming PS4/Agent compatibility. This is separate from the still-pending two-terminal/two-Agent P0-2 matrix.
