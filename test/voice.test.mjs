@@ -4,7 +4,7 @@ import { mkdtemp, mkdir, writeFile, readdir, rm, stat, symlink, chmod } from 'no
 import { existsSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { once } from 'node:events';
 import { VoiceCapture, removeStaleVoice, voiceDirectory, startAt, stopBelow } from '../dist/voice-session.js';
 import { NativeAudio } from '../dist/audio.js';
@@ -129,6 +129,33 @@ test('C4 lost macOS grant: L2 asks for microphone access in the session instead 
   assert.equal(v.audio.requests, 2, 'asked again after an explicit denial');
   assert.equal(v.calls.filter(call => call.startsWith('capture')).length, v.calls.filter(call => call.startsWith('release')).length);
   v.capture.dispose();
+});
+
+test('Reconnected-device hang: MIC STARTING never stays on screen and a stuck helper is killed', async t => {
+  const dir = await temporary(t), calls = []; let handler, clock = 1000;
+  process.env.PADCODE_AUDIO_FIXTURE = JSON.stringify({ record: 'hang' });
+  t.after(() => { delete process.env.PADCODE_AUDIO_FIXTURE; });
+  const audio = new NativeAudio({ command: process.execPath, args: [resolve('test/fixtures/audio-helper.mjs')], supported: true });
+  const capture = new VoiceCapture(audio, dir, 'mic-1', {
+    routing: () => true, capture: (fn, status) => { handler = fn; calls.push(`capture:${status.split(' ')[0]}`); },
+    release: resume => { handler = undefined; calls.push(`release:${resume}`); }, status: text => calls.push(`status:${text.split(' ')[0]}`), notice: text => calls.push(`notice:${text}`),
+  }, () => clock, 60, null, 400);
+  capture.trigger(0.1); clock += 200; capture.trigger(0.9);
+  assert.deepEqual(calls, ['capture:MIC']);
+  await eventually(() => calls.some(call => call.startsWith('notice:MIC NOT RESPONDING')), 'stuck microphone left MIC STARTING on screen');
+  assert.equal(capture.state, 'idle'); assert.equal(calls.at(-2), 'release:true');
+  const end = Date.now() + 5000;
+  while (Date.now() < end && spawnSync('pgrep', ['-f', 'audio-helper.mjs record'], { encoding: 'utf8' }).stdout.trim()) await wait(50);
+  assert.equal(spawnSync('pgrep', ['-f', 'audio-helper.mjs record'], { encoding: 'utf8' }).stdout.trim(), '', 'stuck helper survived SIGTERM');
+  // The killed helper cannot delete its own file; the session removes it asynchronously.
+  const deadline = Date.now() + 3000;
+  while ((await readdir(dir)).some(name => name.endsWith('.wav')) && Date.now() < deadline) await wait(20);
+  assert.deepEqual((await readdir(dir)).filter(name => name.endsWith('.wav')), []);
+  // After reconnecting, the next press starts a fresh helper.
+  process.env.PADCODE_AUDIO_FIXTURE = JSON.stringify({});
+  clock += 200; capture.trigger(0.1); clock += 200; capture.trigger(0.9);
+  await eventually(() => calls.includes('status:REC'), 'a fresh recording did not start after the hang');
+  capture.dispose();
 });
 
 test('C4 playback captures the controller and O stops it', async t => {
@@ -262,6 +289,10 @@ test('C4-A5 native padcode-audio: synthetic WAV, file safety, stop, cancel, EOF,
   r = await run(['record', '--synthetic', '--max-seconds', '0.3', '--out', join(dir, 'cap.wav')]);
   assert.equal(r.lines.at(-1).event, 'stopped'); assert.ok(Math.abs(r.lines.at(-1).seconds - 0.3) < 1e-9);
   r = await run(['record', '--out']); assert.equal(r.lines.at(-1).code, 'usage');
+  // The native watchdog ends a recording that never receives real audio, without leaving a file.
+  const began = Date.now();
+  r = await run(['record', '--synthetic-silence', '--start-timeout', '0.5', '--out', join(dir, 'silent.wav')]);
+  assert.equal(r.lines.at(-1).code, 'no-signal'); assert.ok(Date.now() - began < 3000); assert.ok(!existsSync(join(dir, 'silent.wav')));
   r = await run(['diagnose']); assert.equal(r.lines[0].selfResponsible, true); assert.equal(r.lines[0].usageDescription, true);
   r = await run(['list']); assert.equal(r.lines[0].ok, true); assert.ok(Array.isArray(r.lines[0].devices));
   for (const device of r.lines[0].devices) { assert.equal(typeof device.id, 'string'); assert.equal(typeof device.name, 'string'); assert.equal(typeof device.default, 'boolean'); assert.ok(['bluetooth', 'usb', 'built-in', 'other', 'unknown'].includes(device.transport)); }

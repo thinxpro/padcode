@@ -109,7 +109,12 @@ export class NativeAudio implements AudioPort {
       onStarted: listener => { events.on('started', listener); },
       onLive: listener => { events.on('live', listener); },
       stop: () => send('stop'),
-      cancel: () => { send('cancel'); setTimeout(() => { if (child.exitCode === null) child.kill('SIGTERM'); }, 1000).unref(); },
+      // A helper stuck inside the audio system may ignore stdin and SIGTERM; SIGKILL always ends it.
+      cancel: () => {
+        send('cancel');
+        setTimeout(() => { if (child.exitCode === null && child.signalCode === null) child.kill('SIGTERM'); }, 1000).unref();
+        setTimeout(() => { if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL'); }, 3000).unref();
+      },
       done,
     };
   }

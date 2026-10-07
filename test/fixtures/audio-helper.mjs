@@ -23,6 +23,8 @@ const mode = settings.record ?? 'ok';
 if (mode === 'denied') { out({ ok: false, event: 'error', code: 'permission-denied', message: 'Microphone access is denied.' }); process.exit(1); }
 const fd = openSync(path, 'wx', 0o600);
 out({ event: 'started' });
+// 'hang' imitates a device stuck while opening: never live, deaf to stdin and SIGTERM.
+if (mode === 'hang') { process.on('SIGTERM', () => {}); process.stdin.resume(); setInterval(() => {}, 1000); await new Promise(() => {}); }
 // Optional warm-up imitates a Bluetooth headset switching profiles before real audio arrives.
 let started;
 setTimeout(() => { started = Date.now(); out({ event: 'live' }); }, settings.warmup ?? 0);
