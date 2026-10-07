@@ -10,6 +10,8 @@ import { resolveExecutable } from './config.js';
 import { restoreTerminal } from './agent-session.js';
 import { SessionServer } from './session-ipc.js';
 import { SessionControls, type HistoryCommand, type MenuView } from './session-controls.js';
+import { removeStaleVoice, voiceDirectory, VoiceCapture } from './voice-session.js';
+import type { AudioPort } from './audio.js';
 import { clientEnv, ControlClient, PrivateTmux } from './tmux.js';
 
 type Agent = NonNullable<Config['agent']>;
@@ -18,6 +20,7 @@ export interface PanelReady { socket: string; directory: string; agentPane: stri
 export interface PanelOptions {
   tmux: string; cwd?: string; gamepad?: AgentGamepad; output?: Output; env?: NodeJS.ProcessEnv;
   onReady?: (ready: PanelReady) => void; startTimeout?: number;
+  voice?: Config['voice']; audio?: AudioPort;
 }
 export class PanelFallback extends Error {}
 const session = 'padcode';
@@ -55,8 +58,10 @@ export async function runPanelAgent(agent: Agent, options: PanelOptions): Promis
   let launched = false, serverStarted = false, finished = false;
   const signals: [NodeJS.Signals, number][] = [['SIGINT', 130], ['SIGTERM', 143], ['SIGHUP', 129]];
   const handlers = new Map<NodeJS.Signals, () => void>();
-  let gamepadStarted: Promise<void> | undefined;
+  let gamepadStarted: Promise<void> | undefined, voiceDir: string | undefined, voice: VoiceCapture | undefined;
   const teardown = async () => {
+    voice?.dispose();
+    if (voiceDir) await rm(voiceDir, { recursive: true, force: true });
     for (const [signal, handler] of handlers) process.removeListener(signal, handler);
     // An unstarted source is left for the transparent fallback; a started one is released here.
     if (gamepadStarted) { await gamepadStarted; await gamepad?.stop(); }
@@ -140,7 +145,21 @@ export async function runPanelAgent(agent: Agent, options: PanelOptions): Promis
       'page-up': ['send-keys', '-X', '-t', agentPane!, 'page-up'], 'page-down': ['send-keys', '-X', '-t', agentPane!, 'page-down'], exit: ['send-keys', '-X', '-t', agentPane!, 'cancel'],
     };
     let history = Promise.resolve();
+    if (options.voice && options.audio?.supported && gamepad) {
+      await removeStaleVoice().catch(() => 0);
+      voiceDir = await voiceDirectory();
+      voice = new VoiceCapture(options.audio, voiceDir, options.voice.microphone.id, {
+        routing: () => gamepad.routing && controls.context === 'agent',
+        capture: (handler, status) => gamepad.capture(handler, status),
+        release: resume => gamepad.releaseCapture(resume),
+        status: text => { latest = text; ipc.send('panel', { t: 'status', text }); },
+        notice: text => ipc.send('panel', { t: 'notice', text }),
+      });
+      gamepad.onTrigger(value => voice?.trigger(value));
+    }
     const controls = new SessionControls({
+      hasRecording: () => Boolean(voice?.last),
+      play: () => voice?.play(),
       capture: (handler, status) => gamepad?.capture(handler, status),
       release: resume => gamepad?.releaseCapture(resume),
       // Esc stops the running task in Claude Code; Ctrl+C there clears input and a second one exits.
@@ -150,13 +169,13 @@ export async function runPanelAgent(agent: Agent, options: PanelOptions): Promis
       end: () => terminate(130),
     });
     ipc.on('action', action => { if (action.name === 'pick') controls.key('confirm', action.index); else controls.key(action.name); });
-    gamepad?.onControl(event => { if (event === 'menu') controls.openMenu(); else controls.lost(); });
+    gamepad?.onControl(event => { if (event === 'menu') controls.openMenu(); else { voice?.cancel(); controls.lost(); } });
     let modes = Promise.resolve();
     live.onMode(pane => {
       if (pane !== agentPane) return;
       modes = modes.then(async () => {
         const [state] = await live.command(`display -p -t ${agentPane} '#{pane_in_mode}'`);
-        if (state === '1') controls.historyEntered(); else controls.historyLeft();
+        if (state === '1') { voice?.cancel(); controls.historyEntered(); } else controls.historyLeft();
       }).catch(() => {});
     });
     options.onReady?.({ socket: tmux.socket, directory, agentPane: agentPane!, panelPane });
@@ -181,7 +200,7 @@ export async function runPanelAgent(agent: Agent, options: PanelOptions): Promis
     client.on('error', () => terminate(1));
     client.on('close', () => { if (!finished) terminate(signalled ?? 129); });
     const code = await result;
-    controls.lost(); finished = true; abort.abort(); unsubscribe(); gamepad?.suspend();
+    voice?.dispose(); controls.lost(); finished = true; abort.abort(); unsubscribe(); gamepad?.suspend();
     if (popup) { ipc.send('menu', { t: 'close' }); popup.kill('SIGTERM'); }
     const screen = await tmux.run(['capture-pane', '-p', '-e', '-J', '-t', agentPane!]).catch(() => '');
     ipc.send('agent', { t: 'close' });

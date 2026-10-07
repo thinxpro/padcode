@@ -1,6 +1,6 @@
 {
   "name": "padcode",
-  "version": "0.1.0-dev.13",
+  "version": "0.1.0-dev.17",
   "private": true,
   "license": "MIT",
   "description": "Gamepad controls for your own coding agent \u2014 terminal development build",
@@ -12,6 +12,7 @@
     "dist/",
     "build/native/padcode-controller",
     "build/native/padcode-bluetooth",
+    "build/native/padcode-audio",
     "build/native/platform.json",
     "LICENSE",
     "THIRD_PARTY_NOTICES.md",

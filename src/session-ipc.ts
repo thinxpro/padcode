@@ -7,7 +7,7 @@ export type Role = 'agent' | 'panel' | 'menu';
 export interface Launch { command: string; args: string[]; cwd: string; env: Record<string, string | null> }
 export type ToAgent = { t: 'launch'; launch: Launch } | { t: 'keys'; data: string } | { t: 'cancel' } | { t: 'close' };
 export type FromAgent = { t: 'exit'; code: number };
-export type ToPanel = { t: 'status'; text: string };
+export type ToPanel = { t: 'status'; text: string } | { t: 'notice'; text: string };
 export type ToMenu = { t: 'menu'; title: string; items: string[]; selected: number; hint: string } | { t: 'close' };
 export type FromMenu = { t: 'action'; name: 'up' | 'down' | 'confirm' | 'back' } | { t: 'action'; name: 'pick'; index: number };
 export const maxLine = 4096;
@@ -60,7 +60,7 @@ export function parseToAgent(line: string): ToAgent {
 }
 export function parseToPanel(line: string): ToPanel {
   const value = decode(line);
-  if (value.t === 'status' && exact(value, ['t', 'text']) && text(value.text, 256)) return { t: 'status', text: value.text };
+  if ((value.t === 'status' || value.t === 'notice') && exact(value, ['t', 'text']) && text(value.text, 256)) return { t: value.t, text: value.text };
   throw new Error('Invalid coordinator message for the status pane.');
 }
 

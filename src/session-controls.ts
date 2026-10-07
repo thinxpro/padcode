@@ -12,8 +12,12 @@ export interface ControlEffects {
   showMenu(view: MenuView | null): void;
   history(command: HistoryCommand): void;
   end(): void;
+  hasRecording?(): boolean;
+  play?(): void;
 }
 export const menuItems = ['Resume Agent controls', 'Pause gamepad mapping', 'Browse history', 'Send interrupt (Esc)', 'End session...'];
+const menuIds = ['resume', 'pause', 'history', 'interrupt', 'end'] as const;
+type MenuId = typeof menuIds[number] | 'play';
 export const confirmItems = ['Keep the session running', 'End the Agent session'];
 const statuses = {
   menu: 'MENU / D-pad select, X confirm, O back',
@@ -26,10 +30,17 @@ export class SessionControls {
   context: Context = 'agent';
   private selected = 0;
   constructor(private fx: ControlEffects) {}
+  // Play last recording appears before End session only while a recording exists.
+  private entries(): { id: MenuId; label: string }[] {
+    const entries: { id: MenuId; label: string }[] = menuIds.map((id, index) => ({ id, label: menuItems[index]! }));
+    if (this.fx.hasRecording?.()) entries.splice(4, 0, { id: 'play', label: 'Play last recording' });
+    return entries;
+  }
+  private endIndex(): number { return this.entries().findIndex(entry => entry.id === 'end'); }
   private view(): MenuView {
     return this.context === 'confirm'
       ? { title: 'END SESSION?', items: confirmItems, selected: this.selected, hint: 'X / Enter confirm   O / Esc back' }
-      : { title: 'PADCODE CONTROLS', items: menuItems, selected: this.selected, hint: 'X / Enter confirm   O / Esc close' };
+      : { title: 'PADCODE CONTROLS', items: this.entries().map(entry => entry.label), selected: this.selected, hint: 'X / Enter confirm   O / Esc close' };
   }
   private enter(context: 'menu' | 'confirm' | 'history', selected = 0): void {
     this.context = context; this.selected = selected;
@@ -57,22 +68,24 @@ export class SessionControls {
   }
   key(key: MenuKey, index?: number): void {
     if (this.context !== 'menu' && this.context !== 'confirm') return;
-    const items = this.context === 'menu' ? menuItems : confirmItems;
+    const items = this.context === 'menu' ? this.entries() : confirmItems;
     if (index !== undefined) { if (index < 0 || index >= items.length) return; this.selected = index; key = 'confirm'; }
     if (key === 'up' || key === 'down') {
       this.selected = (this.selected + (key === 'up' ? -1 : 1) + items.length) % items.length;
       this.fx.showMenu(this.view()); return;
     }
-    if (key === 'back') { if (this.context === 'confirm') this.enter('menu', 4); else this.close(); return; }
+    if (key === 'back') { if (this.context === 'confirm') this.enter('menu', this.endIndex()); else this.close(); return; }
     if (this.context === 'confirm') {
       if (this.selected === 1) { this.fx.showMenu(null); this.context = 'agent'; this.fx.end(); }
-      else this.enter('menu', 4);
+      else this.enter('menu', this.endIndex());
       return;
     }
-    if (this.selected === 0) this.close();
-    else if (this.selected === 1) this.close(false);
-    else if (this.selected === 2) { this.enter('history'); this.fx.history('enter'); }
-    else if (this.selected === 3) { this.fx.interrupt(); this.close(); }
+    const id = this.entries()[this.selected]!.id;
+    if (id === 'resume') this.close();
+    else if (id === 'pause') this.close(false);
+    else if (id === 'history') { this.enter('history'); this.fx.history('enter'); }
+    else if (id === 'interrupt') { this.fx.interrupt(); this.close(); }
+    else if (id === 'play') { this.close(); this.fx.play?.(); }
     else this.enter('confirm');
   }
   // tmux reports history mode changes for mouse-wheel entry and for exits such as scrolling past the bottom.

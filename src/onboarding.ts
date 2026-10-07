@@ -7,6 +7,10 @@ import { TerminalPrompt, type PromptPort } from './prompt.js';
 import { session } from './session.js';
 import { GamepadMenus, type MenuFeed } from './menu-controller.js';
 import { mergeDeviceChoices, scanDeviceChoices } from './bluetooth-picker.js';
+import { NativeAudio, type AudioPort } from './audio.js';
+import { rm } from 'node:fs/promises';
+import { voiceDirectory } from './voice-session.js';
+import { join } from 'node:path';
 
 export interface SetupServices {
   activateMenus?: (controller: Config['controller']) => Promise<void>;
@@ -15,6 +19,7 @@ export interface SetupServices {
   agents: typeof discoverAgents;
   resolve: typeof resolveExecutable;
   save: (config: Config) => Promise<void>;
+  audio?: AudioPort;
 }
 const cleanName = (text: string) => text.replace(/[\x00-\x1f\x7f]/g, '').slice(0, 512);
 
@@ -134,6 +139,58 @@ async function chooseAgent(io: PromptPort, services: SetupServices, initial?: Co
   }
 }
 
+const permissionHelp = 'Microphone access is denied. Allow Padcode Audio in macOS System Settings > Privacy & Security > Microphone, then choose Retry.';
+// Voice stays off unless the user picks a microphone after reading what capture does.
+async function chooseVoice(io: PromptPort, audio: AudioPort | undefined, signal: AbortSignal, initial?: Config, title = 'MISSION 05 / VOICE (optional)'): Promise<Config['voice']> {
+  if (!audio) return initial?.voice ?? null;
+  io.banner(title);
+  if (!audio.supported) { io.say('Voice capture currently requires macOS. Voice stays off.'); return null; }
+  const current = initial?.voice;
+  const first = await io.choose('Voice input (hold L2 to record in an Agent session)', [
+    ...(current ? [{ label: `Keep microphone ${cleanName(current.microphone.name)}`, value: 'keep' }] : []),
+    { label: current ? 'Turn voice off' : 'Keep voice off', value: 'off' },
+    { label: 'Choose a microphone', value: 'choose' },
+  ]);
+  if (first === 'keep') return current!;
+  if (first === 'off') return null;
+  io.say('CAPTURE  macOS AVAudioEngine through padcode-audio, only while you hold L2.');
+  io.say('PRIVACY  Audio stays on this Mac in a private temporary folder and is deleted when the session ends.');
+  io.say('TEXT     Transcription is not available yet; recordings can only be played back.');
+  for (;;) {
+    signal.throwIfAborted();
+    try {
+      let status = await audio.permission();
+      if (status === 'not-determined') { io.say('macOS will now ask whether Padcode Audio may use the microphone.'); status = await audio.request(); }
+      if (status !== 'authorized') throw new Error(status === 'restricted' ? 'Microphone access is restricted on this Mac.' : permissionHelp);
+      const devices = await audio.list();
+      if (!devices.length) throw new Error('No microphone is connected. Connect one, then choose Retry.');
+      if (devices.some(device => device.transport === 'bluetooth')) io.say('NOTE     Bluetooth headset microphones take about a second to start and switch the headset to lower call quality; a wired, USB or built-in microphone works best.');
+      const picked = await io.choose('Choose a microphone', devices.map((device, index) => ({ label: `${cleanName(device.name)}${device.transport === 'bluetooth' ? ' / Bluetooth' : device.transport === 'usb' ? ' / USB' : device.transport === 'built-in' ? ' / built-in' : ''}${device.default ? ' / system default' : ''}`, value: String(index) })),
+        Math.max(0, devices.findIndex(device => current ? device.id === current.microphone.id : device.default)));
+      const device = devices[Number(picked)];
+      if (!device) throw new Error('Selected microphone is no longer available.');
+      if (await io.choose('Microphone check', [{ label: 'Record 3 seconds and play it back', value: 'test' }, { label: 'Skip the check', value: 'skip' }]) === 'test') {
+        const directory = await voiceDirectory();
+        try {
+          io.say('MIC STARTING...');
+          const recording = audio.record({ path: join(directory, 'check.wav'), device: device.id, maxSeconds: 3 });
+          recording.onLive(() => io.say('RECORDING 3 SECONDS... speak now.'));
+          const result = await recording.done;
+          if (result.kind !== 'stopped') throw new Error(result.kind === 'error' ? result.message : 'The check recording was cancelled.');
+          io.say(`PLAYING BACK ${result.seconds.toFixed(1)}s...`);
+          await audio.play(join(directory, 'check.wav')).done;
+        } finally { await rm(directory, { recursive: true, force: true }); }
+      }
+      return { microphone: { id: device.id, name: cleanName(device.name) } };
+    } catch (error) {
+      signal.throwIfAborted();
+      if ((error as Error).message === 'Setup cancelled.') throw error;
+      io.say(`VOICE NOT READY: ${(error as Error).message}`);
+      if (await io.choose('Recovery', [{ label: 'Retry', value: 'retry' }, { label: 'Keep voice off', value: 'off' }]) === 'off') return null;
+    }
+  }
+}
+
 export async function setup(io: PromptPort, services: SetupServices, signal: AbortSignal, initial?: Config): Promise<Config | null> {
   const linked = await linkController(io, services, signal, initial);
   if (linked.address || linked.transport === 'usb') await services.activateMenus?.(linked);
@@ -141,13 +198,15 @@ export async function setup(io: PromptPort, services: SetupServices, signal: Abo
   const agent = await chooseAgent(io, services, initial);
   io.banner('MISSION 04 / LOADOUT');
   await io.choose('Key profile', [{ label: 'Terminal basic / D-pad arrows, X Enter, O Escape, L1 Tab / R1 Shift+Tab', value: 'terminal-basic' }]);
-  const config: Config = { version: 1, controller, agent, profile: 'terminal-basic' };
-  io.banner('MISSION 05 / SAVE POINT');
+  const voice = await chooseVoice(io, services.audio, signal, initial);
+  const config: Config = { version: 2, controller, agent, profile: 'terminal-basic', voice };
+  io.banner(services.audio ? 'MISSION 06 / SAVE POINT' : 'MISSION 05 / SAVE POINT');
   io.say(`LINK    ${controller.transport.toUpperCase()} / ${controller.name ?? 'not selected'}`);
   io.say(`INPUT   ${controller.inputVerified ? 'verified during this setup' : 'UNVERIFIED'}`);
   io.say(`AGENT   ${agent?.command ?? 'not selected'}`);
   if (agent?.args.length) io.say(`ARGS    ${JSON.stringify(agent.args)}`);
   io.say('PROFILE terminal-basic');
+  io.say(`VOICE   ${voice ? cleanName(voice.microphone.name) : 'off'}`);
   io.say('Saving does not launch your Agent. Start a session explicitly from Player Hub.');
   if (await io.choose('Save this configuration?', [{ label: 'Save locally', value: 'save' }, { label: 'Cancel / keep previous configuration', value: 'cancel' }]) === 'cancel') return null;
   signal.throwIfAborted();
@@ -157,14 +216,14 @@ export async function setup(io: PromptPort, services: SetupServices, signal: Abo
 }
 
 type HubStep = { exit: number } | { action: 'hub' | 'config' | 'controllers'; notice?: string }
-  | { action: 'run'; agent: NonNullable<Config['agent']>; controller: Config['controller']; handedOff: MenuFeed | undefined; display: Display };
+  | { action: 'run'; agent: NonNullable<Config['agent']>; controller: Config['controller']; handedOff: MenuFeed | undefined; display: Display; voice: Config['voice'] };
 
 // Every Hub screen returns here; only Exit, q or a signal leaves Padcode.
-export async function onboarding(edit = false, menus = new GamepadMenus(), lab: { helper?: string; helperArgs?: string[] } = {}): Promise<number> {
+export async function onboarding(edit = false, menus = new GamepadMenus(), lab: { helper?: string; helperArgs?: string[] } = {}, audio: AudioPort = new NativeAudio()): Promise<number> {
   if (!process.stdin.isTTY || !process.stdout.isTTY) { process.stderr.write('Setup requires an interactive terminal. Run padcode --help for commands.\n'); return 2; }
   let editing = edit, notice: string | undefined;
   for (;;) {
-    const step = await hubStep(editing, menus, notice);
+    const step = await hubStep(editing, menus, audio, notice);
     editing = false; notice = undefined;
     if ('exit' in step) return step.exit;
     if (step.action === 'hub') { notice = step.notice; continue; }
@@ -175,11 +234,11 @@ export async function onboarding(edit = false, menus = new GamepadMenus(), lab: 
       continue;
     }
     if (step.action !== 'run') continue;
-    try { notice = `SESSION OVER / Agent exited with status ${await launchConfigured(step.agent, step.controller, step.handedOff, step.display)}`; }
+    try { notice = `SESSION OVER / Agent exited with status ${await launchConfigured(step.agent, step.controller, step.handedOff, step.display, step.voice)}`; }
     catch (error) { notice = `SESSION FAILED / ${(error as Error).message}`; }
   }
 }
-async function hubStep(edit: boolean, menus: GamepadMenus, notice?: string): Promise<HubStep> {
+async function hubStep(edit: boolean, menus: GamepadMenus, audio: AudioPort, notice?: string): Promise<HubStep> {
   const controller = new AbortController();
   let exitCode = 130;
   const cancel = () => controller.abort();
@@ -199,7 +258,7 @@ async function hubStep(edit: boolean, menus: GamepadMenus, notice?: string): Pro
     if (config && (config.controller.address || config.controller.transport === 'usb')) await menus.activate(config.controller, controller.signal, true);
     if (!config || edit) {
       const updated = await setup(io, {
-        bluetooth: new NativeBluetooth(), probe: () => menus.probe(), activateMenus: target => menus.activate(target, controller.signal), agents: discoverAgents, resolve: resolveExecutable, save: saveConfig,
+        bluetooth: new NativeBluetooth(), audio, probe: () => menus.probe(), activateMenus: target => menus.activate(target, controller.signal), agents: discoverAgents, resolve: resolveExecutable, save: saveConfig,
       }, controller.signal, config ?? undefined);
       if (!updated) {
         io.say('No configuration changes saved.');
@@ -213,23 +272,36 @@ async function hubStep(edit: boolean, menus: GamepadMenus, notice?: string): Pro
     io.say(`LINK ${config.controller.transport.toUpperCase()} / ${config.controller.name ?? 'not selected'}`);
     io.say(`INPUT ${config.controller.inputVerified ? 'last setup check passed (not a live connection status)' : 'UNVERIFIED'}`);
     io.say(`AGENT ${config.agent?.command ?? 'not selected'}`);
-    io.say('AGENT CONTROLS / D-pad, X, O, L1, R1 / Options pauses mapping.');
+    io.say('AGENT CONTROLS / D-pad, X, O, L1, R1 / Options opens the controls menu (pause in transparent mode).');
+    io.say(`VOICE ${config.voice ? `${cleanName(config.voice.microphone.name)} / hold L2 to record` : 'off'}`);
     const action = await io.choose('Ready when you are', [
       { label: 'Controller lab / test live input (hold O to return)', value: 'controllers' },
       { label: 'Edit configuration', value: 'config' },
       { label: 'Preview arcade dashboard', value: 'demo' },
       { label: 'Exit', value: 'quit' },
       ...(config.agent ? [{ label: 'Start agent session', value: 'run' }] : []),
+      { label: 'Voice / microphone settings', value: 'voice' },
     ]);
     if (action === 'run' && config.agent) {
       const display = await chooseDisplay();
       if (!await confirmAgent(io, config.agent, process.cwd(), display)) return { action: 'hub', notice: 'LAUNCH CANCELLED / Back at Player Hub.' };
-      return { action: 'run', agent: config.agent, controller: config.controller, handedOff: menus.handoff(), display };
+      return { action: 'run', agent: config.agent, controller: config.controller, handedOff: menus.handoff(), display, voice: config.voice };
     }
     if (action === 'demo') {
       // The demo has no input helper, so the Hub's own feed provides O to return.
       const code = await session({ demo: true, json: false, back: menus });
       return code === 130 || code === 143 ? { exit: code } : { action: 'hub' };
+    }
+    if (action === 'voice') {
+      // Voice settings can change on their own; the rest of the configuration is kept as saved.
+      let voice: Config['voice'];
+      try { voice = await chooseVoice(io, audio, controller.signal, config, 'VOICE SETTINGS'); }
+      catch (error) {
+        if ((error as Error).message !== 'Setup cancelled.' || controller.signal.aborted) throw error;
+        return { action: 'hub', notice: 'VOICE UNCHANGED / Back at Player Hub.' };
+      }
+      await saveConfig({ ...config, voice });
+      return { action: 'hub', notice: voice ? `VOICE ON / ${cleanName(voice.microphone.name)}, hold L2 in a session` : 'VOICE OFF' };
     }
     if (action === 'controllers' || action === 'config') return { action };
     return { exit: 0 };

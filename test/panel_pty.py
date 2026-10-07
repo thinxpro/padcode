@@ -195,6 +195,56 @@ def fallback():
         assert Path(str(s.events) + '.starts').read_text() == 'start\n', 'fallback relaunched the input helper'
     finally: s.close()
 
+def voice():
+    """C4: push-to-talk on L2 with a fake microphone helper, playback, cancel, disconnect and cleanup."""
+    play_log = tempfile.mktemp(prefix='pc-play-')
+    s = Session('lines', extra={'PADCODE_VOICE': '1', 'PADCODE_PLAY_LOG': play_log, 'PADCODE_AUDIO_FIXTURE': json.dumps({'warmup': 400})})
+    try:
+        s.ready(); s.until(lambda: 'GAMEPAD ACTIVE' in s.panel())
+        s.until(lambda: 'HISTORY LINE 199' in s.agent())
+        def trigger(value): s.event(dict(type='axis', device=1, axis='left_trigger', value=value))
+        def active(): s.until(lambda: 'GAMEPAD ACTIVE' in s.panel())
+        owners = lambda: [d for d in os.listdir(tempfile.gettempdir()) if d.startswith('pcv-') and os.path.exists(os.path.join(tempfile.gettempdir(), d, 'owner')) and open(os.path.join(tempfile.gettempdir(), d, 'owner')).read() == str(s.proc.pid)]
+        s.until(lambda: len(owners()) == 1, message='session voice directory missing')
+        directory = os.path.join(tempfile.gettempdir(), owners()[0])
+        assert oct(os.stat(directory).st_mode & 0o777) == '0o700'
+        # Hold L2: recording captures the controller; nothing reaches the Agent.
+        # A Bluetooth-style warm-up shows MIC STARTING; releasing before audio arrives is too short.
+        trigger(32767); s.until(lambda: 'MIC STARTING' in s.panel(), message='warm-up status missing')
+        time.sleep(.2); trigger(0); s.until(lambda: 'RECORDING TOO SHORT' in s.panel(), message='short recording kept'); active()
+        time.sleep(.3)
+        trigger(32767); s.until(lambda: 'MIC STARTING' in s.panel()); s.until(lambda: 'REC 00:0' in s.panel(), message='recording did not start')
+        for button in ('south', 'dpad_up', 'left_shoulder', 'start'): s.press(button); s.quiet(.05)
+        s.quiet(.3); trigger(0)
+        s.until(lambda: 'RECORDED' in s.panel(), message='recording notice missing'); active()
+        assert s.received() == b'', 'recording input reached the Agent'
+        recordings = [f for f in os.listdir(directory) if f.endswith('.wav')]
+        assert len(recordings) == 1, recordings
+        # Options > Play last recording (inserted before End session).
+        mark = len(s.output); s.press('start')
+        s.until(lambda: b'Play last recording' in s.output[mark:], message='play item missing')
+        for _ in range(4): s.press('dpad_down'); s.quiet(.05)
+        s.press('south'); s.until(lambda: 'PLAYING' in s.panel()); active()
+        s.until(lambda: os.path.exists(play_log) and open(play_log).read().strip().endswith(recordings[0]))
+        # A new recording replaces the previous file; O cancels and keeps none.
+        trigger(32767); s.until(lambda: 'REC 00:0' in s.panel()); s.press('east')
+        s.until(lambda: 'RECORDING CANCELLED' in s.panel()); trigger(0); active()
+        assert [f for f in os.listdir(directory) if f.endswith('.wav')] == [], 'cancel kept a recording'
+        # Disconnect during recording cancels it.
+        time.sleep(.2); trigger(32767); s.until(lambda: 'REC 00:0' in s.panel())
+        s.event(dict(type='disconnected', device=1)); s.until(lambda: 'DISCONNECTED' in s.panel())
+        s.until(lambda: [f for f in os.listdir(directory) if f.endswith('.wav')] == [], message='disconnect kept a recording')
+        s.event(dict(type='connected', device=1, name='Fixture PS4', connection='wireless', serial='aa:bb:cc:dd:ee:ff')); time.sleep(.3)
+        s.press('start'); active()
+        # Agent exit during a recording removes the session voice directory.
+        time.sleep(.2); trigger(0); time.sleep(.2); trigger(32767); s.until(lambda: 'REC 00:0' in s.panel())
+        os.write(s.master, b'exit!'); finish(s, 23)
+        assert s.received() == b'exit!'
+        assert not os.path.exists(directory), 'voice directory survived the session'
+    finally:
+        s.close()
+        if os.path.exists(play_log): os.unlink(play_log)
+
 def controls():
     """C3: the Options menu, pause, interrupt, history, popup keyboard and confirmed end session."""
     s = Session('lines')
@@ -253,5 +303,5 @@ def controls():
         assert s.received() == expected
     finally: s.close()
 
-for scenario in (normal, controls, escape, terminate, crash, fallback): scenario()
-print('Panel PTY passed: controls menu, exact keys, CPR, isolation, resize, history hold, worker respawn, exits, crash cleanup and fallback.')
+for scenario in (normal, controls, voice, escape, terminate, crash, fallback): scenario()
+print('Panel PTY passed: controls menu, voice capture, exact keys, CPR, isolation, resize, history hold, worker respawn, exits, crash cleanup and fallback.')

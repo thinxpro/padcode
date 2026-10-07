@@ -45,6 +45,11 @@ class Terminal:
     def text(self, prompt, text):
         self.expect(prompt)
         os.write(self.master, (text + '\n').encode())
+    def voice(self):
+        # Voice is optional: macOS offers the step with voice off by default; other platforms say why it is unavailable.
+        self.expect('MISSION 05 / VOICE (optional)')
+        if sys.platform == 'darwin': self.answer('1')
+        else: self.expect('Voice capture currently requires macOS')
     def finish(self, status=0):
         # A real terminal keeps draining output during raw-mode restoration. Waiting
         # without reading can block tcsetattr(TCSADRAIN) on macOS PTYs.
@@ -83,6 +88,8 @@ with tempfile.TemporaryDirectory(prefix='padcode-onboarding-') as directory:
         terminal.text('Argument 2', ' two words ')
         terminal.text('Argument 3', '')
         terminal.answer('1')  # Key profile.
+        terminal.voice()
+        terminal.expect('VOICE   off')
         terminal.answer('1')  # Save.
         terminal.expect('SAVE COMPLETE')
         terminal.answer('4')  # Hub exit.
@@ -103,7 +110,7 @@ with tempfile.TemporaryDirectory(prefix='padcode-onboarding-') as directory:
     try:
         terminal.answer('3'); terminal.answer('2', default=2)
         terminal.answer('1')  # Keep the saved command and args.
-        terminal.answer('1'); terminal.answer('2')  # Cancel save.
+        terminal.answer('1'); terminal.voice(); terminal.answer('2')  # Cancel save.
         terminal.expect('No configuration changes saved.'); terminal.expect('PLAYER HUB')
         terminal.answer('4'); terminal.finish()
     finally: terminal.close()
