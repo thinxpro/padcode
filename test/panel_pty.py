@@ -74,6 +74,10 @@ class Session:
         os.close(self.master); os.close(self.slave)
         if hasattr(self, 'info'): subprocess.run([TMUX, '-S', self.info['socket'], 'kill-server'], capture_output=True)
 
+def no_popup(s):
+    # tmux sends keyboard input to an open popup; wait until the controls popup has closed before typing to the Agent.
+    s.until(lambda: subprocess.run(['pgrep', '-f', 'pane-menu.js'], capture_output=True).stdout == b'', message='controls popup did not close')
+
 def strip_reply(data):
     match = re.match(rb'\x1b\[\d+;\d+R', data)
     assert match, ('missing cursor-position reply', data)
@@ -145,7 +149,7 @@ def normal():
         s.until(lambda: s.panel_id() not in ('', old))
         s.until(lambda: 'GAMEPAD ACTIVE' in s.panel())
         s.press('dpad_left'); expected += b'\x1b[D'; s.until(lambda: s.received() == expected)
-        os.write(s.master, b'exit!'); finish(s, 23)
+        no_popup(s); os.write(s.master, b'exit!'); finish(s, 23)
         assert b'FINAL' in s.output.split(b'\x1b[?1049l')[-1], 'final Agent screen was not printed'
         ordered = sorted(latencies)
         print('fixture-path latency ms p50=%.1f p95=%.1f n=%d' % (statistics.median(ordered) * 1000, ordered[int(len(ordered) * .95) - 1] * 1000, len(ordered)))
@@ -197,7 +201,7 @@ def fallback():
         s.until(lambda: b'FALLBACK:PanelFallback' in s.output)
         s.until(lambda: b'ACTIVE' in s.output and b'INFO:' in s.output)
         s.press('dpad_up'); s.until(lambda: s.received() == b'\x1b[A')
-        os.write(s.master, b'exit!')
+        no_popup(s); os.write(s.master, b'exit!')
         s.until(lambda: s.proc.poll() is not None); assert s.proc.returncode == 23, s.output[-800:]
         assert s.termios() == s.before
         assert Path(str(s.events) + '.starts').read_text() == 'start\n', 'fallback relaunched the input helper'
@@ -246,7 +250,7 @@ def voice():
         s.press('start'); active()
         # Agent exit during a recording removes the session voice directory.
         time.sleep(.2); trigger(0); time.sleep(.2); trigger(32767); s.until(lambda: 'REC 00:0' in s.panel())
-        os.write(s.master, b'exit!'); finish(s, 23)
+        no_popup(s); os.write(s.master, b'exit!'); finish(s, 23)
         assert s.received() == b'exit!'
         assert not os.path.exists(directory), 'voice directory survived the session'
     finally:
@@ -277,7 +281,7 @@ def draft():
         assert b'Review voice draft' not in s.output[mark:], 'discarded draft still offered'
         s.press('east'); active()
         assert s.received() == b''
-        os.write(s.master, b'exit!'); finish(s, 23)
+        no_popup(s); os.write(s.master, b'exit!'); finish(s, 23)
     finally: s.close()
     s = Session('lines', extra={'PADCODE_VOICE': '1', 'PADCODE_TRANSCRIBER': 'sleep'})
     try:
@@ -288,7 +292,7 @@ def draft():
         s.press('east'); s.until(lambda: 'TRANSCRIPTION CANCELLED' in s.panel())
         s.until(lambda: subprocess.run(['pgrep', '-f', 'fake-transcriber.mjs sleep'], capture_output=True).stdout == b'', message='cancelled transcriber still running')
         assert s.received() == b''
-        os.write(s.master, b'exit!'); finish(s, 23)
+        no_popup(s); os.write(s.master, b'exit!'); finish(s, 23)
     finally: s.close()
 
 def controls():
