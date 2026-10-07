@@ -70,7 +70,7 @@ test('empty discovery can rescan; already-connected devices do not pair again', 
   });
   const config = await setup(h.io, h.services, signal);
   assert.equal(config.controller.address, pad.address); assert.equal(config.controller.inputVerified, false);
-  assert.match(h.output.join('\n'), /No devices found/);
+  assert.match(h.output.join('\n'), /No nearby devices found/);
 });
 test('Bluetooth selection can switch to USB or defer without a pairing attempt', async () => {
   for (const choice of ['usb', 'later']) {
@@ -89,4 +89,13 @@ test('cancel/save failure preserve configuration; abort never continues setup', 
   const cancelled = harness(['bluetooth', 'CANCEL']); await assert.rejects(setup(cancelled.io, cancelled.services, signal), /cancelled/); assert.equal(cancelled.saved.length, 0);
   const controller = new AbortController(); controller.abort();
   const aborted = harness(['bluetooth']); await assert.rejects(setup(aborted.io, aborted.services, controller.signal)); assert.equal(aborted.saved.length, 0);
+});
+test('partial discovery shows a warning and permits explicit selection without claiming completion', async () => {
+  const h = harness(['bluetooth', 'scan', '0', 'connect', 'skip', 'later', 'terminal-basic', 'save']);
+  h.services.bluetooth.scanWarning = 'SCAN INCOMPLETE: showing devices found so far.';
+  const config = await setup(h.io, h.services, signal);
+  assert.match(h.output.join('\n'), /SCAN INCOMPLETE/);
+  assert.ok(!h.output.some(line => line.startsWith('Discovery complete')));
+  assert.equal(config.controller.address, pad.address); assert.equal(config.controller.inputVerified, false);
+  assert.deepEqual(h.operations, ['list', 'scan', 'pair', 'connect']);
 });

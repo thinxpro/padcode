@@ -48,3 +48,11 @@ If discovery finds no device, re-enter Share + PS pairing mode and scan again. I
 `dev.1` may show `Helper stopped (SIGABRT)` under Warp: macOS attributes privacy access to a host terminal without a Bluetooth usage declaration. Before Bluetooth access, `dev.2` establishes the helper's own permission identity and checks its usage metadata. Normal user consent remains required; the tool does not modify Warp, the permission database or radio settings.
 
 This compatibility layer resolves private macOS responsibility APIs at runtime. Future OS versions may not support them. Missing APIs or failed ownership checks return a terminal error before Bluetooth access. The helper keeps the same PID, preserving timeout and Ctrl+C handling. Run `build/native/padcode-bluetooth diagnose-permission` from the installed package directory for a no-radio ownership diagnostic; it is not a physical pairing test.
+
+### Incomplete Bluetooth scans (dev.3)
+
+Scanning now disables remote name updates and lists only devices returned by the current inquiry. Cached names may be unavailable; those entries retain their address and an explicit unnamed-device label. Do not select an unidentified device by guesswork.
+
+macOS can delay, fail or omit the inquiry-completion callback. After a 20-second inquiry deadline, devices already found remain selectable with a SCAN INCOMPLETE warning; partial results are also preserved when macOS reports a native completion error. Neither case is labeled a complete scan or verified input. Cancellation and OS aborts remain failures. If no devices were found, the error distinguishes a missing start callback, active timeout or native error.
+
+The process allows up to 35 seconds including macOS initialization, then is terminated if necessary. Before retrying, close other discovery windows, wait 15 seconds and re-enter SHARE + PS pairing mode. For direct native diagnostics, run `PADCODE_BLUETOOTH_DEBUG=1 build/native/padcode-bluetooth scan` from the installed package directory. Phase diagnostics on stderr contain no device identifiers; the normal JSON device list on stdout does contain identifiers, so inspect it before sharing. The terminal wizard captures native stderr internally rather than displaying debug traces.
