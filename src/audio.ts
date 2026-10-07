@@ -5,11 +5,13 @@ import { helperPath, runCommand } from './process.js';
 
 // Microphone access through the macOS padcode-audio helper. Audio never leaves the recording file.
 export type MicPermission = 'authorized' | 'denied' | 'restricted' | 'not-determined';
-export interface Microphone { id: string; name: string; default: boolean }
+export interface Microphone { id: string; name: string; default: boolean; transport: 'bluetooth' | 'usb' | 'built-in' | 'other' | 'unknown' }
 export type RecordingResult = { kind: 'stopped'; seconds: number } | { kind: 'cancelled' } | { kind: 'error'; code: string; message: string };
 export interface Recording {
   onLevel(listener: (peak: number) => void): void;
   onStarted(listener: () => void): void;
+  // The first real audio sample; Bluetooth headsets need about a second to get there.
+  onLive(listener: () => void): void;
   stop(): void;
   cancel(): void;
   readonly done: Promise<RecordingResult>;
@@ -46,7 +48,9 @@ export class NativeAudio implements AudioPort {
   async list(): Promise<Microphone[]> {
     const devices = (await this.call(['list'])).devices;
     if (!Array.isArray(devices)) throw new Error('Microphone helper returned no device list.');
-    return devices.slice(0, 32).map(device => ({ id: clean(device.id, 512), name: clean(device.name, 128) || 'Unnamed input', default: device.default === true })).filter(device => device.id);
+    const transports = ['bluetooth', 'usb', 'built-in', 'other'] as const;
+    return devices.slice(0, 32).map(device => ({ id: clean(device.id, 512), name: clean(device.name, 128) || 'Unnamed input', default: device.default === true,
+      transport: transports.find(kind => kind === device.transport) ?? 'unknown' as const })).filter(device => device.id);
   }
   private status(value: Record<string, unknown>): MicPermission {
     if (!permissions.includes(value.status as MicPermission)) throw new Error('Microphone helper returned an unknown permission state.');
@@ -71,6 +75,7 @@ export class NativeAudio implements AudioPort {
           let value: Record<string, unknown>;
           try { value = JSON.parse(line) as Record<string, unknown>; } catch { continue; }
           if (value.event === 'started') events.emit('started');
+          else if (value.event === 'live') events.emit('live');
           else if (value.event === 'level' && typeof value.peak === 'number') events.emit('level', Math.max(0, Math.min(1, value.peak)));
           else if (value.event === 'stopped' && typeof value.seconds === 'number') finish({ kind: 'stopped', seconds: value.seconds });
           else if (value.event === 'cancelled') finish({ kind: 'cancelled' });
@@ -84,6 +89,7 @@ export class NativeAudio implements AudioPort {
     return {
       onLevel: listener => { events.on('level', listener); },
       onStarted: listener => { events.on('started', listener); },
+      onLive: listener => { events.on('live', listener); },
       stop: () => send('stop'),
       cancel: () => { send('cancel'); setTimeout(() => { if (child.exitCode === null) child.kill('SIGTERM'); }, 1000).unref(); },
       done,

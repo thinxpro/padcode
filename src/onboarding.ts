@@ -164,15 +164,17 @@ async function chooseVoice(io: PromptPort, audio: AudioPort | undefined, signal:
       if (status !== 'authorized') throw new Error(status === 'restricted' ? 'Microphone access is restricted on this Mac.' : permissionHelp);
       const devices = await audio.list();
       if (!devices.length) throw new Error('No microphone is connected. Connect one, then choose Retry.');
-      const picked = await io.choose('Choose a microphone', devices.map((device, index) => ({ label: `${cleanName(device.name)}${device.default ? ' / system default' : ''}`, value: String(index) })),
+      if (devices.some(device => device.transport === 'bluetooth')) io.say('NOTE     Bluetooth headset microphones take about a second to start and switch the headset to lower call quality; a wired, USB or built-in microphone works best.');
+      const picked = await io.choose('Choose a microphone', devices.map((device, index) => ({ label: `${cleanName(device.name)}${device.transport === 'bluetooth' ? ' / Bluetooth' : device.transport === 'usb' ? ' / USB' : device.transport === 'built-in' ? ' / built-in' : ''}${device.default ? ' / system default' : ''}`, value: String(index) })),
         Math.max(0, devices.findIndex(device => current ? device.id === current.microphone.id : device.default)));
       const device = devices[Number(picked)];
       if (!device) throw new Error('Selected microphone is no longer available.');
       if (await io.choose('Microphone check', [{ label: 'Record 3 seconds and play it back', value: 'test' }, { label: 'Skip the check', value: 'skip' }]) === 'test') {
         const directory = await voiceDirectory();
         try {
-          io.say('RECORDING 3 SECONDS... speak now.');
+          io.say('MIC STARTING...');
           const recording = audio.record({ path: join(directory, 'check.wav'), device: device.id, maxSeconds: 3 });
+          recording.onLive(() => io.say('RECORDING 3 SECONDS... speak now.'));
           const result = await recording.done;
           if (result.kind !== 'stopped') throw new Error(result.kind === 'error' ? result.message : 'The check recording was cancelled.');
           io.say(`PLAYING BACK ${result.seconds.toFixed(1)}s...`);

@@ -11,7 +11,7 @@ export interface VoiceEffects {
   status(text: string): void;
   notice(text: string): void;
 }
-export const startAt = 0.65, stopBelow = 0.35, debounceMs = 150;
+export const startAt = 0.65, stopBelow = 0.35, debounceMs = 150, shortestSeconds = 0.3;
 const meter = (peak: number) => { const n = Math.round(Math.min(1, peak * 2) * 10); return `[${'#'.repeat(n)}${'.'.repeat(10 - n)}]`; };
 const clock = (ms: number) => { const s = Math.floor(ms / 1000); return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`; };
 
@@ -44,13 +44,16 @@ export class VoiceCapture {
   // recording, so a trigger held through launch must be released and pressed again.
   private start(): void {
     if (this.state !== 'idle' || !this.fx.routing()) return;
-    const generation = this.generation, path = join(this.directory, `rec-${++this.count}.wav`), began = this.now();
+    const generation = this.generation, path = join(this.directory, `rec-${++this.count}.wav`);
+    let began: number | undefined;
     if (this.last) { void rm(this.last, { force: true }); this.last = undefined; }
     this.state = 'recording'; this.cancelled = false;
     const recording = this.audio.record({ path, device: this.microphone, maxSeconds: this.maxSeconds });
     this.recording = recording;
-    const status = (peak: number) => `REC ${clock(this.now() - began)} ${meter(peak)} / Release L2 to stop, O cancel`;
+    const status = (peak: number) => began === undefined ? 'MIC STARTING / Keep holding L2, speak at REC'
+      : `REC ${clock(this.now() - began)} ${meter(peak)} / Release L2 to stop, O cancel`;
     this.fx.capture(button => { if (button === 'east') this.cancel(); }, status(0));
+    recording.onLive(() => { if (this.recording !== recording) return; began = this.now(); if (this.state === 'recording') this.fx.status(status(0)); });
     recording.onLevel(peak => { if (this.recording === recording && this.state === 'recording') this.fx.status(status(peak)); });
     void recording.done.then(result => this.finished(result, path, generation));
   }
@@ -61,6 +64,11 @@ export class VoiceCapture {
   private finished(result: RecordingResult, path: string, generation: number): void {
     if (generation !== this.generation) { void rm(path, { force: true }); return; }
     this.recording = undefined; this.state = 'idle';
+    if (result.kind === 'stopped' && !this.cancelled && result.seconds < shortestSeconds) {
+      void rm(path, { force: true });
+      this.fx.release(true); this.fx.notice('RECORDING TOO SHORT / Hold L2 until REC appears');
+      return;
+    }
     if (result.kind === 'stopped' && !this.cancelled) {
       this.last = path;
       this.fx.release(true); this.fx.notice(`RECORDED ${result.seconds.toFixed(1)}s / Options > Play last recording`);

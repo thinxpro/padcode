@@ -198,7 +198,7 @@ def fallback():
 def voice():
     """C4: push-to-talk on L2 with a fake microphone helper, playback, cancel, disconnect and cleanup."""
     play_log = tempfile.mktemp(prefix='pc-play-')
-    s = Session('lines', extra={'PADCODE_VOICE': '1', 'PADCODE_PLAY_LOG': play_log})
+    s = Session('lines', extra={'PADCODE_VOICE': '1', 'PADCODE_PLAY_LOG': play_log, 'PADCODE_AUDIO_FIXTURE': json.dumps({'warmup': 400})})
     try:
         s.ready(); s.until(lambda: 'GAMEPAD ACTIVE' in s.panel())
         s.until(lambda: 'HISTORY LINE 199' in s.agent())
@@ -209,7 +209,11 @@ def voice():
         directory = os.path.join(tempfile.gettempdir(), owners()[0])
         assert oct(os.stat(directory).st_mode & 0o777) == '0o700'
         # Hold L2: recording captures the controller; nothing reaches the Agent.
-        trigger(32767); s.until(lambda: 'REC 00:0' in s.panel(), message='recording did not start')
+        # A Bluetooth-style warm-up shows MIC STARTING; releasing before audio arrives is too short.
+        trigger(32767); s.until(lambda: 'MIC STARTING' in s.panel(), message='warm-up status missing')
+        time.sleep(.2); trigger(0); s.until(lambda: 'RECORDING TOO SHORT' in s.panel(), message='short recording kept'); active()
+        time.sleep(.3)
+        trigger(32767); s.until(lambda: 'MIC STARTING' in s.panel()); s.until(lambda: 'REC 00:0' in s.panel(), message='recording did not start')
         for button in ('south', 'dpad_up', 'left_shoulder', 'start'): s.press(button); s.quiet(.05)
         s.quiet(.3); trigger(0)
         s.until(lambda: 'RECORDED' in s.panel(), message='recording notice missing'); active()

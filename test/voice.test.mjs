@@ -23,7 +23,8 @@ function fakeAudio() {
     list: async () => [], permission: async () => 'authorized', request: async () => 'authorized',
     record(options) {
       let finish, level; const done = new Promise(r => { finish = r; });
-      const recording = { options, stopped: 0, cancelled: 0, done, onStarted() {}, onLevel(fn) { level = fn; },
+      let live;
+      const recording = { options, stopped: 0, cancelled: 0, done, onStarted() {}, onLevel(fn) { level = fn; }, onLive(fn) { live = fn; }, goLive: () => live?.(),
         stop() { recording.stopped++; }, cancel() { recording.cancelled++; }, finish: async (result) => { if (result.kind === 'stopped') await writeFile(options.path, 'RIFF'); finish(result); await wait(5); }, level: peak => level?.(peak) };
       writeFileSync(options.path, '');
       recordings.push(recording); return recording;
@@ -54,7 +55,10 @@ test('C4-A1 L2 hysteresis, debounce, held-at-start trigger and routing guard', a
   for (const value of [0.5, 0.64, 0.6, 0.3, 0.64]) v.capture.trigger(value);
   assert.equal(v.recordings.length, 0, 'below the start threshold recorded');
   v.capture.trigger(startAt); assert.equal(v.recordings.length, 1); assert.equal(v.recordings[0].options.maxSeconds, 60);
-  assert.equal(v.recordings[0].options.device, 'mic-1'); assert.deepEqual(v.calls.slice(0, 1), ['capture:REC']);
+  assert.equal(v.recordings[0].options.device, 'mic-1'); assert.deepEqual(v.calls.slice(0, 1), ['capture:MIC']);
+  // The REC clock starts with the first real audio, after a Bluetooth-style warm-up.
+  v.recordings[0].level(0.5); assert.ok(!v.calls.includes('status:REC'), 'REC shown before audio arrived');
+  v.recordings[0].goLive(); assert.ok(v.calls.includes('status:REC'));
   // Jitter above the stop threshold keeps recording.
   for (const value of [0.4, 0.36, 0.5, stopBelow]) v.capture.trigger(value);
   assert.equal(v.recordings[0].stopped, 0);
@@ -93,6 +97,10 @@ test('C4-A2/A3 cancel, replacement, errors, crashes and late results leave no st
     await eventually(() => !existsSync(r.options.path), 'failed recording kept'); assert.ok(v.calls.includes(`notice:MIC ERROR / ${result.message}`));
   }
   assert.equal(v.calls.filter(call => call.startsWith('capture')).length, v.calls.filter(call => call.startsWith('release')).length);
+  // Released before audio arrived (or under 0.3 s): discarded as too short.
+  const short = await record({ kind: 'stopped', seconds: 0.1 });
+  await eventually(() => !existsSync(short.options.path), 'short recording kept');
+  assert.ok(v.calls.includes('notice:RECORDING TOO SHORT / Hold L2 until REC appears')); assert.equal(v.capture.last, undefined, 'a too-short recording replaced nothing usable');
   // A result arriving after dispose only deletes its file.
   press();
   const late = v.recordings.at(-1); v.capture.dispose(); assert.equal(late.cancelled, 1);
@@ -134,7 +142,7 @@ function harness(choices, audio) {
   const io = {
     banner: text => output.push(text), say: text => output.push(text), ask: async () => { throw new Error('no text'); },
     choose: async (label, options, selected = 0) => {
-      output.push(`${label} DEFAULT:${options[selected]?.value}`);
+      output.push(`${label} DEFAULT:${options[selected]?.value}`); output.push(options.map(option => option.label).join(' | '));
       const value = choices.shift(); assert.ok(options.some(option => option.value === value), `invalid choice ${value}: ${label}`); return value;
     },
   };
@@ -156,9 +164,11 @@ test('C4-A6 setup voice step: keep off, choose with permission, denial recovery,
   };
   let r = await run(['off']);
   assert.equal(r.config.voice, null); assert.match(r.text, /MISSION 05 \/ VOICE \(optional\)/); assert.match(r.text, /VOICE {3}off/); assert.match(r.text, /MISSION 06 \/ SAVE POINT/);
-  r = await run(['choose', '1', 'test'], { permission: 'not-determined', request: 'authorized' });
+  r = await run(['choose', '1', 'test'], { permission: 'not-determined', request: 'authorized', warmup: 300 });
   assert.deepEqual(r.config.voice, { microphone: { id: 'mic-2', name: 'Second Mic' } });
   assert.match(r.text, /macOS will now ask/); assert.match(r.text, /Audio stays on this Mac/); assert.match(r.text, /PLAYING BACK/);
+  assert.match(r.text, /MIC STARTING\.\.\.\nRECORDING 3 SECONDS/, 'speak prompt shown before the microphone was live');
+  assert.match(r.text, /Bluetooth headset microphones take about a second/); assert.match(r.text, /Second Mic \/ Bluetooth/); assert.match(r.text, /Fixture Mic \/ USB \/ system default/);
   assert.match(r.text, /Choose a microphone DEFAULT:0/, 'system default not preselected');
   const calls = (await import('node:fs')).readFileSync(log, 'utf8');
   assert.match(calls, /"request"/); assert.match(calls, /"record","--out",".*check\.wav","--max-seconds","3","--device","mic-2"/);
@@ -182,14 +192,14 @@ test('C4 NativeAudio parses helper output, crashes and spawn failures', async t 
   const dir = await temporary(t);
   const make = settings => { process.env.PADCODE_AUDIO_FIXTURE = JSON.stringify(settings); return new NativeAudio({ command: process.execPath, args: [resolve('test/fixtures/audio-helper.mjs')], supported: true }); };
   try {
-    assert.deepEqual(await make({}).list(), [{ id: 'mic-1', name: 'Fixture Mic', default: true }, { id: 'mic-2', name: 'Second Mic', default: false }]);
-    assert.deepEqual(await make({ devices: [{ id: 'x\u001b', name: 'Evil\u001b[2J', default: 'yes' }, { name: 'no id' }] }).list(), [{ id: 'x', name: 'Evil[2J', default: false }]);
+    assert.deepEqual(await make({}).list(), [{ id: 'mic-1', name: 'Fixture Mic', default: true, transport: 'usb' }, { id: 'mic-2', name: 'Second Mic', default: false, transport: 'bluetooth' }]);
+    assert.deepEqual(await make({ devices: [{ id: 'x\u001b', name: 'Evil\u001b[2J', default: 'yes', transport: 'laser' }, { name: 'no id' }] }).list(), [{ id: 'x', name: 'Evil[2J', default: false, transport: 'unknown' }]);
     assert.equal(await make({ permission: 'restricted' }).permission(), 'restricted');
     await assert.rejects(make({ permission: 'maybe' }).permission(), /unknown permission/);
-    let recording = make({}).record({ path: join(dir, 'a.wav'), maxSeconds: 60 });
-    const levels = []; recording.onLevel(peak => levels.push(peak));
+    let recording = make({ warmup: 100 }).record({ path: join(dir, 'a.wav'), maxSeconds: 60 });
+    const levels = []; let live = 0; recording.onLevel(peak => levels.push(peak)); recording.onLive(() => live++);
     await wait(200); recording.stop(); const stopped = await recording.done;
-    assert.equal(stopped.kind, 'stopped'); assert.ok(levels.length); assert.ok(existsSync(join(dir, 'a.wav')));
+    assert.equal(stopped.kind, 'stopped'); assert.ok(levels.length); assert.equal(live, 1); assert.ok(existsSync(join(dir, 'a.wav')));
     recording = make({}).record({ path: join(dir, 'b.wav'), maxSeconds: 60 }); await wait(100); recording.cancel();
     assert.deepEqual(await recording.done, { kind: 'cancelled' }); assert.ok(!existsSync(join(dir, 'b.wav')));
     recording = make({ record: 'crash' }).record({ path: join(dir, 'c.wav'), maxSeconds: 60 });
@@ -212,7 +222,7 @@ test('C4-A5 native padcode-audio: synthetic WAV, file safety, stop, cancel, EOF,
     input?.(child);
   });
   let r = await run(['record', '--synthetic', '--out', join(dir, 'a.wav')], child => setTimeout(() => child.stdin.write('stop\n'), 450));
-  assert.equal(r.code, 0); assert.equal(r.lines[0].event, 'started'); assert.ok(r.lines.some(line => line.event === 'level'));
+  assert.equal(r.code, 0); assert.equal(r.lines[0].event, 'started'); assert.equal(r.lines[1].event, 'live'); assert.ok(r.lines.some(line => line.event === 'level'));
   const end = r.lines.at(-1); assert.equal(end.event, 'stopped');
   const file = (await import('node:fs')).readFileSync(join(dir, 'a.wav'));
   assert.equal(file.toString('ascii', 0, 4), 'RIFF'); assert.equal(file.toString('ascii', 8, 12), 'WAVE');
@@ -231,6 +241,6 @@ test('C4-A5 native padcode-audio: synthetic WAV, file safety, stop, cancel, EOF,
   r = await run(['record', '--out']); assert.equal(r.lines.at(-1).code, 'usage');
   r = await run(['diagnose']); assert.equal(r.lines[0].selfResponsible, true); assert.equal(r.lines[0].usageDescription, true);
   r = await run(['list']); assert.equal(r.lines[0].ok, true); assert.ok(Array.isArray(r.lines[0].devices));
-  for (const device of r.lines[0].devices) { assert.equal(typeof device.id, 'string'); assert.equal(typeof device.name, 'string'); assert.equal(typeof device.default, 'boolean'); }
+  for (const device of r.lines[0].devices) { assert.equal(typeof device.id, 'string'); assert.equal(typeof device.name, 'string'); assert.equal(typeof device.default, 'boolean'); assert.ok(['bluetooth', 'usb', 'built-in', 'other', 'unknown'].includes(device.transport)); }
   r = await run(['permission']); assert.ok(['authorized', 'denied', 'restricted', 'not-determined'].includes(r.lines[0].status));
 });

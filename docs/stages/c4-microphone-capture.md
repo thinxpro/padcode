@@ -73,3 +73,15 @@ Artifact `padcode-0.1.0-dev.14.tgz`, npm SHA-1 `adcdd8f0f4325b4f428260620fb0c20c
 ### Player Hub voice entry (dev.15)
 
 On 2026-10-07 the user reported that testing was fine but that voice could not be found again after the first setup. The voice step only existed as step 5 of `padcode config`, after re-running the controller link, input check, Agent and loadout steps; the user's saved configuration was still version 1 with voice off, so no voice setting had been saved through the wizard and the in-session L2 checks (C4-H2 to H4) cannot have run with that configuration. Scope addition with this reason: Player Hub gains **Voice / microphone settings**, which runs only the voice step (titled VOICE SETTINGS), saves the result while keeping every other setting, and returns to the Hub; O returns without changes. `test/hub-navigation-pty.py` covers choose, unchanged-on-O and turn-off through the real Hub with a fake helper. `npm run check` passed 116 tests with zero failures or skips. Artifact `padcode-0.1.0-dev.15.tgz`, npm SHA-1 `ea0e740ad3e2a4c01d014a0019cf397fc0d783ea`. C4-H remains pending until voice is configured and tested in a session.
+
+### Bluetooth headset warm-up (dev.16)
+
+User report (2026-10-07): the setup 3-second check played back fine, but recordings made with L2 in a Claude Code session played back silent from the menu. Evidence from the live session folder (statistics only; the audio was not played or kept): `rec-4.wav` was a valid 1.60 s, 16 kHz mono file whose first 1.0 s was entirely digital zeros, followed by a switching transient and low-level noise. The selected default microphone was MOMENTUM 4, a Bluetooth headset (`system_profiler`: Bluetooth transport, 16 kHz input). Opening its microphone switches the headset to its call profile, which delivers zeros for about a second, so short push-to-talk clips lost the speech; the 3-second check still had about 2 s of audio left.
+
+Fix, within the C4 scope ("no clipping at onset"):
+- `padcode-audio` drops leading digital silence and emits `live` with the first real sample; the 60-second limit and level meter start there. If no real audio arrives within 5 seconds it fails with `no-signal`. `list` now reports each device's transport.
+- The session shows `MIC STARTING / Keep holding L2, speak at REC` until `live`, then `REC` with its clock. Recordings under 0.3 s (including releases before `live`) are discarded with `RECORDING TOO SHORT`.
+- Setup labels devices with their transport, warns that Bluetooth headset microphones start slowly and lower call quality, and prompts "speak now" only after `live`.
+- Tests: the native synthetic test asserts `live`; unit tests cover the warm-up status, the too-short path and transport parsing; the setup and PTY scenarios run the fake helper with a 300-400 ms warm-up.
+
+`npm run check` passed 116 tests with zero failures or skips. Artifact `padcode-0.1.0-dev.16.tgz`, npm SHA-1 `beddc6cfb17d3d7f9b414c98acc691ad59e9d441`. Physical confirmation with the Bluetooth headset and with a USB or built-in microphone is pending.

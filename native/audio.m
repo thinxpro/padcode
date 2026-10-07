@@ -33,6 +33,17 @@ static NSString *stringProperty(AudioObjectID object, AudioObjectPropertySelecto
     if (AudioObjectGetPropertyData(object, &address, 0, NULL, &size, &value) != noErr || !value) return nil;
     return (__bridge_transfer NSString *)value;
 }
+static NSString *transport(AudioDeviceID device) {
+    AudioObjectPropertyAddress address = {kAudioDevicePropertyTransportType, kAudioObjectPropertyScopeGlobal, kAudioObjectPropertyElementMain};
+    UInt32 value = 0, size = sizeof(value);
+    if (AudioObjectGetPropertyData(device, &address, 0, NULL, &size, &value) != noErr) return @"unknown";
+    switch (value) {
+        case kAudioDeviceTransportTypeBluetooth: case kAudioDeviceTransportTypeBluetoothLE: return @"bluetooth";
+        case kAudioDeviceTransportTypeUSB: return @"usb";
+        case kAudioDeviceTransportTypeBuiltIn: return @"built-in";
+        default: return @"other";
+    }
+}
 static UInt32 inputChannels(AudioDeviceID device) {
     AudioObjectPropertyAddress address = {kAudioDevicePropertyStreamConfiguration, kAudioDevicePropertyScopeInput, kAudioObjectPropertyElementMain};
     UInt32 size = 0;
@@ -64,7 +75,7 @@ static NSArray<NSDictionary *> *devices(void) {
             if (!inputChannels(ids[i])) continue;
             NSString *uid = stringProperty(ids[i], kAudioDevicePropertyDeviceUID);
             if (!uid.length) continue;
-            [found addObject:@{@"id": uid, @"name": stringProperty(ids[i], kAudioObjectPropertyName) ?: @"Unnamed input", @"default": [NSNumber numberWithBool:ids[i] == fallback], @"object": @(ids[i])}];
+            [found addObject:@{@"id": uid, @"name": stringProperty(ids[i], kAudioObjectPropertyName) ?: @"Unnamed input", @"default": [NSNumber numberWithBool:ids[i] == fallback], @"transport": transport(ids[i]), @"object": @(ids[i])}];
         }
     }
     free(ids);
@@ -88,10 +99,20 @@ static NSString *permissionStatus(void) {
 @property NSUInteger maxSamples;
 @property float peak;
 @property BOOL finished;
+@property BOOL live;
 @end
 @implementation Recorder
 - (void)append:(const int16_t *)samples count:(NSUInteger)count {
     if (self.finished) return;
+    // Bluetooth headsets deliver digital silence while switching profiles. Recording, the level meter
+    // and the length limit start with the first real sample, so speech is never lost to that switch.
+    if (!self.live) {
+        NSUInteger first = 0;
+        while (first < count && samples[first] == 0) ++first;
+        if (first == count) return;
+        self.live = YES; event(@"live", nil);
+        samples += first; count -= first;
+    }
     NSUInteger room = self.maxSamples - self.pcm.length / 2;
     NSUInteger take = MIN(count, room);
     for (NSUInteger i = 0; i < take; ++i) self.peak = MAX(self.peak, fabsf(samples[i] / 32768.0f));
@@ -175,8 +196,13 @@ static int record(NSArray<NSString *> *args) {
     dispatch_resume(input);
     dispatch_source_t meter = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, recorder.queue);
     dispatch_source_set_timer(meter, dispatch_time(DISPATCH_TIME_NOW, 100 * NSEC_PER_MSEC), 100 * NSEC_PER_MSEC, 10 * NSEC_PER_MSEC);
+    __block int waited = 0;
     dispatch_source_set_event_handler(meter, ^{
         if (recorder.finished) return;
+        if (!recorder.live) {
+            if (++waited >= 50) [recorder fail:@"no-signal" message:@"The microphone delivered no audio for 5 seconds. Check the device or choose another microphone."];
+            return;
+        }
         event(@"level", @{@"peak": @(round(recorder.peak * 100) / 100)}); recorder.peak = 0;
     });
     if (synthetic) {
@@ -261,7 +287,7 @@ int main(int argc, const char **argv) {
         for (int i = 2; i < argc; ++i) [rest addObject:@(argv[i])];
         if ([command isEqual:@"list"] && !rest.count) {
             NSMutableArray *visible = [NSMutableArray array];
-            for (NSDictionary *device in devices()) [visible addObject:@{@"id": device[@"id"], @"name": device[@"name"], @"default": device[@"default"]}];
+            for (NSDictionary *device in devices()) [visible addObject:@{@"id": device[@"id"], @"name": device[@"name"], @"default": device[@"default"], @"transport": device[@"transport"]}];
             output(@{@"v": @1, @"ok": @YES, @"devices": visible});
             return 0;
         }
