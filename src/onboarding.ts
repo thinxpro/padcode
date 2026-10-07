@@ -165,7 +165,8 @@ async function chooseVoice(io: PromptPort, audio: AudioPort | undefined, signal:
   ]);
   if (first === 'keep') {
     await microphoneReady(io, audio);
-    return { microphone: current!.microphone, transcriber: await chooseTranscriber(io, audio, signal, current!.microphone.id, current!.transcriber, whisper) };
+    const transcriber = await chooseTranscriber(io, audio, signal, current!.microphone.id, current!.transcriber, whisper);
+    return { microphone: current!.microphone, transcriber, insert: await chooseInsert(io, transcriber, current!.insert) };
   }
   if (first === 'off') return null;
   io.say('CAPTURE  macOS AVAudioEngine through padcode-audio, only while you hold L2.');
@@ -193,7 +194,8 @@ async function chooseVoice(io: PromptPort, audio: AudioPort | undefined, signal:
           await audio.play(join(directory, 'check.wav')).done;
         } finally { await rm(directory, { recursive: true, force: true }); }
       }
-      return { microphone: { id: device.id, name: cleanName(device.name) }, transcriber: await chooseTranscriber(io, audio, signal, device.id, current?.transcriber ?? null, whisper) };
+      const transcriber = await chooseTranscriber(io, audio, signal, device.id, current?.transcriber ?? null, whisper);
+      return { microphone: { id: device.id, name: cleanName(device.name) }, transcriber, insert: await chooseInsert(io, transcriber, current?.insert) };
     } catch (error) {
       signal.throwIfAborted();
       if ((error as Error).message === 'Setup cancelled.') throw error;
@@ -203,6 +205,14 @@ async function chooseVoice(io: PromptPort, audio: AudioPort | undefined, signal:
   }
 }
 
+// Automatic insertion types the draft into the Agent's input without Enter; review shows it first.
+async function chooseInsert(io: PromptPort, transcriber: Transcriber | null, current: 'auto' | 'review' = 'auto'): Promise<'auto' | 'review'> {
+  if (!transcriber) return current;
+  return await io.choose('After transcription', [
+    { label: 'Insert into the Agent input automatically (never sends)', value: 'auto' },
+    { label: 'Show the draft first, insert on confirm', value: 'review' },
+  ], current === 'review' ? 1 : 0) as 'auto' | 'review';
+}
 const describeTranscriber = (t: Transcriber) => t.kind === 'system' ? `macOS on-device speech (${t.language})`
   : `${cleanName(t.command.split('/').pop() ?? t.command)} (${t.language})`;
 const languages = [{ label: 'Chinese (zh)', value: 'zh' }, { label: 'English (en)', value: 'en' }, { label: 'Detect automatically', value: 'auto' }, { label: 'Other language code', value: 'other' }];

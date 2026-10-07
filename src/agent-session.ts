@@ -39,7 +39,9 @@ export async function confirmAgent(io: PromptPort, agent: Agent, cwd: string, di
   ], 1) === 'start';
 }
 
-export async function runAgent(agent: Agent, options: { cwd?: string; input?: Input; output?: Output; stallTimeout?: number; controller?: Config['controller']; gamepad?: ControllerSource; titleStatus?: boolean } = {}): Promise<number> {
+// Lets the controls-pane bridge see input and output and write text through the same bounded writer.
+export interface InputTap { attach(write: (bytes: Buffer) => void): void; input(): void; output(data: Buffer): void }
+export async function runAgent(agent: Agent, options: { cwd?: string; input?: Input; output?: Output; stallTimeout?: number; controller?: Config['controller']; gamepad?: ControllerSource; titleStatus?: boolean; tap?: InputTap } = {}): Promise<number> {
   const input = options.input ?? process.stdin, output = options.output ?? process.stdout;
   if (!input.isTTY || !output.isTTY) throw new Error('Agent sessions require an interactive terminal.');
   if (!['darwin', 'linux'].includes(process.platform)) throw new Error('Agent sessions currently support macOS and Linux only.');
@@ -111,7 +113,7 @@ export async function runAgent(agent: Agent, options: { cwd?: string; input?: In
         const buffer = Buffer.isBuffer(data) ? data : Buffer.from(data);
         const escape = buffer.indexOf(0x1d);
         if (escape !== -1) { stop(130); return; }
-        writer.push(buffer);
+        options.tap?.input(); writer.push(buffer);
       };
       const eof = () => stop(130), interrupt = () => stop(130), terminate = () => stop(143);
       const resize = () => { if (!ended && !stopping) { try { const s = size(); pty.resize(s.cols, s.rows); } catch (error) { failed(error as Error); } } };
@@ -122,6 +124,7 @@ export async function runAgent(agent: Agent, options: { cwd?: string; input?: In
       });
       pty.onData(data => {
         if (stopping || finished) return;
+        options.tap?.output(data as unknown as Buffer);
         clearTimeout(quiet); pending++;
         try {
           if (!output.write(data, error => { pending--; if (error) failed(error); acknowledge(); complete(); })) {
@@ -145,10 +148,11 @@ export async function runAgent(agent: Agent, options: { cwd?: string; input?: In
         };
         try { if (titleStatus && process.env.TERM !== 'dumb') output.write('\x1b[22;0t', error => { if (error) failed(error); }); } catch (error) { failed(error as Error); }
         unsubscribeMapping = gamepad.subscribe(bytes => {
-          if (!stopping && !ended && !agentExited && !finished) writer.push(bytes, true);
+          if (!stopping && !ended && !agentExited && !finished) { options.tap?.input(); writer.push(bytes, true); }
         }, showStatus, () => writer.discardController());
         mappingStarted = gamepad.start(mappingAbort.signal).catch(() => gamepad.suspend('UNAVAILABLE / Keyboard available'));
       }
+      options.tap?.attach(bytes => { if (!stopping && !ended && !agentExited && !finished) writer.push(bytes); });
       input.on('data', receive); input.on('end', eof); input.on('error', failed);
       output.on('resize', resize); output.on('drain', drain); output.on('error', failed);
       process.on('SIGINT', interrupt); process.on('SIGTERM', terminate);

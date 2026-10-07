@@ -74,7 +74,7 @@ test('C5 draft review context: keep, rerecord, discard, reopen and every button'
   const controls = new SessionControls({
     capture: (fn, status) => { handler = fn; calls.push(`capture:${status.split(' / ')[0]}`); }, release: r => { handler = undefined; calls.push(`release:${r}`); },
     interrupt: () => calls.push('interrupt'), showMenu: view => calls.push(view ? `menu:${view.title}:${view.selected}:${view.body ?? '-'}:${view.items.join('|')}` : 'menu:close'),
-    history: c => calls.push(`history:${c}`), end: () => calls.push('end'), notice: text => calls.push(`notice:${text}`),
+    history: c => calls.push(`history:${c}`), end: () => calls.push('end'), notice: text => calls.push(`notice:${text}`), insert: text => calls.push(`insert:${text}`),
   });
   controls.openDraft('帮我修复 bug');
   assert.equal(controls.context, 'draft'); assert.deepEqual(calls, ['capture:VOICE DRAFT', `menu:VOICE DRAFT:0:帮我修复 bug:${draftItems.join('|')}`]);
@@ -85,11 +85,13 @@ test('C5 draft review context: keep, rerecord, discard, reopen and every button'
   calls.length = 0; controls.openMenu(); assert.match(calls.at(-1), /Review voice draft\|End session/);
   for (let i = 0; i < 4; i++) handler('dpad_down');
   handler('south'); assert.equal(controls.context, 'draft');
-  handler('dpad_down'); handler('south'); assert.equal(controls.draftText, undefined); assert.ok(calls.includes('notice:DRAFT DISCARDED / Hold L2 to record again'));
+  handler('dpad_down'); handler('dpad_down'); handler('south'); assert.equal(controls.draftText, undefined); assert.ok(calls.includes('notice:DRAFT DISCARDED / Hold L2 to record again'));
   controls.openDraft('second'); handler('dpad_up'); handler('south'); assert.equal(controls.draftText, undefined); assert.ok(calls.includes('notice:DRAFT DISCARDED'));
-  controls.openDraft('third'); handler('south'); assert.equal(controls.draftText, 'third');
+  // Default X inserts the reviewed text; the draft stays available for Insert again.
+  controls.openDraft('third'); handler('south'); assert.equal(controls.draftText, 'third'); assert.deepEqual(calls.slice(-1), ['insert:third']);
+  controls.openDraft('kept'); handler('dpad_down'); handler('south'); assert.equal(controls.draftText, 'kept'); assert.ok(!calls.includes('insert:kept'));
   controls.openDraft('fourth'); handler('start'); assert.equal(controls.draftText, 'fourth'); assert.equal(controls.context, 'agent');
-  controls.openDraft('keyboard'); controls.key('confirm', 2); assert.equal(controls.draftText, undefined);
+  controls.openDraft('keyboard'); controls.key('confirm', 3); assert.equal(controls.draftText, undefined);
   // A draft arriving while the menu is open waits for the menu to close and is offered in the menu.
   controls.openMenu(); calls.length = 0; controls.openDraft('waiting'); assert.equal(controls.context, 'menu'); assert.deepEqual(calls, []);
 });
@@ -124,26 +126,26 @@ test('C5-A3 setup transcription tiers: macOS speech, whisper.cpp detection and c
   const audio = settings => { process.env.PADCODE_AUDIO_FIXTURE = JSON.stringify(settings); return new NativeAudio({ command: process.execPath, args: [resolve('test/fixtures/audio-helper.mjs')], player: resolve('test/fixtures/fake-player.sh'), supported: true }); };
   const run = async (choices, settings = {}, answers = []) => { const h = harness([...base, ...choices, 'save'], audio(settings), answers); const config = await setup(h.io, h.services, new AbortController().signal); return { config, text: h.output.join('\n') }; };
 
-  let r = await run(['system', 'zh', 'try', 'done'], { speech: 'not-determined', speechRequest: 'authorized' });
+  let r = await run(['system', 'zh', 'try', 'done', 'auto'], { speech: 'not-determined', speechRequest: 'authorized' });
   assert.deepEqual(r.config.voice.transcriber, { kind: 'system', language: 'zh' });
   assert.match(r.text, /Padcode sends audio nowhere/); assert.match(r.text, /Speech Recognition/); assert.match(r.text, /SELF-TEST PASSED/); assert.match(r.text, /HEARD {2}system zh-CN: 你好 world/);
   assert.match(r.text, /VOICE {3}Fixture Mic \/ macOS on-device speech \(zh\)/);
   // Keeping the microphone after an update: the lost grant is requested before anything records.
   const initial = { version: 2, controller: { transport: 'bluetooth', inputVerified: false }, agent: null, profile: 'terminal-basic', voice: { microphone: { id: 'mic-1', name: 'Fixture Mic' }, transcriber: { kind: 'system', language: 'zh' } } };
-  let h = harness(['later', 'skip', 'later', 'terminal-basic', 'keep', 'keep', 'save'], audio({ permission: 'not-determined', request: 'authorized' }));
+  let h = harness(['later', 'skip', 'later', 'terminal-basic', 'keep', 'keep', 'auto', 'save'], audio({ permission: 'not-determined', request: 'authorized' }));
   let config = await setup(h.io, h.services, new AbortController().signal, initial);
-  assert.deepEqual(config.voice, initial.voice); assert.match(h.output.join('\n'), /macOS will now ask whether Padcode Audio may use the microphone/);
+  assert.deepEqual(config.voice, { ...initial.voice, insert: 'auto' }); assert.match(h.output.join('\n'), /macOS will now ask whether Padcode Audio may use the microphone/);
   // A denied microphone makes the try fail with guidance and offers Try again instead of moving on.
-  h = harness(['later', 'skip', 'later', 'terminal-basic', 'keep', 'system', 'zh', 'try', 'try', 'done', 'save'], audio({ permission: 'denied' }));
+  h = harness(['later', 'skip', 'later', 'terminal-basic', 'keep', 'system', 'zh', 'try', 'try', 'done', 'review', 'save'], audio({ permission: 'denied' }));
   config = await setup(h.io, h.services, new AbortController().signal, initial);
   const text = h.output.join('\n');
   assert.equal((text.match(/Privacy & Security > Microphone/g) ?? []).length >= 3, true); assert.match(text, /Try it DEFAULT:try\nTry again \| Done/);
   assert.ok(!/RECORDING 5 SECONDS/.test(text), 'recorded without microphone access');
   r = await run(['system', 'en', 'none'], { speech: 'denied' });
   assert.equal(r.config.voice.transcriber, null); assert.match(r.text, /TRANSCRIPTION NOT READY: Speech recognition is not allowed/);
-  r = await run(['system', 'other', 'done'], {}, ['ja']);
+  r = await run(['system', 'other', 'done', 'review'], {}, ['ja']);
   assert.deepEqual(r.config.voice.transcriber, { kind: 'system', language: 'ja' });
-  r = await run(['whisper', 'zh', 'found:0', 'done']);
+  r = await run(['whisper', 'zh', 'found:0', 'done', 'auto']);
   assert.deepEqual(r.config.voice.transcriber, { kind: 'command', command: fakeWhisper, args: ['-m', model, '-l', '{language}', '-nt', '-np', '-f', '{audio}'], language: 'zh' });
   // Download needs consent; declining downloads nothing, and a failed download reports and cleans up.
   r = await run(['whisper', 'zh', 'download:0', 'cancel', 'none']);
@@ -155,7 +157,7 @@ test('C5-A3 setup transcription tiers: macOS speech, whisper.cpp detection and c
   assert.deepEqual((await readdir(join(data, 'padcode/models'))).sort(), ['ggml-small.bin']);
   installed = false;
   r = await run(['whisper', 'zh', 'none']); assert.match(r.text, /whisper.cpp is not installed.*brew install whisper-cpp/);
-  r = await run(['custom', 'auto', 'done'], {}, [process.execPath, resolve('test/fixtures/fake-transcriber.mjs'), 'ok', '{audio}', '']);
+  r = await run(['custom', 'auto', 'done', 'auto'], {}, [process.execPath, resolve('test/fixtures/fake-transcriber.mjs'), 'ok', '{audio}', '']);
   assert.deepEqual(r.config.voice.transcriber, { kind: 'command', command: process.execPath, args: [resolve('test/fixtures/fake-transcriber.mjs'), 'ok', '{audio}'], language: 'auto' });
   r = await run(['custom', 'zh', 'none'], {}, [process.execPath, 'no-audio-placeholder', '']);
   assert.match(r.text, /Add an argument containing \{audio\}/);

@@ -171,4 +171,14 @@ In Player Hub > **Voice / microphone settings**, after the microphone, choose ho
 | Custom command | Your choice | Any program that reads the WAV path given by `{audio}` and prints UTF-8 text; arguments are literal, never shell code. |
 | No transcription | - | Record and play back only. |
 
-Each option runs a self-test, and you can record 5 seconds to see the text. In a session, release L2 to see `TRANSCRIBING...` (O cancels), then a **VOICE DRAFT** popup: Keep draft (default, also O), Rerecord or Discard. Reopen a kept draft from Options > Review voice draft. Drafts are not typed into the Agent yet; that is the next stage.
+Each option runs a self-test, and you can record 5 seconds to see the text. In a session, release L2 to see `TRANSCRIBING...` (O cancels), then a **VOICE DRAFT** popup: Keep draft (default, also O), Rerecord or Discard. Reopen a kept draft from Options > Review voice draft. Since 0.1.0-rc.1 drafts are typed into the Agent automatically; see below.
+
+## Voice insertion (0.1.0-rc.1)
+
+After transcription the text is typed into the Agent's input box and **never sent**: press X (Enter) when it looks right. It is always one line, wrapped in bracketed-paste markers when the Agent enabled them (Claude Code does), so it cannot submit by itself. The status pane shows `INSERTED N chars`.
+
+- Options > **Undo voice insert** removes exactly the inserted characters; **Undo and rerecord** does the same and waits for L2. Undo is refused once anything else reached the Agent after the insertion (you typed, pressed a controller key or sent it), so it never deletes your own text.
+- Very short transcripts (two characters or fewer, or only digits, punctuation and y/n) open the VOICE DRAFT popup instead, because a single key such as `1` or `y` could answer an approval prompt that appeared while the clip was being transcribed. X there inserts it.
+- To check every draft before it is typed, choose **Show the draft first** in Voice / microphone settings; the popup then offers Insert into Agent, Keep draft, Rerecord and Discard.
+- Edit inserted text with the keyboard in the Agent's own input box.
+

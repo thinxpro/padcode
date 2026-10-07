@@ -259,7 +259,7 @@ def voice():
 
 def draft():
     """C5: L2 -> TRANSCRIBING -> VOICE DRAFT popup with the cleaned text; keep, reopen, discard; O cancels a slow job."""
-    s = Session('lines', extra={'PADCODE_VOICE': '1', 'PADCODE_TRANSCRIBER': 'ok'})
+    s = Session('lines', extra={'PADCODE_VOICE': '1', 'PADCODE_TRANSCRIBER': 'ok', 'PADCODE_INSERT': 'review'})
     try:
         s.ready(); s.until(lambda: 'GAMEPAD ACTIVE' in s.panel())
         def trigger(value): s.event(dict(type='axis', device=1, axis='left_trigger', value=value))
@@ -293,6 +293,61 @@ def draft():
         s.until(lambda: subprocess.run(['pgrep', '-f', 'fake-transcriber.mjs sleep'], capture_output=True).stdout == b'', message='cancelled transcriber still running')
         assert s.received() == b''
         no_popup(s); os.write(s.master, b'exit!'); finish(s, 23)
+    finally: s.close()
+
+def insert():
+    """C6: transcripts go straight into the Agent input (bracketed, one line, no Enter); undo and its refusal; short-answer guard."""
+    def record(s):
+        s.event(dict(type='axis', device=1, axis='left_trigger', value=32767)); s.until(lambda: 'REC 00:0' in s.panel(), message='insert step 1'); s.quiet(.3)
+        s.event(dict(type='axis', device=1, axis='left_trigger', value=0))
+    def menu_pick(s, label):
+        s.until(lambda: 'GAMEPAD ACTIVE' in s.panel(), message='controller not active before opening the menu')
+        mark = len(s.output); s.press('start'); s.until(lambda: label.encode() in s.output[mark:], message=f'{label} missing from the menu')
+        items = re.findall(rb'\[(\d)\] ([^\r\n\x1b]+)', s.output[mark:])
+        index = next(int(n) for n, text in items if text.decode(errors='ignore').startswith(label))
+        for _ in range(index - 1): s.press('dpad_down'); s.quiet(.05)
+        s.press('south')
+    sentence = '帮我修复登录页面的 bug，然后运行测试。'.encode()
+    s = Session('paste', extra={'PADCODE_VOICE': '1', 'PADCODE_TRANSCRIBER': 'ok'})
+    try:
+        s.ready(); s.until(lambda: 'GAMEPAD ACTIVE' in s.panel(), message='insert step 2')
+        record(s); expected = b'\x1b[200~' + sentence + b'\x1b[201~'
+        s.until(lambda: s.received() == expected, message='transcript was not inserted with paste markers')
+        s.until(lambda: 'INSERTED 21 CHARS' in s.panel(), message='insert step 3'); s.quiet(.4)
+        assert s.received() == expected, 'insertion submitted or added bytes'
+        menu_pick(s, 'Undo voice insert'); expected += b'\x7f' * 21
+        s.until(lambda: s.received() == expected, message='undo did not remove exactly the inserted characters'); s.until(lambda: 'VOICE INSERT UNDONE' in s.panel(), message='insert step 4')
+        s.until(lambda: 'GAMEPAD ACTIVE' in s.panel(), message='insert step 5'); time.sleep(.3)
+        record(s); expected += b'\x1b[200~' + sentence + b'\x1b[201~'; s.until(lambda: s.received() == expected, message='insert step 6')
+        os.write(s.master, b'x'); expected += b'x'; s.until(lambda: s.received() == expected, message='insert step 7')
+        s.until(lambda: 'GAMEPAD ACTIVE' in s.panel(), message='insert step 8')
+        menu_pick(s, 'Undo voice insert'); s.until(lambda: 'UNDO UNAVAILABLE' in s.panel(), message='undo after typing was not refused')
+        s.quiet(.3); assert s.received() == expected, 'refused undo still wrote bytes'
+        # A controller key after the insertion also makes undo unsafe.
+        s.until(lambda: 'GAMEPAD ACTIVE' in s.panel(), message='insert step 9'); time.sleep(.3)
+        record(s); expected += b'\x1b[200~' + sentence + b'\x1b[201~'; s.until(lambda: s.received() == expected, message='insert step 10')
+        s.until(lambda: 'GAMEPAD ACTIVE' in s.panel(), message='insert step 11')
+        s.press('dpad_left'); expected += b'\x1b[D'; s.until(lambda: s.received() == expected, message='insert step 12')
+        menu_pick(s, 'Undo voice insert'); s.until(lambda: 'UNDO UNAVAILABLE' in s.panel(), message='undo after a controller key was not refused')
+        s.quiet(.3); assert s.received() == expected
+        os.write(s.master, b'exit!'); finish(s, 23)
+    finally: s.close()
+    # Without bracketed paste the text is still one line: no CR/LF or ESC ever reaches the Agent.
+    s = Session('lines', extra={'PADCODE_VOICE': '1', 'PADCODE_TRANSCRIBER': 'mixed'})
+    try:
+        s.ready(); s.until(lambda: 'GAMEPAD ACTIVE' in s.panel(), message='insert step 13')
+        record(s); s.until(lambda: s.received() == 'fix 🎮 登录 第二行 é'.encode(), message='plain insertion was not one cleaned line')
+        s.quiet(.3); assert s.received() == 'fix 🎮 登录 第二行 é'.encode()
+        os.write(s.master, b'exit!'); finish(s, 23)
+    finally: s.close()
+    # A one-character transcript opens the draft popup; X inserts it from there.
+    s = Session('paste', extra={'PADCODE_VOICE': '1', 'PADCODE_TRANSCRIBER': 'short'})
+    try:
+        s.ready(); s.until(lambda: 'GAMEPAD ACTIVE' in s.panel(), message='insert step 14')
+        record(s); s.until(lambda: 'VOICE DRAFT' in s.panel(), message='short answer was not held for review')
+        s.quiet(.3); assert s.received() == b'', 'short answer was inserted without review'
+        s.press('south'); s.until(lambda: s.received() == b'\x1b[200~1\x1b[201~', message='insert step 15')
+        os.write(s.master, b'exit!'); finish(s, 23)
     finally: s.close()
 
 def controls():
@@ -353,5 +408,5 @@ def controls():
         assert s.received() == expected
     finally: s.close()
 
-for scenario in (normal, controls, voice, draft, escape, terminate, crash, fallback): scenario()
-print('Panel PTY passed: controls menu, voice capture, voice drafts, exact keys, CPR, isolation, resize, history hold, worker respawn, exits, crash cleanup and fallback.')
+for scenario in (normal, controls, voice, draft, insert, escape, terminate, crash, fallback): scenario()
+print('Panel PTY passed: controls menu, voice capture, voice drafts, voice insertion, exact keys, CPR, isolation, resize, history hold, worker respawn, exits, crash cleanup and fallback.')

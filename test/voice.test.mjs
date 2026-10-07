@@ -188,7 +188,7 @@ test('C4-A6 setup voice step: keep off, choose with permission, denial recovery,
   let r = await run(['off']);
   assert.equal(r.config.voice, null); assert.match(r.text, /MISSION 05 \/ VOICE \(optional\)/); assert.match(r.text, /VOICE {3}off/); assert.match(r.text, /MISSION 06 \/ SAVE POINT/);
   r = await run(['choose', '1', 'test', 'none'], { permission: 'not-determined', request: 'authorized', warmup: 300 });
-  assert.deepEqual(r.config.voice, { microphone: { id: 'mic-2', name: 'Second Mic' }, transcriber: null });
+  assert.deepEqual(r.config.voice, { microphone: { id: 'mic-2', name: 'Second Mic' }, transcriber: null, insert: 'auto' });
   assert.match(r.text, /macOS will now ask/); assert.match(r.text, /Audio stays on this Mac/); assert.match(r.text, /PLAYING BACK/);
   assert.match(r.text, /MIC STARTING\.\.\.\nRECORDING 3 SECONDS/, 'speak prompt shown before the microphone was live');
   assert.match(r.text, /Bluetooth headset microphones take about a second/); assert.match(r.text, /Second Mic \/ Bluetooth/); assert.match(r.text, /Fixture Mic \/ USB \/ system default/);
@@ -196,8 +196,8 @@ test('C4-A6 setup voice step: keep off, choose with permission, denial recovery,
   const calls = (await import('node:fs')).readFileSync(log, 'utf8');
   assert.match(calls, /"request"/); assert.match(calls, /"record","--out",".*check\.wav","--max-seconds","3","--device","mic-2"/);
   assert.equal((await import('node:fs')).readFileSync(plays, 'utf8').trim().endsWith('check.wav'), true);
-  r = await run(['keep', 'keep'], {}, { version: 2, controller: { transport: 'bluetooth', inputVerified: false }, agent: null, profile: 'terminal-basic', voice: { microphone: { id: 'mic-2', name: 'Second Mic' }, transcriber: { kind: 'system', language: 'zh' } } });
-  assert.deepEqual(r.config.voice, { microphone: { id: 'mic-2', name: 'Second Mic' }, transcriber: { kind: 'system', language: 'zh' } });
+  r = await run(['keep', 'keep', 'review'], {}, { version: 2, controller: { transport: 'bluetooth', inputVerified: false }, agent: null, profile: 'terminal-basic', voice: { microphone: { id: 'mic-2', name: 'Second Mic' }, transcriber: { kind: 'system', language: 'zh' } } });
+  assert.deepEqual(r.config.voice, { microphone: { id: 'mic-2', name: 'Second Mic' }, transcriber: { kind: 'system', language: 'zh' }, insert: 'review' });
   r = await run(['choose', 'retry', 'off'], { permission: 'denied' });
   assert.equal(r.config.voice, null); assert.match(r.text, /Privacy & Security > Microphone/);
   r = await run(['choose', 'off'], { devices: [] });

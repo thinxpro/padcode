@@ -22,9 +22,10 @@ if mode == 'group':
         while True: time.sleep(1)
     print('GROUP:%s:%s' % (os.getpid(), child), flush=True)
     while True: time.sleep(1)
-if mode == 'lines':
-    # Main-screen output with tmux history, for controller history scrolling.
+if mode in ('lines', 'paste'):
+    # Main-screen output with tmux history; 'paste' also enables bracketed paste like Claude Code.
     tty.setraw(0)
+    if mode == 'paste': os.write(1, b'\x1b[?2004h')
     os.write(1, b''.join(b'HISTORY LINE %d\r\n' % n for n in range(200)))
     while True:
         data = os.read(0, 4096)

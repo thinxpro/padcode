@@ -24,6 +24,10 @@ export interface PanelOptions {
   voice?: Config['voice']; audio?: AudioPort;
 }
 export class PanelFallback extends Error {}
+// Inserted voice text is one line, so no byte of it can act as Enter.
+export const insertionLine = (text: string) => text.replace(/\s*\n\s*/g, ' ').trim();
+// Very short or yes/no-like transcripts could answer an approval prompt that appeared during transcription.
+export const shortAnswer = (text: string) => [...text.replace(/\s/g, '')].length <= 2 || /^[\d\s\p{P}yYnN]*$/u.test(text);
 const session = 'padcode';
 const panelRows = (rows: number) => rows < 12 ? 1 : 2;
 
@@ -176,11 +180,35 @@ export async function runPanelAgent(agent: Agent, options: PanelOptions): Promis
         release: resume => gamepad.releaseCapture(resume),
         status: text => { latest = text; ipc.send('panel', { t: 'status', text }); },
         notice: text => ipc.send('panel', { t: 'notice', text }),
-        draft: text => controls.openDraft(text),
+        draft: text => {
+          if ((options.voice!.insert ?? 'auto') === 'auto' && !shortAnswer(text) && controls.context === 'agent') insertText(text);
+          else {
+            controls.openDraft(text);
+            if (controls.context !== 'draft') ipc.send('panel', { t: 'notice', text: 'VOICE DRAFT READY / Options > Review voice draft' });
+          }
+        },
       }, Date.now, 60, options.voice.transcriber);
       gamepad.onTrigger(value => voice?.trigger(value));
     }
+    // The bridge refuses an undo once anything else reached the Agent after the insertion.
+    let inserted: number | undefined, undoRerecord = false;
+    function insertText(text: string): void {
+      const line = insertionLine(text), chars = [...line];
+      if (!chars.length || finished) return;
+      for (let i = 0; i < chars.length; i += 300) ipc.send('agent', { t: 'paste-part', text: chars.slice(i, i + 300).join('') });
+      ipc.send('agent', { t: 'paste-end' });
+      inserted = chars.length;
+      ipc.send('panel', { t: 'notice', text: `INSERTED ${chars.length} chars / X or Enter sends, Options > Undo voice insert` });
+    }
+    ipc.on('undo', result => {
+      inserted = undefined;
+      ipc.send('panel', { t: 'notice', text: result.ok ? undoRerecord ? 'VOICE INSERT UNDONE / Hold L2 to record again' : 'VOICE INSERT UNDONE'
+        : 'UNDO UNAVAILABLE / The input changed after the voice insert' });
+    });
     const controls = new SessionControls({
+      insert: text => insertText(text),
+      canUndo: () => inserted !== undefined,
+      undo: rerecord => { if (inserted === undefined) return; undoRerecord = rerecord; ipc.send('agent', { t: 'undo', count: inserted }); },
       hasRecording: () => Boolean(voice?.last),
       notice: text => ipc.send('panel', { t: 'notice', text }),
       play: () => voice?.play(),
