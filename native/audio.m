@@ -161,7 +161,7 @@ static int record(NSArray<NSString *> *args) {
         if ([status isEqual:@"denied"] || [status isEqual:@"restricted"])
             return failure(@"permission-denied", @"Microphone access is denied. Allow Padcode Audio in macOS Privacy & Security > Microphone, then retry.");
         if (![status isEqual:@"authorized"])
-            return failure(@"permission-required", @"Microphone access has not been granted. Run padcode config and choose a microphone.");
+            return failure(@"permission-required", @"Microphone access has not been granted to Padcode Audio yet.");
     }
     int fd = open(path.fileSystemRepresentation, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0600);
     if (fd < 0) return failure(@"io", @"Cannot create the recording file; it must not already exist.");

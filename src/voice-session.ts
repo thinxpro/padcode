@@ -17,7 +17,7 @@ const clock = (ms: number) => { const s = Math.floor(ms / 1000); return `${Strin
 
 // Push-to-talk on L2: hysteresis and debounce decide edges; one recording exists at a time.
 export class VoiceCapture {
-  state: 'idle' | 'recording' | 'stopping' | 'playing' = 'idle';
+  state: 'idle' | 'recording' | 'stopping' | 'playing' | 'permission' = 'idle';
   last: string | undefined;
   private pressed = false;
   private latest = 0;
@@ -76,7 +76,23 @@ export class VoiceCapture {
     }
     void rm(path, { force: true });
     this.fx.release(true);
+    // Ad-hoc signed helpers lose their macOS grant when Padcode is updated; ask again right here.
+    if (result.kind === 'error' && result.code === 'permission-required') { this.requestPermission(generation); return; }
+    if (result.kind === 'error' && result.code === 'permission-denied') { this.fx.notice('MIC DENIED / Allow Padcode Audio in System Settings > Privacy & Security > Microphone'); return; }
     this.fx.notice(result.kind === 'error' ? `MIC ERROR / ${result.message}` : 'RECORDING CANCELLED');
+  }
+  private requestPermission(generation: number): void {
+    this.state = 'permission';
+    this.fx.notice('MIC PERMISSION / Answer the macOS dialog for Padcode Audio');
+    void this.audio.request().then(status => {
+      if (generation !== this.generation) return;
+      this.state = 'idle';
+      this.fx.notice(status === 'authorized' ? 'MIC READY / Hold L2 again to record'
+        : 'MIC DENIED / Allow Padcode Audio in System Settings > Privacy & Security > Microphone');
+    }, (error: Error) => {
+      if (generation !== this.generation) return;
+      this.state = 'idle'; this.fx.notice(`MIC ERROR / ${error.message}`);
+    });
   }
   cancel(): void {
     if (this.recording) { this.cancelled = true; this.recording.cancel(); }

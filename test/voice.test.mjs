@@ -20,7 +20,8 @@ function fakeAudio() {
   const recordings = [], plays = [];
   const audio = {
     supported: true,
-    list: async () => [], permission: async () => 'authorized', request: async () => 'authorized',
+    requests: 0, answer: 'authorized',
+    list: async () => [], permission: async () => 'authorized', request: async () => { audio.requests++; await wait(20); return audio.answer; },
     record(options) {
       let finish, level; const done = new Promise(r => { finish = r; });
       let live;
@@ -92,7 +93,7 @@ test('C4-A2/A3 cancel, replacement, errors, crashes and late results leave no st
   v.press('south'); v.press('dpad_up'); assert.equal(third.cancelled, 1);
   await third.finish({ kind: 'stopped', seconds: 0.2 });
   await eventually(() => !existsSync(third.options.path), 'cancelled recording kept'); assert.ok(v.calls.includes('notice:RECORDING CANCELLED')); assert.equal(v.capture.last, undefined);
-  for (const result of [{ kind: 'error', code: 'device-lost', message: 'The microphone was disconnected.' }, { kind: 'error', code: 'crash', message: 'The microphone helper stopped unexpectedly.' }, { kind: 'error', code: 'permission-denied', message: 'Microphone access is denied.' }]) {
+  for (const result of [{ kind: 'error', code: 'device-lost', message: 'The microphone was disconnected.' }, { kind: 'error', code: 'crash', message: 'The microphone helper stopped unexpectedly.' }]) {
     const r = await record(result);
     await eventually(() => !existsSync(r.options.path), 'failed recording kept'); assert.ok(v.calls.includes(`notice:MIC ERROR / ${result.message}`));
   }
@@ -106,6 +107,28 @@ test('C4-A2/A3 cancel, replacement, errors, crashes and late results leave no st
   const late = v.recordings.at(-1); v.capture.dispose(); assert.equal(late.cancelled, 1);
   const before = v.calls.length; await late.finish({ kind: 'stopped', seconds: 1 });
   await eventually(() => !existsSync(late.options.path), 'late recording kept'); assert.equal(v.calls.length, before);
+});
+
+test('C4 lost macOS grant: L2 asks for microphone access in the session instead of pointing to config', async t => {
+  const dir = await temporary(t), v = voice(t, dir);
+  const press = () => { v.tick(200); v.capture.trigger(0.1); v.tick(200); v.capture.trigger(0.9); v.tick(200); };
+  press(); const first = v.recordings.at(-1); v.capture.trigger(0.1);
+  await first.finish({ kind: 'error', code: 'permission-required', message: 'Microphone access has not been granted.' });
+  assert.equal(v.capture.state, 'permission'); assert.equal(v.audio.requests, 1);
+  assert.ok(v.calls.includes('notice:MIC PERMISSION / Answer the macOS dialog for Padcode Audio'));
+  assert.ok(!v.calls.some(call => call.includes('padcode config')), 'pointed to padcode config');
+  press(); assert.equal(v.recordings.length, 1, 'recorded while the permission dialog was open');
+  await eventually(() => v.capture.state === 'idle', 'permission request never finished');
+  assert.ok(v.calls.includes('notice:MIC READY / Hold L2 again to record'));
+  press(); assert.equal(v.recordings.length, 2, 'could not record after permission was granted');
+  v.audio.answer = 'denied'; v.capture.trigger(0.1);
+  await v.recordings[1].finish({ kind: 'error', code: 'permission-required', message: 'x' });
+  await eventually(() => v.capture.state === 'idle');
+  assert.ok(v.calls.includes('notice:MIC DENIED / Allow Padcode Audio in System Settings > Privacy & Security > Microphone'));
+  press(); v.capture.trigger(0.1); await v.recordings[2].finish({ kind: 'error', code: 'permission-denied', message: 'x' });
+  assert.equal(v.audio.requests, 2, 'asked again after an explicit denial');
+  assert.equal(v.calls.filter(call => call.startsWith('capture')).length, v.calls.filter(call => call.startsWith('release')).length);
+  v.capture.dispose();
 });
 
 test('C4 playback captures the controller and O stops it', async t => {

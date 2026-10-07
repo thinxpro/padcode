@@ -85,3 +85,11 @@ Fix, within the C4 scope ("no clipping at onset"):
 - Tests: the native synthetic test asserts `live`; unit tests cover the warm-up status, the too-short path and transport parsing; the setup and PTY scenarios run the fake helper with a 300-400 ms warm-up.
 
 `npm run check` passed 116 tests with zero failures or skips. Artifact `padcode-0.1.0-dev.16.tgz`, npm SHA-1 `beddc6cfb17d3d7f9b414c98acc691ad59e9d441`. Physical confirmation with the Bluetooth headset and with a USB or built-in microphone is pending.
+
+### Microphone grant lost after updates (dev.17)
+
+User report (2026-10-07): with voice configured, holding L2 in Claude Code showed `MIC ERROR | Microphone access has not been granted. Run padcode config and choose a microphone.` The installed dev.16 helper reported `not-determined`. Cause: `padcode-audio` is ad-hoc signed (no team identifier), and macOS records the grant against that exact code signature, which changes with every build. The grant made with the dev.15 helper did not apply to the rebuilt dev.16 helper, and the message pointed to a configuration flow the user had already completed.
+
+Fix: when a recording fails with `permission-required`, the session asks macOS for access itself (`MIC PERMISSION / Answer the macOS dialog for Padcode Audio`), ignores L2 while the dialog is open, then shows `MIC READY / Hold L2 again to record` or, if declined, `MIC DENIED` with the System Settings path. An explicit denial is not re-requested. Unit test: "lost macOS grant". Known limit until release signing (Developer ID, tracked under distribution): each Padcode update asks for microphone access once more.
+
+`npm run check` passed 117 tests with zero failures or skips. Artifact `padcode-0.1.0-dev.17.tgz`, npm SHA-1 `7022f18f5dff5acc76f0ca0406589ff326c2d92e`.
