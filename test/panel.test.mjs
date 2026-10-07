@@ -91,7 +91,7 @@ test('C2-A2 status pane renders every state within narrow widths and without col
     assert.equal(colored.join('').replace(/\x1b\[[0-9;]*m/g, ''), renderPanel(status, 80, 2, false).join(''));
   }
   assert.equal(renderPanel('ACTIVE / Options to pause', 80, 1, false).length, 1);
-  assert.match(renderPanel('ACTIVE / x', 140, 2, false)[1], /D-PAD ARROWS {2}X ENTER {2}O ESC {2}L1 TAB {2}R1 SHIFT\+TAB {2}WHEEL HISTORY/);
+  assert.match(renderPanel('ACTIVE / x', 160, 2, false)[1], /D-PAD ARROWS {2}X ENTER {2}O ESC {2}L1 TAB {2}R1 SHIFT\+TAB {2}OPTIONS MENU {2}WHEEL HISTORY/);
   assert.ok(!renderPanel('ACTIVE / \x1b]0;evil\x07', 80, 2, false).join('').includes('\x1b'));
 });
 
@@ -121,7 +121,7 @@ test('launch confirmation states the display mode and recovery path', async () =
   const lines = []; const io = { banner: t => lines.push(t), say: t => lines.push(t), choose: async () => 'cancel' };
   const agent = { command: process.execPath, args: [] };
   await confirmAgent(io, agent, '/tmp', { kind: 'panel', tmux: '/opt/tmux', version: 'tmux 3.7c' });
-  assert.match(lines.join('\n'), /DISPLAY \/ Controls pane \(tmux 3\.7c\)/); assert.doesNotMatch(lines.join('\n'), /terminal title/);
+  assert.match(lines.join('\n'), /DISPLAY \/ Controls pane \(tmux 3\.7c\)/); assert.match(lines.join('\n'), /Options controls menu/); assert.doesNotMatch(lines.join('\n'), /terminal title/);
   lines.length = 0;
   await confirmAgent(io, agent, '/tmp', { kind: 'transparent', reason: 'tmux was not found. Install tmux 3.2+ (brew install tmux, or apt install tmux) for the controls pane.' });
   assert.match(lines.join('\n'), /DISPLAY \/ Transparent\. tmux was not found/); assert.match(lines.join('\n'), /terminal title/);

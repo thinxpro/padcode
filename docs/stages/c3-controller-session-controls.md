@@ -1,6 +1,6 @@
 # C3: Complete controller session
 
-Status: planned. This plan is committed before runtime changes. Branch `feature/session-controls` from `main` after C1, C2 and Player Hub navigation merged.
+Status: implemented in dev.12; automated acceptance passes locally and physical acceptance is pending. This plan was committed before runtime changes. Branch `feature/session-controls` from `main` after C1, C2 and Player Hub navigation merged.
 
 ## Scope
 
@@ -64,4 +64,10 @@ History uses tmux copy mode on the Agent pane (`copy-mode -e`), driven by explic
 
 ## Validation record
 
-Pending.
+Plan commit: `1d572a1`. On macOS 27.0 arm64 with Node 24.21.0 and tmux 3.7c, `npm run check` passed 108 tests with zero failures or skips.
+
+- C3-A1/A2/A3/A6: `test/session-controls.test.mjs` runs the full context x button matrix (15 buttons in Agent, Menu, End confirmation and History), 100 presses per context through a real `AgentGamepad`, the release barrier on close, pause through the barrier and disconnect inside the menu.
+- C3-A2 to A8 end to end: `test/panel_pty.py` `controls()` drives a real tmux session: 100 X presses give exactly 100 Enter bytes, every menu press stays out of the Agent, the popup does not resize the Agent pane, Pause and Options resume, Send interrupt writes one `0x03` (from the controller and from the popup keyboard's number key), history scrolls the Agent pane's tmux history with the D-pad and leaves on O, a disconnect closes the menu and needs the rearm, End session keeps running on the default choice and ends with status 130 after confirmation. SIGTERM with the popup open removes the popup client with the session.
+- The C2 history hold is replaced by the History context; mouse-wheel entry routes there too. Transparent mode keeps the Options pause toggle (existing suites).
+
+Artifact `padcode-0.1.0-dev.12.tgz`, npm SHA-1 `51f1c2b15a83e5bcf5bcc22c710cef7f3c9751cb`. C3-H1 to C3-H3 are pending physical testing.

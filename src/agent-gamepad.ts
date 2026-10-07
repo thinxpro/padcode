@@ -15,6 +15,7 @@ export interface AgentGamepadOptions {
   automaticHandoff?: boolean;
   trace?: (event: string, generation: number, device?: number) => void;
 }
+export type ControlEvent = 'menu' | 'lost';
 export interface ControllerSource {
   subscribe(keys: (bytes: Buffer) => void, status: (text: string) => void, cancel: () => void): () => void;
   start(signal: AbortSignal): Promise<void>;
@@ -34,7 +35,8 @@ export class AgentGamepad implements ControllerSource {
   private failed = false;
   private generation = 0;
   private automaticAvailable = false;
-  private holding = false;
+  private capturing: ((button: Button) => void) | undefined;
+  private menu = false;
   private resumeActive = false;
   private rearming = false;
   private lastStatus = '';
@@ -51,28 +53,40 @@ export class AgentGamepad implements ControllerSource {
     this.events.on('keys', keys); this.events.on('status', status); this.events.on('cancel', cancel);
     return () => { this.events.removeListener('keys', keys); this.events.removeListener('status', status); this.events.removeListener('cancel', cancel); };
   }
+  onControl(listener: (event: ControlEvent) => void): () => void {
+    this.events.on('control', listener); return () => this.events.removeListener('control', listener);
+  }
+  // With an isolated controls surface, Options opens the session menu instead of toggling pause.
+  enableMenu(): void { this.menu = true; }
+  private activeStatus(): string { return this.menu ? 'ACTIVE / Options menu' : 'ACTIVE / Options to pause'; }
   suspend(status = 'PAUSED / Options to enable'): void {
-    this.active = false; this.optionPresses.clear(); clearTimeout(this.armTimer); this.armTimer = undefined;
+    this.active = false; this.rearming = false; this.optionPresses.clear(); clearTimeout(this.armTimer); this.armTimer = undefined;
     this.events.emit('cancel'); this.status(status); this.trace('paused');
   }
-  // History views own the screen: consume controller input until they close, then re-arm after release.
-  hold(status = 'HISTORY / Wheel or q returns; gamepad held'): void {
-    if (this.holding || this.failed) return;
-    this.holding = true; this.resumeActive = this.active || this.rearming || (this.automaticAvailable && this.selected !== undefined);
-    this.active = false; this.rearming = false;
-    clearTimeout(this.armTimer); this.armTimer = undefined; this.optionPresses.clear();
-    this.events.emit('cancel'); this.events.emit('status', status); this.trace('held');
+  // Padcode contexts (menu, history) own controller presses until they close, then re-arm after release.
+  capture(handler: (button: Button) => void, status: string): void {
+    if (this.failed) return;
+    if (!this.capturing) {
+      this.resumeActive = this.active || this.rearming || (this.automaticAvailable && this.selected !== undefined);
+      this.active = false; this.rearming = false;
+      clearTimeout(this.armTimer); this.armTimer = undefined; this.optionPresses.clear();
+      this.events.emit('cancel');
+    }
+    this.capturing = handler; this.events.emit('status', status); this.trace('captured');
   }
-  resume(): void {
-    if (!this.holding) return;
-    this.holding = false;
+  releaseCapture(resume = true): void {
+    if (!this.capturing) return;
+    this.capturing = undefined;
     const device = this.selected;
+    if (!resume) { this.resumeActive = false; this.suspend(); return; }
     if (this.failed || !this.resumeActive || device === undefined) { this.resumeActive = false; this.events.emit('status', this.lastStatus); return; }
     this.resumeActive = false; this.rearming = true;
     this.settling.set(device, this.now() + 250);
     this.status('ARMING / Release buttons'); this.trace('rearm-barrier', device);
     this.scheduleArm(device);
   }
+  hold(status = 'HISTORY / Wheel or q returns; gamepad held'): void { if (!this.capturing) this.capture(() => {}, status); }
+  resume(): void { this.releaseCapture(); }
   async start(signal: AbortSignal): Promise<void> {
     this.generation++;
     const feed = this.factory(); this.feed = feed;
@@ -112,22 +126,22 @@ export class AgentGamepad implements ControllerSource {
     const wait = Math.max(0, (this.settling.get(device) ?? this.now() + 250) - this.now());
     this.armTimer = setTimeout(() => {
       this.armTimer = undefined;
-      if (this.failed || this.holding || this.selected !== device || !(this.automaticAvailable || this.rearming)) return;
+      if (this.failed || this.capturing || this.selected !== device || !(this.automaticAvailable || this.rearming)) return;
       const held = this.held.get(device);
       if (!held || held.size) return;
       const remaining = (this.settling.get(device) ?? 0) - this.now();
       if (remaining > 0) { this.scheduleArm(device); return; }
       this.automaticAvailable = false; this.rearming = false; this.active = true;
-      this.status('ACTIVE / Options to pause'); this.trace('active', device);
+      this.status(this.activeStatus()); this.trace('active', device);
     }, wait);
   }
   private receive(event?: Event, error?: Error): void {
-    if (error) { this.failed = true; this.suspend('INPUT LOST / Keyboard available'); return; }
+    if (error) { this.failed = true; this.suspend('INPUT LOST / Keyboard available'); if (this.capturing) this.events.emit('control', 'lost'); return; }
     if (!event || this.failed) return;
     if (event.type === 'connected') { this.connected(event); this.prepareAutomaticHandoff(); return; }
     if (event.type === 'disconnected') {
       this.devices.delete(event.device); this.held.delete(event.device); this.optionPresses.delete(event.device); this.settling.delete(event.device);
-      if (this.selected === event.device) { this.selected = undefined; this.automaticAvailable = false; this.rearming = false; this.resumeActive = false; this.suspend('DISCONNECTED / Reconnect then Options'); }
+      if (this.selected === event.device) { this.selected = undefined; this.automaticAvailable = false; this.rearming = false; this.resumeActive = false; this.suspend('DISCONNECTED / Reconnect then Options'); if (this.capturing) this.events.emit('control', 'lost'); }
       return;
     }
     if (event.type !== 'button') return;
@@ -136,7 +150,10 @@ export class AgentGamepad implements ControllerSource {
     if (event.down === held.has(event.button)) return;
     if (event.down) held.add(event.button); else held.delete(event.button);
     if (this.selected !== undefined && this.selected !== event.device) return;
-    if (this.holding) { this.trace('held-event-consumed', event.device); return; }
+    if (this.capturing) {
+      if (event.down && this.selected === event.device) this.capturing(event.button);
+      this.trace('captured-event', event.device); return;
+    }
     if ((this.automaticAvailable || this.rearming) && this.selected === event.device) {
       this.settling.set(event.device, this.now() + 250); this.scheduleArm(event.device);
       this.trace('barrier-event-consumed', event.device); return;
@@ -146,8 +163,9 @@ export class AgentGamepad implements ControllerSource {
       if (event.down) this.optionPresses.add(event.device);
       else if (this.optionPresses.delete(event.device)) {
         this.selected = event.device;
-        if (this.active) this.suspend();
-        else { this.active = true; this.status('ACTIVE / Options to pause'); this.trace('active', event.device); }
+        if (this.active && this.menu) { this.events.emit('control', 'menu'); this.trace('menu', event.device); }
+        else if (this.active) this.suspend();
+        else { this.active = true; this.status(this.activeStatus()); this.trace('active', event.device); }
       }
       return;
     }
@@ -160,7 +178,7 @@ export class AgentGamepad implements ControllerSource {
     const feed = this.feed; this.feed = undefined;
     if (feed) await feed.stop();
     this.devices.clear(); this.held.clear(); this.optionPresses.clear(); this.settling.clear(); this.selected = undefined; this.automaticAvailable = false;
-    this.holding = false; this.resumeActive = false; this.rearming = false;
+    this.capturing = undefined; this.resumeActive = false; this.rearming = false;
     this.trace('stopped');
   }
 }
