@@ -63,3 +63,7 @@ Plan commit: `32b7b58`. On macOS 27.0.1 arm64 with Node 24.21.0 and tmux 3.7c, `
 - C6-A6: packaged-install smoke tests pass as part of the gate.
 
 Release candidate: help text, README, setup guide and architecture updated. Artifact `padcode-0.1.0-rc.1.tgz`, npm SHA-1 `1808e91c92e5b0f97de6b58bb437580b917e7d58`. C6-H1 to C6-H4 are pending physical testing.
+
+### User-reported physical acceptance
+
+On 2026-10-07 the user reported that C6 physical testing passed in Claude Code 2.1.292 (automatic insertion without sending, Undo voice insert, and the short-answer draft popup), with the DS4 over Bluetooth. Per-item details (exact Backspace behavior with emoji, the controller-only C6-H4 run) were not reported individually; this record covers only the user's statement. It is recorded on the top branch of the stack (#19) to avoid rebasing #17-#19 again.
