@@ -97,3 +97,14 @@ Fix: when a recording fails with `permission-required`, the session asks macOS f
 ### User-reported physical acceptance
 
 On 2026-10-07 the user reported that testing dev.17 passed: after the macOS dialog for Padcode Audio, L2 recording in a Claude Code 2.1.292 session and playback from the controls menu worked, with the DS4 over Bluetooth and the MOMENTUM 4 Bluetooth headset microphone configured. Per-item counts (10 recordings, cancel, disconnect, a non-Bluetooth microphone, L2 threshold ergonomics) were not reported individually; this record covers only the user's statement.
+
+### Stuck MIC STARTING after reconnecting the microphone (0.1.0-rc.2)
+
+User report (2026-10-07): with the saved Bluetooth headset microphone disconnected, Padcode correctly reported a microphone problem; after reconnecting it, holding L2 stayed on `MIC STARTING` indefinitely. Cause: `MIC STARTING` is shown until the helper reports real audio. The helper's 5-second no-signal check ran from the level timer, which only started after `AVAudioEngine` had started, so a device that hangs while opening (a Bluetooth headset that has just reconnected) kept the helper waiting forever; the session had no timeout of its own, and stopping the engine could block on the same device.
+
+Fix:
+- `padcode-audio` arms a start watchdog on its own dispatch queue as soon as recording begins (default 6 s, `--start-timeout`), fails with `no-signal` ("The microphone did not start. Reconnect it, or choose another microphone in Voice settings."), never stops an engine that produced no audio, and exits with `_exit` so a stuck audio thread cannot hold the process.
+- The session keeps a backup limit (8 s without audio): it gives the controller back immediately with `MIC NOT RESPONDING / Reconnect it or choose another in Voice settings, then hold L2 again`, cancels the helper and escalates SIGTERM to SIGKILL; the late result only deletes its file. The next L2 press starts a fresh helper.
+- Tests: the real helper's `--synthetic-silence` mode proves the native watchdog (error within the limit, no file); a fake helper that ignores stdin and SIGTERM proves the session limit, the kill and recovery on the next press.
+
+`npm run check` passed 133 tests with zero failures or skips. Artifact `padcode-0.1.0-rc.2.tgz`, npm SHA-1 `9e4f0750f9d36629e14f154378906223f520b5f3`. The native helper changed, so macOS asks for microphone access once more. The real reconnect case needs physical confirmation.

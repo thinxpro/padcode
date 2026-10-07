@@ -14,7 +14,7 @@ export interface VoiceEffects {
   notice(text: string): void;
   draft?(text: string): void;
 }
-export const startAt = 0.65, stopBelow = 0.35, debounceMs = 150, shortestSeconds = 0.3;
+export const startAt = 0.65, stopBelow = 0.35, debounceMs = 150, shortestSeconds = 0.3, liveLimitMs = 8000;
 const meter = (peak: number) => { const n = Math.round(Math.min(1, peak * 2) * 10); return `[${'#'.repeat(n)}${'.'.repeat(10 - n)}]`; };
 const clock = (ms: number) => { const s = Math.floor(ms / 1000); return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`; };
 
@@ -30,10 +30,12 @@ export class VoiceCapture {
   private player: { stop(): void } | undefined;
   private cancelled = false;
   private job: TranscriptionJob | undefined;
+  private liveTimer: NodeJS.Timeout | undefined;
+  private abandoned = new Set<string>();
   private generation = 0;
   private count = 0;
   constructor(private audio: AudioPort, private directory: string, private microphone: string, private fx: VoiceEffects,
-    private now: () => number = Date.now, private maxSeconds = 60, private transcriber: Transcriber | null = null) {}
+    private now: () => number = Date.now, private maxSeconds = 60, private transcriber: Transcriber | null = null, private liveLimit = liveLimitMs) {}
   trigger(value: number): void { this.latest = value; this.evaluate(); }
   private evaluate(): void {
     clearTimeout(this.timer); this.timer = undefined;
@@ -57,7 +59,17 @@ export class VoiceCapture {
     const status = (peak: number) => began === undefined ? 'MIC STARTING / Keep holding L2, speak at REC'
       : `REC ${clock(this.now() - began)} ${meter(peak)} / Release L2 to stop, O cancel`;
     this.fx.capture(button => { if (button === 'east') this.cancel(); }, status(0));
-    recording.onLive(() => { if (this.recording !== recording) return; began = this.now(); if (this.state === 'recording') this.fx.status(status(0)); });
+    recording.onLive(() => { clearTimeout(this.liveTimer); if (this.recording !== recording) return; began = this.now(); if (this.state === 'recording') this.fx.status(status(0)); });
+    // Backup for the helper's own watchdog: never leave MIC STARTING on screen indefinitely.
+    clearTimeout(this.liveTimer);
+    this.liveTimer = setTimeout(() => {
+      if (this.recording !== recording || began !== undefined) return;
+      // Give the controller back now; the stuck helper is killed in the background and its result ignored.
+      this.abandoned.add(path); recording.cancel();
+      this.recording = undefined; this.state = 'idle'; this.fx.release(true);
+      this.fx.notice('MIC NOT RESPONDING / Reconnect it or choose another in Voice settings, then hold L2 again');
+    }, this.liveLimit);
+    this.liveTimer.unref();
     recording.onLevel(peak => { if (this.recording === recording && this.state === 'recording') this.fx.status(status(peak)); });
     void recording.done.then(result => this.finished(result, path, generation));
   }
@@ -66,7 +78,9 @@ export class VoiceCapture {
     this.state = 'stopping'; this.recording.stop();
   }
   private finished(result: RecordingResult, path: string, generation: number): void {
+    clearTimeout(this.liveTimer);
     if (generation !== this.generation) { void rm(path, { force: true }); return; }
+    if (this.abandoned.delete(path)) { void rm(path, { force: true }); return; }
     this.recording = undefined; this.state = 'idle';
     if (result.kind === 'stopped' && !this.cancelled && result.seconds < shortestSeconds) {
       void rm(path, { force: true });
@@ -137,7 +151,7 @@ export class VoiceCapture {
     void playback.done.then(() => { this.player = undefined; this.state = 'idle'; this.fx.release(true); });
   }
   // Session end: stop everything; late helper results only delete their files.
-  dispose(): void { this.generation++; clearTimeout(this.timer); this.recording?.cancel(); this.job?.cancel(); this.player?.stop(); }
+  dispose(): void { this.generation++; clearTimeout(this.timer); clearTimeout(this.liveTimer); this.recording?.cancel(); this.job?.cancel(); this.player?.stop(); }
 }
 
 // Per-session voice directory with an owner record used by stale recovery.

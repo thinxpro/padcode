@@ -170,14 +170,14 @@ static int transcribe(NSArray<NSString *> *args) {
 }
 - (void)fail:(NSString *)code message:(NSString *)message {
     if (self.finished) return;
-    self.finished = YES; [self.engine stop];
+    self.finished = YES; if (self.live) [self.engine stop];
     unlink(self.path.fileSystemRepresentation); close(self.fd);
-    exit(failure(code, message));
+    _exit(failure(code, message));
 }
 - (void)finish:(BOOL)save {
     if (self.finished) return;
-    self.finished = YES; [self.engine stop];
-    if (!save) { unlink(self.path.fileSystemRepresentation); close(self.fd); event(@"cancelled", nil); exit(0); }
+    self.finished = YES; if (self.live) [self.engine stop];
+    if (!save) { unlink(self.path.fileSystemRepresentation); close(self.fd); event(@"cancelled", nil); _exit(0); }
     uint32_t bytes = (uint32_t)self.pcm.length;
     uint8_t header[44];
     uint32_t riff = 36 + bytes, fmtSize = 16, rate = (uint32_t)kRate, byteRate = (uint32_t)kRate * 2;
@@ -188,23 +188,25 @@ static int transcribe(NSArray<NSString *> *args) {
     memcpy(header + 36, "data", 4); memcpy(header + 40, &bytes, 4);
     BOOL ok = write(self.fd, header, 44) == 44 && write(self.fd, self.pcm.bytes, bytes) == (ssize_t)bytes && fsync(self.fd) == 0;
     close(self.fd);
-    if (!ok) { unlink(self.path.fileSystemRepresentation); exit(failure(@"io", @"Cannot write the recording.")); }
+    if (!ok) { unlink(self.path.fileSystemRepresentation); _exit(failure(@"io", @"Cannot write the recording.")); }
     event(@"stopped", @{@"seconds": @(bytes / 2 / kRate), @"bytes": @(bytes + 44)});
-    exit(0);
+    _exit(0);
 }
 @end
 
 static int record(NSArray<NSString *> *args) {
-    NSString *path = nil, *uid = nil; double maxSeconds = 60; BOOL synthetic = NO;
+    NSString *path = nil, *uid = nil; double maxSeconds = 60, startLimit = 6; BOOL synthetic = NO, silent = NO;
     for (NSUInteger i = 0; i < args.count; ++i) {
         NSString *arg = args[i];
         if ([arg isEqual:@"--synthetic"]) synthetic = YES;
+        else if ([arg isEqual:@"--synthetic-silence"]) synthetic = silent = YES;
+        else if (i + 1 < args.count && [arg isEqual:@"--start-timeout"]) startLimit = args[++i].doubleValue;
         else if (i + 1 < args.count && [arg isEqual:@"--out"]) path = args[++i];
         else if (i + 1 < args.count && [arg isEqual:@"--device"]) uid = args[++i];
         else if (i + 1 < args.count && [arg isEqual:@"--max-seconds"]) maxSeconds = args[++i].doubleValue;
         else return failure(@"usage", @"Usage: padcode-audio record --out PATH [--device UID] [--max-seconds N] [--synthetic]");
     }
-    if (!path.length || maxSeconds <= 0 || maxSeconds > 600) return failure(@"usage", @"record needs --out PATH and 0 < --max-seconds <= 600.");
+    if (!path.length || maxSeconds <= 0 || maxSeconds > 600 || startLimit <= 0 || startLimit > 60) return failure(@"usage", @"record needs --out PATH, 0 < --max-seconds <= 600 and 0 < --start-timeout <= 60.");
     if (!synthetic) {
         NSString *status = permissionStatus();
         if ([status isEqual:@"denied"] || [status isEqual:@"restricted"])
@@ -220,6 +222,12 @@ static int record(NSArray<NSString *> *args) {
     recorder.maxSamples = (NSUInteger)(maxSeconds * kRate);
     signal(SIGTERM, SIG_IGN); signal(SIGINT, SIG_IGN); signal(SIGPIPE, SIG_IGN);
     retained = [NSMutableArray arrayWithObject:recorder];
+    // Watchdog on its own queue: a device that hangs while opening (for example a Bluetooth headset that
+    // just reconnected) must still end the helper, even if AVAudioEngine never returns.
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(startLimit * NSEC_PER_SEC)), dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+        if (!recorder.live && !recorder.finished)
+            [recorder fail:@"no-signal" message:@"The microphone did not start. Reconnect it, or choose another microphone in Voice settings."];
+    });
     const int stops[] = {SIGTERM, SIGINT};
     for (int i = 0; i < 2; ++i) {
         dispatch_source_t source = dispatch_source_create(DISPATCH_SOURCE_TYPE_SIGNAL, (uintptr_t)stops[i], 0, recorder.queue);
@@ -245,13 +253,8 @@ static int record(NSArray<NSString *> *args) {
     dispatch_resume(input);
     dispatch_source_t meter = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, recorder.queue);
     dispatch_source_set_timer(meter, dispatch_time(DISPATCH_TIME_NOW, 100 * NSEC_PER_MSEC), 100 * NSEC_PER_MSEC, 10 * NSEC_PER_MSEC);
-    __block int waited = 0;
     dispatch_source_set_event_handler(meter, ^{
-        if (recorder.finished) return;
-        if (!recorder.live) {
-            if (++waited >= 50) [recorder fail:@"no-signal" message:@"The microphone delivered no audio for 5 seconds. Check the device or choose another microphone."];
-            return;
-        }
+        if (recorder.finished || !recorder.live) return;
         event(@"level", @{@"peak": @(round(recorder.peak * 100) / 100)}); recorder.peak = 0;
     });
     if (synthetic) {
@@ -260,7 +263,7 @@ static int record(NSArray<NSString *> *args) {
         dispatch_source_set_timer(tone, DISPATCH_TIME_NOW, 100 * NSEC_PER_MSEC, 5 * NSEC_PER_MSEC);
         dispatch_source_set_event_handler(tone, ^{
             int16_t samples[1600];
-            for (int i = 0; i < 1600; ++i) { samples[i] = (int16_t)(sin(phase) * 0.3 * 32767); phase += 2 * M_PI * 440 / kRate; }
+            for (int i = 0; i < 1600; ++i) { samples[i] = silent ? 0 : (int16_t)(sin(phase) * 0.3 * 32767); phase += 2 * M_PI * 440 / kRate; }
             [recorder append:samples count:1600];
         });
         [retained addObject:tone];
