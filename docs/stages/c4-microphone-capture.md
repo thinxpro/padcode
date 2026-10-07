@@ -69,3 +69,7 @@ Plan commit: `91c77ba`. On macOS 27.0 arm64 with Node 24.21.0 and tmux 3.7c, `np
 - `list` on this Mac returned two real input devices; no real microphone recording or permission request was made during automated testing.
 
 Artifact `padcode-0.1.0-dev.14.tgz`, npm SHA-1 `adcdd8f0f4325b4f428260620fb0c20cce88e647`. C4-H1 to C4-H4 are pending physical testing.
+
+### Player Hub voice entry (dev.15)
+
+On 2026-10-07 the user reported that testing was fine but that voice could not be found again after the first setup. The voice step only existed as step 5 of `padcode config`, after re-running the controller link, input check, Agent and loadout steps; the user's saved configuration was still version 1 with voice off, so no voice setting had been saved through the wizard and the in-session L2 checks (C4-H2 to H4) cannot have run with that configuration. Scope addition with this reason: Player Hub gains **Voice / microphone settings**, which runs only the voice step (titled VOICE SETTINGS), saves the result while keeping every other setting, and returns to the Hub; O returns without changes. `test/hub-navigation-pty.py` covers choose, unchanged-on-O and turn-off through the real Hub with a fake helper. `npm run check` passed 116 tests with zero failures or skips. Artifact `padcode-0.1.0-dev.15.tgz`, npm SHA-1 `ea0e740ad3e2a4c01d014a0019cf397fc0d783ea`. C4-H remains pending until voice is configured and tested in a session.

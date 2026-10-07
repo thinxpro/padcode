@@ -141,9 +141,9 @@ async function chooseAgent(io: PromptPort, services: SetupServices, initial?: Co
 
 const permissionHelp = 'Microphone access is denied. Allow Padcode Audio in macOS System Settings > Privacy & Security > Microphone, then choose Retry.';
 // Voice stays off unless the user picks a microphone after reading what capture does.
-async function chooseVoice(io: PromptPort, audio: AudioPort | undefined, signal: AbortSignal, initial?: Config): Promise<Config['voice']> {
+async function chooseVoice(io: PromptPort, audio: AudioPort | undefined, signal: AbortSignal, initial?: Config, title = 'MISSION 05 / VOICE (optional)'): Promise<Config['voice']> {
   if (!audio) return initial?.voice ?? null;
-  io.banner('MISSION 05 / VOICE (optional)');
+  io.banner(title);
   if (!audio.supported) { io.say('Voice capture currently requires macOS. Voice stays off.'); return null; }
   const current = initial?.voice;
   const first = await io.choose('Voice input (hold L2 to record in an Agent session)', [
@@ -217,11 +217,11 @@ type HubStep = { exit: number } | { action: 'hub' | 'config' | 'controllers'; no
   | { action: 'run'; agent: NonNullable<Config['agent']>; controller: Config['controller']; handedOff: MenuFeed | undefined; display: Display; voice: Config['voice'] };
 
 // Every Hub screen returns here; only Exit, q or a signal leaves Padcode.
-export async function onboarding(edit = false, menus = new GamepadMenus(), lab: { helper?: string; helperArgs?: string[] } = {}): Promise<number> {
+export async function onboarding(edit = false, menus = new GamepadMenus(), lab: { helper?: string; helperArgs?: string[] } = {}, audio: AudioPort = new NativeAudio()): Promise<number> {
   if (!process.stdin.isTTY || !process.stdout.isTTY) { process.stderr.write('Setup requires an interactive terminal. Run padcode --help for commands.\n'); return 2; }
   let editing = edit, notice: string | undefined;
   for (;;) {
-    const step = await hubStep(editing, menus, notice);
+    const step = await hubStep(editing, menus, audio, notice);
     editing = false; notice = undefined;
     if ('exit' in step) return step.exit;
     if (step.action === 'hub') { notice = step.notice; continue; }
@@ -236,7 +236,7 @@ export async function onboarding(edit = false, menus = new GamepadMenus(), lab: 
     catch (error) { notice = `SESSION FAILED / ${(error as Error).message}`; }
   }
 }
-async function hubStep(edit: boolean, menus: GamepadMenus, notice?: string): Promise<HubStep> {
+async function hubStep(edit: boolean, menus: GamepadMenus, audio: AudioPort, notice?: string): Promise<HubStep> {
   const controller = new AbortController();
   let exitCode = 130;
   const cancel = () => controller.abort();
@@ -256,7 +256,7 @@ async function hubStep(edit: boolean, menus: GamepadMenus, notice?: string): Pro
     if (config && (config.controller.address || config.controller.transport === 'usb')) await menus.activate(config.controller, controller.signal, true);
     if (!config || edit) {
       const updated = await setup(io, {
-        bluetooth: new NativeBluetooth(), audio: new NativeAudio(), probe: () => menus.probe(), activateMenus: target => menus.activate(target, controller.signal), agents: discoverAgents, resolve: resolveExecutable, save: saveConfig,
+        bluetooth: new NativeBluetooth(), audio, probe: () => menus.probe(), activateMenus: target => menus.activate(target, controller.signal), agents: discoverAgents, resolve: resolveExecutable, save: saveConfig,
       }, controller.signal, config ?? undefined);
       if (!updated) {
         io.say('No configuration changes saved.');
@@ -278,6 +278,7 @@ async function hubStep(edit: boolean, menus: GamepadMenus, notice?: string): Pro
       { label: 'Preview arcade dashboard', value: 'demo' },
       { label: 'Exit', value: 'quit' },
       ...(config.agent ? [{ label: 'Start agent session', value: 'run' }] : []),
+      { label: 'Voice / microphone settings', value: 'voice' },
     ]);
     if (action === 'run' && config.agent) {
       const display = await chooseDisplay();
@@ -288,6 +289,17 @@ async function hubStep(edit: boolean, menus: GamepadMenus, notice?: string): Pro
       // The demo has no input helper, so the Hub's own feed provides O to return.
       const code = await session({ demo: true, json: false, back: menus });
       return code === 130 || code === 143 ? { exit: code } : { action: 'hub' };
+    }
+    if (action === 'voice') {
+      // Voice settings can change on their own; the rest of the configuration is kept as saved.
+      let voice: Config['voice'];
+      try { voice = await chooseVoice(io, audio, controller.signal, config, 'VOICE SETTINGS'); }
+      catch (error) {
+        if ((error as Error).message !== 'Setup cancelled.' || controller.signal.aborted) throw error;
+        return { action: 'hub', notice: 'VOICE UNCHANGED / Back at Player Hub.' };
+      }
+      await saveConfig({ ...config, voice });
+      return { action: 'hub', notice: voice ? `VOICE ON / ${cleanName(voice.microphone.name)}, hold L2 in a session` : 'VOICE OFF' };
     }
     if (action === 'controllers' || action === 'config') return { action };
     return { exit: 0 };

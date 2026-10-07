@@ -154,7 +154,7 @@ In the menu, D-pad moves, X confirms, O or Options closes. The keyboard works to
 
 ## Voice capture (dev.14, macOS)
 
-Voice is off until you turn it on in setup (`padcode config`, step **VOICE (optional)**). Choosing a microphone shows what capture does, asks macOS for microphone access for **Padcode Audio**, lists your input devices and offers a 3-second check that plays back with `afplay`. If access is denied, allow Padcode Audio in System Settings > Privacy & Security > Microphone and choose Retry.
+Voice is off until you turn it on: in Player Hub choose **Voice / microphone settings** (dev.15), or use step **VOICE (optional)** of `padcode config`. Choosing a microphone shows what capture does, asks macOS for microphone access for **Padcode Audio**, lists your input devices and offers a 3-second check that plays back with `afplay`. If access is denied, allow Padcode Audio in System Settings > Privacy & Security > Microphone and choose Retry.
 
 In an Agent session (controls pane mode), hold **L2** to record and release to stop; recordings stop at 60 seconds. While recording, the status pane shows `REC` with a level meter, controller buttons do nothing except **O**, which cancels. Afterwards, Options > **Play last recording** plays it back. Transcription is not available yet, so nothing is typed into the Agent.
 
