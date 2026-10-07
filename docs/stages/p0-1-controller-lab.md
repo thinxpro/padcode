@@ -2,6 +2,8 @@
 
 Status: implementation and automated validation complete; physical acceptance pending. The original plan was committed before implementation (`3a8c2df`). See [validation evidence](p0-1-validation.md).
 
+User-directed amendment: Bluetooth is now the primary physical transport, USB optional. A8/A9 retain the same input/reconnection/background/stability requirements; use controller power-off/on instead of cable unplug/replug for Bluetooth. Terminal pairing/configuration is scoped in the [separate onboarding stage](p0-config-bluetooth.md). The original USB wording below is retained as the historical plan, not a mandatory cable requirement.
+
 ## Task and boundary
 
 Deliver a runnable developer build that reads SDL3 controller input and displays it in a game-console-style terminal dashboard. This is the input-validation tool needed before PTY/Agent integration. It does not launch agents, inject desktop input, save user data or install globally.

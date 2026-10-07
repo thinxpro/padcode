@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 const args = ['-S', 'native', '-B', 'build/native', '-DCMAKE_BUILD_TYPE=Release'];
 // Keep SDK and compiler in the selected Xcode installation aligned. No global xcode-select change.
@@ -15,3 +15,4 @@ for (const command of [args, ['--build', 'build/native', '--parallel', '4']]) {
   if (result.error) console.error(result.error.message);
   if (result.status !== 0) process.exit(result.status ?? 1);
 }
+writeFileSync('build/native/platform.json', JSON.stringify({ platform: process.platform, arch: process.arch }) + '\n');

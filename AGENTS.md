@@ -1,6 +1,7 @@
 # Development rules
 
 - One clearly scoped task per branch and pull request targeting `main`. Multiple commits per PR are welcome. Do not push implementation directly to `main` or merge without user authorization.
+- If a task depends on an unmerged PR, use an explicitly documented stacked PR targeting that prerequisite branch, then retarget to `main` after it merges. This keeps each PR's diff scoped; it is not permission to merge the prerequisite.
 - Before writing implementation code, commit the stage's implementation plan, acceptance criteria and test matrix under `docs/stages/`.
 - Implement against those criteria. Scope or criteria changes need an explicit documented reason, not silent relaxation after a failure.
 - Include complete automated tests appropriate to the feature: unit, integration, failure paths and lifecycle. All applicable checks must pass before marking a PR ready.
