@@ -2,6 +2,10 @@ import type { Button } from './protocol.js';
 import type { State } from './state.js';
 // ASCII content keeps width deterministic across fonts/locales; preserve names only in JSON mode.
 export function safeLabel(text: string): string { return text.replace(/[^\x20-\x7e]/g, '?'); }
+// Prose for people (transcripts, device names): keeps Unicode, drops controls, bidi overrides and lone surrogates.
+export function safeText(text: string): string {
+  return text.replace(/[\x00-\x1f\x7f-\x9f\u200e\u200f\u202a-\u202e\u2066-\u2069]/g, ' ').replace(/\p{Cs}/gu, '?');
+}
 export function colorEnabled(env: NodeJS.ProcessEnv, tty: boolean): boolean { return tty && env.NO_COLOR === undefined && env.TERM !== 'dumb'; }
 export function render(state: State, width = 80, height = 30, color = true): string {
   const columns = Math.max(1, Math.min(84, width - 1));

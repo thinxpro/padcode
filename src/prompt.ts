@@ -1,6 +1,7 @@
 import { createInterface } from 'node:readline/promises';
 import { emitKeypressEvents, type Key } from 'node:readline';
-import { colorEnabled, safeLabel } from './ui.js';
+import { colorEnabled, safeText } from './ui.js';
+import { wrapText } from './text-width.js';
 import type { MenuInput, MenuAction } from './menu-controller.js';
 
 export interface Choice { label: string; value: string }
@@ -15,8 +16,8 @@ export class TerminalPrompt implements PromptPort {
   constructor(private signal: AbortSignal, private cancel: () => void, private gamepad?: MenuInput) {}
   private width(): number { return Math.max(12, Math.min(72, (process.stdout.columns || 80) - 1)); }
   private wrap(text: string): string[] {
-    const line = safeLabel(text), lines = [];
-    for (let offset = 0; offset < line.length; offset += this.width()) lines.push(line.slice(offset, offset + this.width()));
+    // Wrap by terminal columns so Chinese and emoji keep their characters and line up.
+    const lines = wrapText(safeText(text), this.width());
     return lines.length ? lines : [''];
   }
   banner(title: string): void {
@@ -34,7 +35,7 @@ export class TerminalPrompt implements PromptPort {
     lines.on('SIGINT', this.cancel);
     lines.on('close', () => { if (!answered) this.cancel(); });
     try {
-      const answer = await lines.question(`${this.color ? '\x1b[95m' : ''}> ${safeLabel(message)}${this.color ? '\x1b[0m' : ''} `, { signal: this.signal });
+      const answer = await lines.question(`${this.color ? '\x1b[95m' : ''}> ${safeText(message)}${this.color ? '\x1b[0m' : ''} `, { signal: this.signal });
       answered = true; return answer;
     } finally { answered = true; lines.close(); process.stdin.pause(); }
   }
