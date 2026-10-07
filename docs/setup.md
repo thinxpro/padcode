@@ -148,6 +148,7 @@ In the controls pane (tmux) mode, **Options** opens the Padcode controls menu ov
 | Pause gamepad mapping | Stop sending controller keys; press Options to resume |
 | Browse history | D-pad scrolls one line, L1/R1 page up/down, O or Options leaves |
 | Send interrupt (Esc) | Send one Esc to the Agent, which stops the running task in Claude Code |
+| Clear input | Send Ctrl+E Ctrl+U, which empties a one-line input in Claude Code and other readline-style prompts; other lines of a multi-line input may remain |
 | End session... | Asks again; "End the Agent session" ends it and returns to Player Hub |
 
 In the menu, D-pad moves, X confirms, O or Options closes. The keyboard works too: arrows, Enter, Esc, q and the number keys. After the menu or history closes, release all buttons; controller keys reach the Agent again after 250 ms, so the closing press never does. Scrolling with the mouse wheel opens the same history view. Transparent mode (`PADCODE_PANEL=off` or no tmux) keeps Options as pause/resume.

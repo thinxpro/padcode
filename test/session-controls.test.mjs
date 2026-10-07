@@ -10,7 +10,7 @@ function harness() {
   const controls = new SessionControls({
     capture: (fn, status) => { handler = fn; calls.push(`capture:${status.split(' / ')[0]}`); },
     release: resume => { handler = undefined; calls.push(`release:${resume}`); },
-    interrupt: () => calls.push('interrupt'),
+    interrupt: () => calls.push('interrupt'), clear: () => calls.push('clear'),
     showMenu: view => calls.push(view ? `menu:${view.title}:${view.selected}` : 'menu:close'),
     history: command => calls.push(`history:${command}`),
     end: () => calls.push('end'),
@@ -21,7 +21,7 @@ function harness() {
 function at(context) {
   const h = harness();
   if (context !== 'agent') h.controls.openMenu();
-  if (context === 'confirm') { for (let i = 0; i < 4; i++) h.press('dpad_down'); h.press('south'); }
+  if (context === 'confirm') { for (let i = 0; i < 5; i++) h.press('dpad_down'); h.press('south'); }
   if (context === 'history') { h.press('dpad_down'); h.press('dpad_down'); h.press('south'); }
   assert.equal(h.controls.context, context); h.reset(); return h;
 }
@@ -29,8 +29,8 @@ function at(context) {
 test('C3-A1 every button has exactly one effect in every context', () => {
   const expected = {
     agent: {},
-    menu: { dpad_up: ['menu:PADCODE CONTROLS:4'], dpad_down: ['menu:PADCODE CONTROLS:1'], south: ['menu:close', 'release:true'], east: ['menu:close', 'release:true'], start: ['menu:close', 'release:true'] },
-    confirm: { dpad_up: ['menu:END SESSION?:1'], dpad_down: ['menu:END SESSION?:1'], south: ['capture:MENU', 'menu:PADCODE CONTROLS:4'], east: ['capture:MENU', 'menu:PADCODE CONTROLS:4'], start: ['menu:close', 'release:true'] },
+    menu: { dpad_up: ['menu:PADCODE CONTROLS:5'], dpad_down: ['menu:PADCODE CONTROLS:1'], south: ['menu:close', 'release:true'], east: ['menu:close', 'release:true'], start: ['menu:close', 'release:true'] },
+    confirm: { dpad_up: ['menu:END SESSION?:1'], dpad_down: ['menu:END SESSION?:1'], south: ['capture:MENU', 'menu:PADCODE CONTROLS:5'], east: ['capture:MENU', 'menu:PADCODE CONTROLS:5'], start: ['menu:close', 'release:true'] },
     history: { dpad_up: ['history:up'], dpad_down: ['history:down'], left_shoulder: ['history:page-up'], right_shoulder: ['history:page-down'], east: ['history:exit', 'release:true'], start: ['history:exit', 'release:true'] },
   };
   for (const [context, effects] of Object.entries(expected)) {
@@ -48,10 +48,11 @@ test('C3 menu items: resume, pause, history, interrupt and confirmed end', () =>
   assert.deepEqual(pick(1).calls, ['menu:close', 'release:false']);
   assert.deepEqual(pick(2).calls, ['capture:HISTORY', 'menu:close', 'history:enter']);
   assert.deepEqual(pick(3).calls, ['interrupt', 'menu:close', 'release:true']);
-  assert.deepEqual(pick(4).calls, ['capture:END SESSION?', 'menu:END SESSION?:0']);
+  assert.deepEqual(pick(4).calls, ['clear', 'menu:close', 'release:true']);
+  assert.deepEqual(pick(5).calls, ['capture:END SESSION?', 'menu:END SESSION?:0']);
   const h = at('confirm'); h.press('dpad_down'); h.reset(); h.press('south');
   assert.deepEqual(h.calls, ['menu:close', 'end']); assert.equal(h.controls.context, 'agent');
-  assert.equal(menuItems.length, 5); assert.deepEqual(confirmItems, ['Keep the session running', 'End the Agent session']);
+  assert.equal(menuItems.length, 6); assert.equal(menuItems[4], 'Clear input'); assert.deepEqual(confirmItems, ['Keep the session running', 'End the Agent session']);
 });
 
 test('C3 popup keys, mouse history, history exits and lost contexts', () => {
@@ -106,7 +107,7 @@ test('C3-A7 menu IPC accepts only bounded menu views and known actions', () => {
   const view = { t: 'menu', title: 'PADCODE CONTROLS', items: menuItems, selected: 0, hint: 'x' };
   assert.deepEqual(parseToMenu(JSON.stringify(view)), view);
   assert.deepEqual(parseToMenu('{"t":"close"}'), { t: 'close' });
-  for (const bad of [{ ...view, selected: 5 }, { ...view, items: [] }, { ...view, items: Array(10).fill('x') }, { ...view, title: 'x'.repeat(65) }, { ...view, extra: 1 }, { t: 'status', text: 'x' }]) {
+  for (const bad of [{ ...view, selected: menuItems.length }, { ...view, items: [] }, { ...view, items: Array(10).fill('x') }, { ...view, title: 'x'.repeat(65) }, { ...view, extra: 1 }, { t: 'status', text: 'x' }]) {
     assert.throws(() => parseToMenu(JSON.stringify(bad)));
   }
   for (const name of ['up', 'down', 'confirm', 'back']) assert.deepEqual(parseFromMenu(JSON.stringify({ t: 'action', name })), { t: 'action', name });
