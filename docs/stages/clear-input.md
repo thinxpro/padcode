@@ -27,3 +27,7 @@ The user asked for an Options menu item that clears the Agent's current input bo
 ## Validation record
 
 Plan commit: `5d28e07`. `npm run check` passed 133 tests with zero failures or skips on macOS 27.0.1 arm64. A1: the context matrix and menu tests include Clear input (exactly one `clear` effect, then close); voice items now sit just before End session regardless of how many base items exist. A2: `panel_pty.py` `controls()` asserts the Agent receives exactly `\x05\x15`, and `insert()` asserts Undo voice insert is refused after Clear input. Artifact `padcode-0.1.0-rc.3.tgz`, npm SHA-1 `1073503e215abb03fa58fe8c65090b9ab15e9c4b`. H1 and H2 are pending.
+
+### User-reported physical acceptance
+
+On 2026-10-07 the user reported that Clear input passed in Claude Code with 0.1.0-rc.3 (H1). The multi-line case (H2) was not reported separately and remains open.

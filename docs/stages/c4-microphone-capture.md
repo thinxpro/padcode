@@ -108,3 +108,7 @@ Fix:
 - Tests: the real helper's `--synthetic-silence` mode proves the native watchdog (error within the limit, no file); a fake helper that ignores stdin and SIGTERM proves the session limit, the kill and recovery on the next press.
 
 `npm run check` passed 133 tests with zero failures or skips. Artifact `padcode-0.1.0-rc.2.tgz`, npm SHA-1 `9e4f0750f9d36629e14f154378906223f520b5f3`. The native helper changed, so macOS asks for microphone access once more. The real reconnect case needs physical confirmation.
+
+### User-reported acceptance of the reconnect fix
+
+On 2026-10-07 the user reported that the reconnect case passed with 0.1.0-rc.3: after disconnecting and reconnecting the saved Bluetooth headset microphone, L2 recording worked without staying on `MIC STARTING`. Whether the first press after reconnecting needed a retry was not reported.
