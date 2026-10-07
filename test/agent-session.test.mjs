@@ -4,6 +4,7 @@ import { dirname, join } from 'node:path';
 import { connect } from 'node:net';
 import { hostChannel } from '../dist/host-channel.js';
 import test from 'node:test';
+import { childEnv } from './child-env.mjs';
 import assert from 'node:assert/strict';
 import { PassThrough, Writable } from 'node:stream';
 import { spawnSync } from 'node:child_process';
@@ -103,7 +104,7 @@ test('native spawn failure leaves terminal modes untouched', async () => {
   const t = terminal(); await runAgent(agent('basic'), { ...t, cwd: '/missing-padcode-project' }).then(code => assert.notEqual(code, 0), error => assert.match(error.message, /cwd|directory|posix_spawn|forkpty|chdir/i)); assert.equal(t.input.isRaw, false);
 });
 test('real outer terminal confirms launch, forwards Ctrl+C and restores flags on every exit route', { timeout: 30000 }, () => {
-  const result = spawnSync('python3', ['test/agent_pty.py'], { encoding: 'utf8', timeout: 25000, env: { ...process.env, PADCODE_NODE: process.execPath } });
+  const result = spawnSync('python3', ['test/agent_pty.py'], { encoding: 'utf8', timeout: 25000, env: childEnv({ PADCODE_NODE: process.execPath }) });
   assert.equal(result.status, 0, `${result.error ?? ''}\n${result.stdout}\n${result.stderr}`);
 });
 

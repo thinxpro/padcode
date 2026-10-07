@@ -1,5 +1,5 @@
 import { resolve, join } from 'node:path';
-import { writeFileSync } from 'node:fs';
+import { writeFileSync, appendFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 const root = process.cwd();
 const { runPanelAgent, PanelFallback } = await import(pathToFileURL(join(root, 'dist/panel-session.js')));
@@ -14,7 +14,8 @@ const [events, mode = 'basic'] = process.argv.slice(2);
 const agent = { command: process.env.PADCODE_PYTHON, args: [resolve('test/fixtures/pty-agent.py'), mode] };
 const gamepad = new AgentGamepad(
   { transport: 'bluetooth', address: 'aa:bb:cc:dd:ee:ff', inputVerified: true },
-  { factory: () => new ControllerProbe(process.execPath, [resolve('test/fixtures/menu-helper.mjs'), events]), automaticHandoff: true },
+  { factory: () => new ControllerProbe(process.execPath, [resolve('test/fixtures/menu-helper.mjs'), events]), automaticHandoff: true,
+    ...(process.env.PADCODE_TRACE_FILE ? { trace: (event, generation) => appendFileSync(process.env.PADCODE_TRACE_FILE, `${Date.now()} ${event} ${generation}\n`) } : {}) },
 );
 try {
   process.exitCode = await runPanelAgent(agent, {

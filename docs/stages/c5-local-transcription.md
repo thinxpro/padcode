@@ -89,3 +89,11 @@ User report (2026-10-07): both macOS on-device speech and whisper.cpp showed `HE
 ### User-reported physical acceptance
 
 On 2026-10-07 the user reported that testing dev.20 passed: Voice settings try-outs and in-session L2 drafts in Claude Code 2.1.292 showed correct Chinese text with both macOS on-device speech and whisper.cpp (`ggml-large-v3-turbo`), and **whisper.cpp was more accurate than macOS on-device speech**. Recommendation recorded for documentation: macOS on-device speech remains the zero-install default; whisper.cpp is the recommended upgrade for accuracy. Transcription times and per-item counts were not reported individually; this record covers only the user's statement.
+
+### CI failure: session crash on fast Options presses
+
+CI for this PR failed on Ubuntu in every run at `panel_pty.py` `normal()` (open and immediately close the controls menu): the private tmux server was gone. Cause, introduced by the draft popup sizing in this stage: `openPopup` awaited a tmux size query after checking the menu state, then read `menuView.body` without checking again. When the menu closed during that query, the coordinator threw an unhandled rejection and the whole session ended (the Agent with it). macOS timing hid it locally. A real user pressing Options twice quickly could hit it.
+
+Fix: the popup opener re-reads the view after every await, allows only one open at a time, and can never reject into the session. `normal()` now also presses Options twelve times in quick succession and requires the session to survive with no bytes reaching the Agent.
+
+The macOS run of the same CI job failed only while merging V8 coverage ("Unexpected end of JSON input") after all tests passed: Node processes started by the PTY harnesses inherit `NODE_V8_COVERAGE`, and a process the tests kill can leave a truncated coverage file. The harness wrappers now start subprocesses without `NODE_V8_COVERAGE` (`test/child-env.mjs`); coverage of the test processes themselves is unchanged. `npm run check` passed 128 tests with zero failures or skips.

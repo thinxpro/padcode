@@ -114,6 +114,14 @@ def normal():
         # Status updates from the controls menu never draw into the Agent pane.
         s.press('start'); s.until(lambda: 'MENU' in s.panel())
         s.press('start'); s.until(lambda: 'GAMEPAD ACTIVE' in s.panel())
+        # Opening and closing the menu faster than tmux answers must never end the session.
+        for _ in range(12): s.press('start'); time.sleep(.02)
+        # Let the barrier settle, then close the menu if the last press left it open.
+        s.until(lambda: ('GAMEPAD ACTIVE' in s.panel() or 'GAMEPAD MENU' in s.panel()), message='rapid presses left no stable state'); s.quiet(1)
+        if 'GAMEPAD MENU' in s.panel(): s.press('start')
+        s.until(lambda: 'GAMEPAD ACTIVE' in s.panel(), message='session did not survive rapid Options presses')
+        assert s.proc.poll() is None, 'coordinator exited after rapid Options presses'
+        assert s.received() == expected, 'Options presses reached the Agent'
         assert 'PADCODE' not in s.agent() and 'GAMEPAD' not in s.agent()
         # C2-P3: resize reaches the Agent PTY and keeps the status pane height fixed.
         s.resize(40, 100); s.until(lambda: 'SIZE:[100, 37]' in s.agent().replace('\n', ''))
