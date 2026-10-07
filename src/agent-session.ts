@@ -168,11 +168,15 @@ export async function runConfiguredAgent(): Promise<number> {
     throw error;
   } finally { await menus.stop(); io.close(); process.removeListener('SIGINT', abort); process.removeListener('SIGTERM', terminate); }
   if (!launch) return 0;
+  return launchConfigured(config.agent, config.controller, handedOff);
+}
+// Player Hub and padcode run share one launch path so the menu feed always transfers into the session.
+export async function launchConfigured(agent: Agent, controller: Config['controller'], handedOff?: MenuFeed): Promise<number> {
   const trace = process.env.PADCODE_INPUT_TRACE === '1'
     ? (event: string, generation: number, device?: number) => { process.stderr.write(`PADCODE INPUT event=${event} generation=${generation}${device === undefined ? '' : ` device=${device}`}\n`); }
     : undefined;
-  const gamepad = handedOff ? new AgentGamepad(config.controller, {
-    factory: () => handedOff!, feedStarted: true, automaticHandoff: true, ...(trace ? { trace } : {}),
-  }) : new AgentGamepad(config.controller, trace ? { trace } : {});
-  return runAgent(config.agent, { controller: config.controller, gamepad });
+  const gamepad = handedOff ? new AgentGamepad(controller, {
+    factory: () => handedOff, feedStarted: true, automaticHandoff: true, ...(trace ? { trace } : {}),
+  }) : new AgentGamepad(controller, trace ? { trace } : {});
+  return runAgent(agent, { controller, gamepad });
 }

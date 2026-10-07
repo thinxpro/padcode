@@ -48,3 +48,9 @@ The PR remains draft until C1-H1 through C1-H4 pass. C1-H5 is conditional diagno
 ## Validation record
 
 Plan commit: `f54721d`; implementation commit: `1916def`. On macOS 27.0 arm64 with Node 24.21.0, `npm run check` passed 93 tests with zero failures or skips. The controlled real-PTY fixture passed automatic neutral handoff, exact key delivery, Unicode keyboard coexistence, disconnect/rearm, helper failure, signals and cleanup. The current-platform artifact is `padcode-0.1.0-dev.8.tgz`, npm SHA-1 `ab2ccbb3d465ed9a89078166c8fd3b708aa433b4`. C1-A1 through C1-A9 pass locally; CI remains required. C1-H1 through C1-H4 remain pending, so the implementation PR stays draft.
+
+### Player Hub launch defect (found during physical testing)
+
+The user reported that every controller button was ignored inside Claude Code 2.1.292 after launching from Player Hub (`padcode` -> Start agent session). Inspection of the live process showed the session ran without the handoff: the Hub path in `onboarding.ts` still stopped the menu helper and called `runAgent` with a fresh, paused `AgentGamepad`, so mapping waited for an Options press and showed status only in the terminal title. C1 had changed only `padcode run`, and C1-A8 exercised only that path, so the defect escaped automated acceptance.
+
+Fix: Player Hub and `padcode run` now share `launchConfigured`, which adopts the transferred menu feed with automatic handoff. `test/hub-agent-pty.py` drives the real onboarding Hub with a virtual controller: D-pad to Start agent session, X to confirm, automatic ACTIVE without Options, zero launch bytes in the Agent, exact mapped keys, keyboard Unicode and a single helper start. `npm run check` passed 94 tests with zero failures or skips; one earlier run reported an empty child coverage file after all tests passed and passed on two reruns. Physical acceptance must be repeated from both launch paths.
