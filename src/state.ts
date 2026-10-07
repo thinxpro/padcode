@@ -1,6 +1,6 @@
 import { axes, type Axis, type Button, type Event } from './protocol.js';
 export interface Device { id: number; name: string; buttons: Set<Button>; axes: Record<Axis, number> }
-export interface State { devices: Map<number, Device>; selected: number | null; history: string[]; transitions: number; source: string; ready: boolean }
+export interface State { devices: Map<number, Device>; selected: number | null; history: string[]; transitions: number; source: string; ready: boolean; back?: 'hold' | 'release' | 'press' }
 export function createState(): State { return { devices: new Map(), selected: null, history: [], transitions: 0, source: 'hardware', ready: false }; }
 export function deadzone(value: number, trigger = false): number {
   const normalized = trigger ? Math.max(0, value) / 32767 : value / (value < 0 ? 32768 : 32767);

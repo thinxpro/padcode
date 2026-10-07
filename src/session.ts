@@ -3,8 +3,9 @@ import { helperPath } from './process.js';
 import { EventDecoder, type Event } from './protocol.js';
 import { createState, reduce } from './state.js';
 import { colorEnabled, render } from './ui.js';
+import type { MenuInput } from './menu-controller.js';
 
-export interface SessionOptions { demo: boolean; json: boolean; helper?: string; helperArgs?: string[] }
+export interface SessionOptions { demo: boolean; json: boolean; helper?: string; helperArgs?: string[]; back?: MenuInput; holdMs?: number }
 export async function session(options: SessionOptions): Promise<number> {
   const input = process.stdin, output = process.stdout;
   if (!options.json && (!input.isTTY || !output.isTTY)) {
@@ -19,7 +20,8 @@ export async function session(options: SessionOptions): Promise<number> {
   const terminalControl = interactive && process.env.TERM !== 'dumb';
   const wasRaw = input.isRaw ?? false;
   let finished = false, restored = false, dirty = true, blocked = false, stderr = '';
-  let frame: NodeJS.Timeout | undefined, demoTimer: NodeJS.Timeout | undefined;
+  let frame: NodeJS.Timeout | undefined, demoTimer: NodeJS.Timeout | undefined, holdTimer: NodeJS.Timeout | undefined;
+  let releaseBack = () => {};
   let handshakeTimer: NodeJS.Timeout | undefined, killTimer: NodeJS.Timeout | undefined;
   let ending: (() => void) | undefined;
   let lastPlain = '';
@@ -27,7 +29,7 @@ export async function session(options: SessionOptions): Promise<number> {
     const restore = () => {
       if (restored) return;
       restored = true;
-      clearInterval(frame); clearInterval(demoTimer); clearTimeout(handshakeTimer);
+      clearInterval(frame); clearInterval(demoTimer); clearTimeout(handshakeTimer); clearTimeout(holdTimer); releaseBack();
       input.removeListener('data', onKey);
       output.removeListener('resize', onResize);
       if (interactive) { input.setRawMode(wasRaw); input.pause(); }
@@ -69,9 +71,18 @@ export async function session(options: SessionOptions): Promise<number> {
       lastPlain = picture;
       blocked = !output.write(terminalControl ? `\x1b[H${picture.replace(/\n/g, '\r\n')}\x1b[J` : `${picture}\n`);
     };
+    // A held O leaves the live lab, but only after release so the press cannot reach the next menu.
+    const holdBack = (event: Event) => {
+      if (event.type === 'disconnected' && state.back === 'release') { finish(0); return; }
+      if (event.type !== 'button' || event.button !== 'east') return;
+      clearTimeout(holdTimer);
+      if (event.down) holdTimer = setTimeout(() => { state.back = 'release'; dirty = true; }, options.holdMs ?? 1000);
+      else if (state.back === 'release') finish(0);
+    };
     const accept = (event: Event) => {
       if (event.type === 'ready') clearTimeout(handshakeTimer);
       reduce(state, event); dirty = true;
+      if (interactive && !options.demo) holdBack(event);
       if (options.json && !output.destroyed) {
         if (!output.write(`${JSON.stringify(event)}\n`)) { blocked = true; child?.stdout?.pause(); }
       }
@@ -80,6 +91,9 @@ export async function session(options: SessionOptions): Promise<number> {
     output.on('drain', onDrain);
     process.on('SIGINT', onInt); process.on('SIGTERM', onTerm); process.on('exit', onExit);
     if (interactive) {
+      const back = options.demo ? options.back ? 'press' : undefined : 'hold';
+      if (back) state.back = back;
+      if (options.back) releaseBack = options.back.subscribeAction(action => { if (action === 'cancel') finish(0); });
       if (terminalControl) output.write('\x1b[?1049h\x1b[?25l');
       input.setRawMode(true); input.resume(); input.on('data', onKey); output.on('resize', onResize);
       frame = setInterval(draw, 50); draw();

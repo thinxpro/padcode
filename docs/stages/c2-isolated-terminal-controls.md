@@ -104,3 +104,7 @@ Plan commit: `7c0c676`. On macOS 27.0 arm64 with Node 24.21.0 and tmux 3.7c (Hom
 ### Rebase onto the Player Hub fix (dev.10)
 
 After the C1 Player Hub launch fix, both launch paths share `launchConfigured`, which now also selects the display mode, so `padcode` -> Start agent session uses the controls pane too. `test/hub-agent-pty.py` runs the Hub flow in transparent and panel modes. `npm run check` passed 102 tests with zero failures or skips. Artifact `padcode-0.1.0-dev.10.tgz`, npm SHA-1 `43cc8f5bc877c454f203aace104fd202150a5d86`. C2-H remains pending.
+
+### User-reported physical acceptance
+
+On 2026-10-07 the user reported that physical testing passed with the installed private artifact `padcode-0.1.0-dev.11.tgz` (npm SHA-1 `213ed9b6ac642cfaa5b11fcb40c2986d377e982c`) on macOS 27.0 arm64, tmux 3.7c, Node 23.5.0, DS4 over Bluetooth and Claude Code 2.1.292, launched from Player Hub in the user's terminal (`TERM_PROGRAM=Orca` 1.4.206 observed on the session process). Per-item counts, Warp/Terminal.app runs and Codex runs were not reported individually; this record covers only the user's statement, and the user authorized merging on that basis.

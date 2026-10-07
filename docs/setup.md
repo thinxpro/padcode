@@ -129,3 +129,11 @@ When tmux 3.2 or newer is installed, `padcode run` shows the Agent in its normal
 - If the controls pane cannot start before the Agent launches, Padcode reports the reason and continues in transparent mode with the same controller.
 
 Manual Warp/Terminal.app and physical acceptance are pending; see the [C2 checklist](stages/c2-isolated-terminal-controls.md#physical-and-manual-acceptance-c2-h).
+
+## Returning to Player Hub (dev.11)
+
+Player Hub is now the home screen. Cancelling the launch confirmation, an Agent session ending (including Ctrl+]), leaving Controller Lab or the demo, and finishing or cancelling Edit configuration all return to Player Hub. After an Agent session the Hub shows `SESSION OVER / Agent exited with status N`.
+
+- Controller Lab: hold **O** for one second, then release, to return. A short O press is still shown as test input. Q and Esc also return.
+- Demo: press **O** or Q to return.
+- Only the Hub's Exit option (O or q on the Hub) leaves Padcode. `padcode run` still runs one session and returns the Agent's status.
