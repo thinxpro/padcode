@@ -147,6 +147,9 @@ test('Reconnected-device hang: MIC STARTING never stays on screen and a stuck he
   const end = Date.now() + 5000;
   while (Date.now() < end && spawnSync('pgrep', ['-f', 'audio-helper.mjs record'], { encoding: 'utf8' }).stdout.trim()) await wait(50);
   assert.equal(spawnSync('pgrep', ['-f', 'audio-helper.mjs record'], { encoding: 'utf8' }).stdout.trim(), '', 'stuck helper survived SIGTERM');
+  // The killed helper cannot delete its own file; the session removes it asynchronously.
+  const deadline = Date.now() + 3000;
+  while ((await readdir(dir)).some(name => name.endsWith('.wav')) && Date.now() < deadline) await wait(20);
   assert.deepEqual((await readdir(dir)).filter(name => name.endsWith('.wav')), []);
   // After reconnecting, the next press starts a fresh helper.
   process.env.PADCODE_AUDIO_FIXTURE = JSON.stringify({});
