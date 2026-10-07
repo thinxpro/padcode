@@ -1,21 +1,38 @@
 {
   "name": "padcode",
-  "version": "0.1.0-dev.5",
+  "version": "0.1.0-dev.6",
   "private": true,
   "license": "MIT",
-  "description": "Gamepad controls for your own coding agent — controller lab prototype",
+  "description": "Gamepad controls for your own coding agent \u2014 controller lab prototype",
   "type": "module",
-  "bin": { "padcode": "dist/cli.js" },
-  "files": ["dist/", "build/native/padcode-controller", "build/native/padcode-bluetooth", "build/native/platform.json", "LICENSE", "THIRD_PARTY_NOTICES.md"],
-  "engines": { "node": ">=22.14.0" },
+  "bin": {
+    "padcode": "dist/cli.js"
+  },
+  "files": [
+    "dist/",
+    "build/native/padcode-controller",
+    "build/native/padcode-bluetooth",
+    "build/native/platform.json",
+    "LICENSE",
+    "THIRD_PARTY_NOTICES.md",
+    "build/pty/"
+  ],
+  "engines": {
+    "node": ">=22.14.0"
+  },
   "scripts": {
     "build": "tsc",
     "typecheck": "tsc --noEmit",
     "build:native": "node scripts/build-native.mjs",
     "test": "node --test --test-concurrency=1 test/*.test.mjs",
     "test:coverage": "node --test --experimental-test-coverage --test-coverage-include='dist/**' --test-concurrency=1 test/*.test.mjs",
-    "check": "npm run typecheck && npm run build && npm run build:native && npm run test:coverage",
-    "dev": "npm run build && node dist/cli.js"
+    "check": "npm run typecheck && npm run build && npm run build:native && npm run build:pty && npm run test:coverage",
+    "dev": "npm run build && node dist/cli.js",
+    "build:pty": "node scripts/build-pty.mjs"
   },
-  "devDependencies": { "@types/node": "22.20.3", "typescript": "5.9.3" }
+  "devDependencies": {
+    "@types/node": "22.20.3",
+    "node-pty": "1.1.0",
+    "typescript": "5.9.3"
+  }
 }

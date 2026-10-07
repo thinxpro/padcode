@@ -1,6 +1,6 @@
 # Architecture
 
-This page describes the target architecture. The TypeScript CLI, SDL3 helper, JSONL protocol, diagnostic dashboard and Bluetooth-first onboarding are implemented. PTY/agent bridging remains future work. Onboarding uses a separate macOS IOBluetooth helper for discovery, pairing and connection; SDL verifies input independently. See the [onboarding stage](stages/p0-config-bluetooth.md).
+This page describes the target architecture. The TypeScript CLI, SDL3 helper, JSONL protocol, diagnostic dashboard and Bluetooth-first onboarding are implemented. Keyboard PTY bridging is implemented; gamepad-to-agent mapping remains future work. Onboarding uses a separate macOS IOBluetooth helper for discovery, pairing and connection; SDL verifies input independently. See the [onboarding stage](stages/p0-config-bluetooth.md).
 
 ## System structure
 
@@ -28,7 +28,7 @@ flowchart LR
 
 No Electron, React, xterm.js, HTTP backend, database or cloud server is needed. The PTY forwards data between the existing terminal and child process; the terminal handles rendering.
 
-Whether node-pty's native dependency can meet installation requirements is a P0 gate. If it requires local compilation, provide prebuilt artifacts matching the Node ABI or use a standalone PTY helper. Record the final decision after validation.
+P0-2 pins node-pty 1.1.0 and bundles its Unix runtime and current-platform native binary in the local npm artifact. macOS uses the upstream prebuild; Linux builds during development/CI. Installation runs no scripts and requires no compiler. The pinned Unix fd accessor supplies bounded asynchronous writes; a small Node session host keeps the PTY alive until output drain is acknowledged over a private lifecycle socket. The upstream runtime is unmodified. See the [stage plan](stages/p0-2-pty-session.md). Universal distribution remains a later gate.
 
 ## Process responsibilities
 

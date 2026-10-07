@@ -1,3 +1,4 @@
+import { confirmAgent, runAgent } from './agent-session.js';
 import { configPath, discoverAgents, loadConfig, resolveExecutable, saveConfig, type Config } from './config.js';
 import { NativeBluetooth, type BluetoothPort } from './bluetooth.js';
 import { identityMatch, type ProbePort } from './probe.js';
@@ -146,7 +147,7 @@ export async function setup(io: PromptPort, services: SetupServices, signal: Abo
   io.say(`AGENT   ${agent?.command ?? 'not selected'}`);
   if (agent?.args.length) io.say(`ARGS    ${JSON.stringify(agent.args)}`);
   io.say('PROFILE terminal-basic');
-  io.say('This build saves your Agent loadout. Agent sessions arrive in the separate PTY stage.');
+  io.say('Saving does not launch your Agent. Start a session explicitly from Player Hub.');
   if (await io.choose('Save this configuration?', [{ label: 'Save locally', value: 'save' }, { label: 'Cancel / keep previous configuration', value: 'cancel' }]) === 'cancel') return null;
   signal.throwIfAborted();
   await services.save(config);
@@ -164,6 +165,7 @@ export async function onboarding(edit = false): Promise<number> {
   const menus = new GamepadMenus();
   const io = new TerminalPrompt(controller.signal, cancel, menus);
   let action = 'quit';
+  let selectedAgent: Config['agent'] = null;
   try {
     let config: Config | null;
     try { config = await loadConfig(); }
@@ -184,19 +186,22 @@ export async function onboarding(edit = false): Promise<number> {
     io.say(`LINK ${config.controller.transport.toUpperCase()} / ${config.controller.name ?? 'not selected'}`);
     io.say(`INPUT ${config.controller.inputVerified ? 'last setup check passed (not a live connection status)' : 'UNVERIFIED'}`);
     io.say(`AGENT ${config.agent?.command ?? 'not selected'}`);
-    io.say('Agent sessions are not available in this developer build.');
+    io.say('Keyboard Agent sessions ready / gamepad key mapping comes next.');
     action = await io.choose('Ready when you are', [
       { label: 'Controller lab / test live input', value: 'controllers' },
       { label: 'Edit configuration', value: 'config' },
       { label: 'Preview arcade dashboard', value: 'demo' },
       { label: 'Exit', value: 'quit' },
+      ...(config.agent ? [{ label: 'Start agent session', value: 'run' }] : []),
     ]);
+    if (action === 'run' && config.agent && await confirmAgent(io, config.agent, process.cwd())) selectedAgent = config.agent;
   } catch (error) {
     if (controller.signal.aborted) { io.say('Setup cancelled. No pending configuration changes saved.'); return exitCode; }
     io.say(`SETUP STOPPED: ${(error as Error).message}`); return (error as Error).message === 'Setup cancelled.' ? 0 : 1;
   } finally {
     await menus.stop(); io.close(); process.removeListener('SIGINT', cancel); process.removeListener('SIGTERM', terminate);
   }
+  if (selectedAgent) return runAgent(selectedAgent);
   if (action === 'config') return onboarding(true);
   if (action === 'controllers' || action === 'demo') return session({ demo: action === 'demo', json: false });
   return 0;
