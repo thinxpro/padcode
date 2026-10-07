@@ -1,6 +1,6 @@
 # Roadmap and acceptance
 
-The current priority is [P0-2 PTY session compatibility](stages/p0-2-pty-session.md), following Bluetooth-first terminal setup and its user-confirmed dev.5 scan regression. Check items only after their full acceptance criteria pass; simulated tests do not replace physical validation.
+The current priority is [P0-3 gamepad Agent input](stages/p0-3-gamepad-agent-input.md), with P0-2 compatibility acceptance still pending, following Bluetooth-first terminal setup and its user-confirmed dev.5 scan regression. Check items only after their full acceptance criteria pass; simulated tests do not replace physical validation.
 
 ## P0: Technical validation
 
@@ -26,6 +26,8 @@ Implementation and fixture automation are available in dev.6. The checklist rema
 Acceptance: core interactions work in at least two terminals with two user-provided CLIs. The terminal remains usable after exceptional exits, with no orphaned helper. Record exact versions and limitations.
 
 ### P0-3: Minimal controller development workflow
+
+Dev.7 implements the basic key profile, explicit pause/resume and disconnect protection. Physical acceptance remains pending.
 
 - [ ] Route controller input to the PTY independently of foreground window focus.
 - [ ] Let users select or customize the command.

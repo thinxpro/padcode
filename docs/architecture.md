@@ -1,6 +1,6 @@
 # Architecture
 
-This page describes the target architecture. The TypeScript CLI, SDL3 helper, JSONL protocol, diagnostic dashboard and Bluetooth-first onboarding are implemented. Keyboard PTY bridging is implemented; gamepad-to-agent mapping remains future work. Onboarding uses a separate macOS IOBluetooth helper for discovery, pairing and connection; SDL verifies input independently. See the [onboarding stage](stages/p0-config-bluetooth.md).
+This page describes the target architecture. The TypeScript CLI, SDL3 helper, JSONL protocol, diagnostic dashboard and Bluetooth-first onboarding are implemented. Keyboard PTY bridging and the terminal-basic gamepad profile are implemented; physical Agent compatibility remains pending. Onboarding uses a separate macOS IOBluetooth helper for discovery, pairing and connection; SDL verifies input independently. See the [onboarding stage](stages/p0-config-bluetooth.md).
 
 ## System structure
 
@@ -67,3 +67,10 @@ Follow platform conventions for user-level configuration. Initially accept only 
 - [SDL3 Gamepad API](https://wiki.libsdl.org/SDL3/CategoryGamepad): devices, optional capabilities and background events.
 - [node-pty](https://github.com/microsoft/node-pty): PTY features, platforms and build requirements; pin a release during P0 validation.
 - [Codex app-server](https://learn.chatgpt.com/docs/app-server): a future structured integration candidate, not a base dependency.
+
+
+## Gamepad session routing
+
+`AgentGamepad` consumes the validated SDL feed, tracks button edges per device and starts paused. A fresh Options down/up cycle enables or pauses mapping after a 250 ms connection settling interval. The writer tags controller entries separately from keyboard input and discards queued controller entries on pause, disconnect or helper loss; bytes already accepted by the OS cannot be recalled. Held buttons require release before they can act again. There is no automatic repeat, stick mapping or voice input in dev.7.
+
+Session status uses terminal title push/update/pop sequences, with plain text for TERM=dumb, instead of an overlay that competes with the Agent's cursor and screen. Title support varies by terminal. The terminal-basic profile sends fixed CSI arrows; full application-cursor-mode compatibility must be established by the manual Agent matrix. SDL helpers are stopped after every Agent session, including errors and signals.
