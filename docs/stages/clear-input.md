@@ -31,3 +31,7 @@ Plan commit: `5d28e07`. `npm run check` passed 133 tests with zero failures or s
 ### User-reported physical acceptance
 
 On 2026-10-07 the user reported that Clear input passed in Claude Code with 0.1.0-rc.3 (H1). The multi-line case (H2) was not reported separately and remains open.
+
+### 0.1.0-rc.4
+
+Same features as rc.3 plus the controls-menu crash fix found by Ubuntu CI (see the C5 stage record) and test synchronization fixes across the stack. All six open PRs (#14-#19) passed macOS and Ubuntu CI after the fixes. Artifact `padcode-0.1.0-rc.4.tgz`, npm SHA-1 `e2a7d270834c3b609379b9bd966b6ab3627b0834`; native helpers unchanged from rc.2.
