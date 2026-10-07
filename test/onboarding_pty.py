@@ -104,7 +104,8 @@ with tempfile.TemporaryDirectory(prefix='padcode-onboarding-') as directory:
         terminal.answer('3'); terminal.answer('2', default=2)
         terminal.answer('1')  # Keep the saved command and args.
         terminal.answer('1'); terminal.answer('2')  # Cancel save.
-        terminal.finish()
+        terminal.expect('No configuration changes saved.'); terminal.expect('PLAYER HUB')
+        terminal.answer('4'); terminal.finish()
     finally: terminal.close()
     assert config.read_bytes() == original, 'cancel modified existing configuration'
     terminal = Terminal(root, ['config'])
@@ -126,11 +127,13 @@ with tempfile.TemporaryDirectory(prefix='padcode-onboarding-') as directory:
         terminal.expect('PLAYER HUB')
         terminal.answer('3')
         terminal.expect('DEMO / SYNTHETIC')
-        os.write(terminal.master, b'q'); terminal.finish()
+        os.write(terminal.master, b'q'); terminal.expect('PLAYER HUB')  # The demo returns to the Hub.
+        terminal.answer('4'); terminal.finish()
     finally: terminal.close()
     terminal = Terminal(root, ['config'])
     try:
-        terminal.answer('q'); terminal.finish()
+        terminal.answer('q'); terminal.expect('PLAYER HUB')  # Cancelling an edit keeps the saved file.
+        terminal.answer('4'); terminal.finish()
     finally: terminal.close()
     assert config.read_bytes() == original
     config.write_text('{broken')

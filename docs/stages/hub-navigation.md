@@ -1,6 +1,6 @@
 # Player Hub navigation
 
-Status: planned. This plan is committed before runtime changes. Stacked on PR #12 (`feature/isolated-terminal-controls`); retarget after its prerequisites merge.
+Status: implemented in dev.11; automated acceptance passes locally and physical acceptance is pending. This plan was committed before runtime changes. Stacked on PR #12 (`feature/isolated-terminal-controls`); retarget after its prerequisites merge.
 
 ## Problem
 
@@ -43,4 +43,4 @@ Out of scope: stepping back between first-run setup steps, reordering Hub items,
 
 ## Validation record
 
-Pending.
+Plan commit: `c1769ad`. On macOS 27.0 arm64 with Node 24.21.0 and tmux 3.7c, `npm run check` passed 103 tests with zero failures or skips. `test/hub-navigation-pty.py` covers N1-N6 through the real onboarding Hub with a virtual controller, running the Agent journeys in transparent and panel modes and the Lab, demo and configuration journeys in transparent mode; N3's Ctrl+C case and N7 are covered by the same suite and the updated onboarding, Agent and Hub PTY suites. Existing tests that expected the process to end after a Hub action now expect the return to the Hub and then choose Exit. Behavior change: `padcode` (Player Hub) now exits with status 0 from its Exit option instead of returning the last Agent's status; `padcode run` still returns the Agent status. Artifact `padcode-0.1.0-dev.11.tgz`, npm SHA-1 `213ed9b6ac642cfaa5b11fcb40c2986d377e982c`. N-H1 and N-H2 are pending physical testing.

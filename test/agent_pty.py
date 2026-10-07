@@ -53,6 +53,10 @@ for line in sys.stdin:
                     os.write(master,b'\x03'); expect(b'CHILD_INTERRUPT')
                     os.write(master,'héllo🎮\n'.encode()); expect('ECHO:héllo🎮'.encode())
                     os.write(master,b'exit!\n'); expect(b'FINAL_OUTPUT'); expected=7
+                    if hub:
+                        # Player Hub sessions return to the Hub; Exit then leaves with status 0.
+                        expect(b'SESSION OVER / Agent exited with status 7'); expect(b'Select [1]')
+                        os.write(master,b'4\n'); expected=0
                 elif mode=='escape': os.write(master,b'\x1d'); expected=130
                 else:
                     proc.send_signal(signal.SIGTERM if mode=='term' else signal.SIGINT)

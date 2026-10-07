@@ -156,55 +156,91 @@ export async function setup(io: PromptPort, services: SetupServices, signal: Abo
   return config;
 }
 
-export async function onboarding(edit = false, menus = new GamepadMenus()): Promise<number> {
+type HubStep = { exit: number } | { action: 'hub' | 'config' | 'controllers'; notice?: string }
+  | { action: 'run'; agent: NonNullable<Config['agent']>; controller: Config['controller']; handedOff: MenuFeed | undefined; display: Display };
+
+// Every Hub screen returns here; only Exit, q or a signal leaves Padcode.
+export async function onboarding(edit = false, menus = new GamepadMenus(), lab: { helper?: string; helperArgs?: string[] } = {}): Promise<number> {
   if (!process.stdin.isTTY || !process.stdout.isTTY) { process.stderr.write('Setup requires an interactive terminal. Run padcode --help for commands.\n'); return 2; }
+  let editing = edit, notice: string | undefined;
+  for (;;) {
+    const step = await hubStep(editing, menus, notice);
+    editing = false; notice = undefined;
+    if ('exit' in step) return step.exit;
+    if (step.action === 'hub') { notice = step.notice; continue; }
+    if (step.action === 'config') { editing = true; continue; }
+    if (step.action === 'controllers') {
+      const code = await session({ demo: false, json: false, ...lab });
+      if (code === 130 || code === 143) return code;
+      continue;
+    }
+    if (step.action !== 'run') continue;
+    try { notice = `SESSION OVER / Agent exited with status ${await launchConfigured(step.agent, step.controller, step.handedOff, step.display)}`; }
+    catch (error) { notice = `SESSION FAILED / ${(error as Error).message}`; }
+  }
+}
+async function hubStep(edit: boolean, menus: GamepadMenus, notice?: string): Promise<HubStep> {
   const controller = new AbortController();
   let exitCode = 130;
   const cancel = () => controller.abort();
   const terminate = () => { exitCode = 143; controller.abort(); };
   process.on('SIGINT', cancel); process.on('SIGTERM', terminate);
   const io = new TerminalPrompt(controller.signal, cancel, menus);
-  let action = 'quit';
-  let selectedAgent: Config['agent'] = null;
-  let selectedController: Config['controller'] | undefined;
-  let handedOff: MenuFeed | undefined, display: Display | undefined;
+  let saved = false;
   try {
     let config: Config | null;
     try { config = await loadConfig(); }
     catch (error) {
       io.say((error as Error).message);
-      if (await io.choose('Existing file will only be replaced after a successful save', [{ label: 'Reconfigure', value: 'reset' }, { label: 'Exit and preserve file', value: 'exit' }]) === 'exit') return 1;
+      if (await io.choose('Existing file will only be replaced after a successful save', [{ label: 'Reconfigure', value: 'reset' }, { label: 'Exit and preserve file', value: 'exit' }]) === 'exit') return { exit: 1 };
       config = null; edit = true;
     }
+    saved = Boolean(config);
     if (config && (config.controller.address || config.controller.transport === 'usb')) await menus.activate(config.controller, controller.signal, true);
     if (!config || edit) {
-      config = await setup(io, {
+      const updated = await setup(io, {
         bluetooth: new NativeBluetooth(), probe: () => menus.probe(), activateMenus: target => menus.activate(target, controller.signal), agents: discoverAgents, resolve: resolveExecutable, save: saveConfig,
       }, controller.signal, config ?? undefined);
-      if (!config) { io.say('No configuration changes saved.'); return 0; }
+      if (!updated) {
+        io.say('No configuration changes saved.');
+        return config ? { action: 'hub' } : { exit: 0 };
+      }
+      config = updated;
       io.say(`Configuration: ${configPath()}`);
     }
     io.banner('PLAYER HUB');
+    if (notice) io.say(notice);
     io.say(`LINK ${config.controller.transport.toUpperCase()} / ${config.controller.name ?? 'not selected'}`);
     io.say(`INPUT ${config.controller.inputVerified ? 'last setup check passed (not a live connection status)' : 'UNVERIFIED'}`);
     io.say(`AGENT ${config.agent?.command ?? 'not selected'}`);
     io.say('AGENT CONTROLS / D-pad, X, O, L1, R1 / Options pauses mapping.');
-    action = await io.choose('Ready when you are', [
-      { label: 'Controller lab / test live input', value: 'controllers' },
+    const action = await io.choose('Ready when you are', [
+      { label: 'Controller lab / test live input (hold O to return)', value: 'controllers' },
       { label: 'Edit configuration', value: 'config' },
       { label: 'Preview arcade dashboard', value: 'demo' },
       { label: 'Exit', value: 'quit' },
       ...(config.agent ? [{ label: 'Start agent session', value: 'run' }] : []),
     ]);
-    if (action === 'run' && config.agent && await confirmAgent(io, config.agent, process.cwd(), display = await chooseDisplay())) { selectedAgent = config.agent; selectedController = config.controller; handedOff = menus.handoff(); }
+    if (action === 'run' && config.agent) {
+      const display = await chooseDisplay();
+      if (!await confirmAgent(io, config.agent, process.cwd(), display)) return { action: 'hub', notice: 'LAUNCH CANCELLED / Back at Player Hub.' };
+      return { action: 'run', agent: config.agent, controller: config.controller, handedOff: menus.handoff(), display };
+    }
+    if (action === 'demo') {
+      // The demo has no input helper, so the Hub's own feed provides O to return.
+      const code = await session({ demo: true, json: false, back: menus });
+      return code === 130 || code === 143 ? { exit: code } : { action: 'hub' };
+    }
+    if (action === 'controllers' || action === 'config') return { action };
+    return { exit: 0 };
   } catch (error) {
-    if (controller.signal.aborted) { io.say('Setup cancelled. No pending configuration changes saved.'); return exitCode; }
-    io.say(`SETUP STOPPED: ${(error as Error).message}`); return (error as Error).message === 'Setup cancelled.' ? 0 : 1;
+    if (controller.signal.aborted) { io.say('Setup cancelled. No pending configuration changes saved.'); return { exit: exitCode }; }
+    if ((error as Error).message === 'Setup cancelled.') {
+      if (edit && saved) { io.say('No configuration changes saved.'); return { action: 'hub' }; }
+      return { exit: 0 };
+    }
+    io.say(`SETUP STOPPED: ${(error as Error).message}`); return { exit: 1 };
   } finally {
     await menus.stop(); io.close(); process.removeListener('SIGINT', cancel); process.removeListener('SIGTERM', terminate);
   }
-  if (selectedAgent && selectedController && display) return launchConfigured(selectedAgent, selectedController, handedOff, display);
-  if (action === 'config') return onboarding(true);
-  if (action === 'controllers' || action === 'demo') return session({ demo: action === 'demo', json: false });
-  return 0;
 }

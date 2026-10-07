@@ -30,7 +30,8 @@ export function render(state: State, width = 80, height = 30, color = true): str
       `L2 ${meter(device.axes.left_trigger)}  R2 ${meter(device.axes.right_trigger)}`);
   } else lines.push('Connect a controller with a USB data cable.', 'No agent is launched. No input is injected.');
   lines.push('', 'RECENT INPUT', ...state.history.slice(0, compact ? 3 : 5));
-  const footer = state.source === 'demo' ? 'Q / ESC EXIT   |   DEMO - NOT HARDWARE EVIDENCE' : 'Q / ESC EXIT   |   CTRL+C QUIT';
+  const exit = state.back === 'release' ? 'RELEASE O TO RETURN' : state.back === 'hold' ? 'HOLD O 1S / Q BACK' : state.back === 'press' ? 'O / Q BACK' : 'Q / ESC EXIT';
+  const footer = `${exit}   |   ${state.source === 'demo' ? 'DEMO - NOT HARDWARE EVIDENCE' : 'CTRL+C QUIT'}`;
   const visible = [...lines.slice(0, Math.max(0, height - 3)), '-'.repeat(columns), footer].slice(0, Math.max(1, height - 1));
   return visible.map((line, i) => {
     const text = line.slice(0, columns);

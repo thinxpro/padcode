@@ -15,7 +15,7 @@ def scenario(display):
         master, slave = pty.openpty(); before = termios.tcgetattr(slave)
         fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack('HHHH', 30, 90, 0, 0))
         log = Path(root) / 'received'; log.write_text('')
-        env = dict(os.environ, XDG_CONFIG_HOME=root, TERM='xterm-256color', PADCODE_PTY_LOG=str(log))
+        env = dict(os.environ, XDG_CONFIG_HOME=root, TERM='xterm-256color', PADCODE_PTY_LOG=str(log), PADCODE_FIXTURE_TAIL='1')
         env.pop('TMUX', None)
         if display == 'transparent': env['PADCODE_PANEL'] = 'off'
         proc = subprocess.Popen([os.environ['PADCODE_NODE'], 'test/fixtures/hub-session.mjs', str(events)], stdin=slave, stdout=slave, stderr=slave, env=env)
@@ -57,11 +57,14 @@ def scenario(display):
                 press(button); expected += key; wait_for(lambda: received() == expected)
             os.write(master, 'é'.encode()); expected += 'é'.encode(); wait_for(lambda: received() == expected)
             os.write(master, b'exit!')
+            expect(b'SESSION OVER / Agent exited with status 23'); expect(b'GAMEPAD READY'); time.sleep(.3)
+            press('east')                                 # O selects Exit on the Hub.
             deadline = time.monotonic() + 5
             while proc.poll() is None and time.monotonic() < deadline: pump()
-            assert proc.returncode == 23, (proc.returncode, output[-800:])
+            assert proc.returncode == 0, (proc.returncode, output[-800:])
             assert modes(termios.tcgetattr(slave)) == modes(before)
-            assert Path(str(events) + '.starts').read_text() == 'start\n', 'Hub launch restarted the input helper'
+            # One helper per Hub visit; the Agent session adopts the first one instead of starting its own.
+            assert Path(str(events) + '.starts').read_text() == 'start\nstart\n', 'Hub launch restarted the input helper'
         finally:
             if proc.poll() is None: proc.kill(); proc.wait()
             os.close(master); os.close(slave)
