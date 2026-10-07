@@ -245,6 +245,44 @@ def voice():
         s.close()
         if os.path.exists(play_log): os.unlink(play_log)
 
+def draft():
+    """C5: L2 -> TRANSCRIBING -> VOICE DRAFT popup with the cleaned text; keep, reopen, discard; O cancels a slow job."""
+    s = Session('lines', extra={'PADCODE_VOICE': '1', 'PADCODE_TRANSCRIBER': 'ok'})
+    try:
+        s.ready(); s.until(lambda: 'GAMEPAD ACTIVE' in s.panel())
+        def trigger(value): s.event(dict(type='axis', device=1, axis='left_trigger', value=value))
+        def active(): s.until(lambda: 'GAMEPAD ACTIVE' in s.panel())
+        trigger(32767); s.until(lambda: 'REC 00:0' in s.panel()); s.quiet(.3)
+        mark = len(s.output); trigger(0)
+        s.until(lambda: 'VOICE DRAFT' in s.panel(), message='draft review did not open')
+        s.until(lambda: '帮我修复登录页面的 bug'.encode() in s.output[mark:], message='draft text missing from the popup')
+        for button in ('dpad_left', 'west', 'left_shoulder'): s.press(button); s.quiet(.05)
+        s.press('east'); active()                                  # O keeps the draft.
+        assert s.received() == b'', 'draft review wrote to the Agent'
+        mark = len(s.output); s.press('start')
+        s.until(lambda: b'Review voice draft' in s.output[mark:], message='menu lacks Review voice draft')
+        for _ in range(4): s.press('dpad_down'); s.quiet(.05)
+        mark = len(s.output); s.press('south')
+        s.until(lambda: 'VOICE DRAFT' in s.panel() and '帮我修复'.encode() in s.output[mark:])
+        os.write(s.master, b'3'); s.until(lambda: 'DRAFT DISCARDED' in s.panel()); active()   # Popup keyboard: 3 = Discard.
+        mark = len(s.output); s.press('start'); s.until(lambda: b'PADCODE CONTROLS' in s.output[mark:]); s.quiet(.3)
+        assert b'Review voice draft' not in s.output[mark:], 'discarded draft still offered'
+        s.press('east'); active()
+        assert s.received() == b''
+        os.write(s.master, b'exit!'); finish(s, 23)
+    finally: s.close()
+    s = Session('lines', extra={'PADCODE_VOICE': '1', 'PADCODE_TRANSCRIBER': 'sleep'})
+    try:
+        s.ready(); s.until(lambda: 'GAMEPAD ACTIVE' in s.panel())
+        s.event(dict(type='axis', device=1, axis='left_trigger', value=32767)); s.until(lambda: 'REC 00:0' in s.panel()); s.quiet(.3)
+        s.event(dict(type='axis', device=1, axis='left_trigger', value=0)); s.until(lambda: 'TRANSCRIBING' in s.panel())
+        s.press('south'); s.quiet(.2); assert 'TRANSCRIBING' in s.panel()
+        s.press('east'); s.until(lambda: 'TRANSCRIPTION CANCELLED' in s.panel())
+        s.until(lambda: subprocess.run(['pgrep', '-f', 'fake-transcriber.mjs sleep'], capture_output=True).stdout == b'', message='cancelled transcriber still running')
+        assert s.received() == b''
+        os.write(s.master, b'exit!'); finish(s, 23)
+    finally: s.close()
+
 def controls():
     """C3: the Options menu, pause, interrupt, history, popup keyboard and confirmed end session."""
     s = Session('lines')
@@ -303,5 +341,5 @@ def controls():
         assert s.received() == expected
     finally: s.close()
 
-for scenario in (normal, controls, voice, escape, terminate, crash, fallback): scenario()
-print('Panel PTY passed: controls menu, voice capture, exact keys, CPR, isolation, resize, history hold, worker respawn, exits, crash cleanup and fallback.')
+for scenario in (normal, controls, voice, draft, escape, terminate, crash, fallback): scenario()
+print('Panel PTY passed: controls menu, voice capture, voice drafts, exact keys, CPR, isolation, resize, history hold, worker respawn, exits, crash cleanup and fallback.')

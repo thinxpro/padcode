@@ -1,6 +1,7 @@
 // Internal controls popup. It renders coordinator menu state and reports keyboard actions; the coordinator owns all state.
 import { joinSession, type ToMenu } from './session-ipc.js';
 import { colorEnabled, safeLabel } from './ui.js';
+import { wrapText } from './text-width.js';
 
 const path = process.env.PADCODE_IPC, session = process.env.PADCODE_SESSION;
 if (!path || !session) throw new Error('Controls popup requires its private session channel.');
@@ -12,7 +13,12 @@ const draw = () => {
   if (!view) return;
   const width = Math.max(10, (output.columns || 40) - 2);
   const fit = (text: string) => safeLabel(text).slice(0, width);
-  const lines = [paint('\x1b[1;96m', fit(view.title)), '',
+  const rows = output.rows || 12;
+  const bodyRoom = Math.max(1, rows - view.items.length - 6);
+  // Draft text keeps its Unicode; only the menu chrome is ASCII.
+  const wrapped = view.body === undefined ? [] : wrapText(view.body, width);
+  const body = wrapped.length > bodyRoom ? [...wrapped.slice(0, bodyRoom - 1), paint('\x1b[2;37m', fit(`... ${wrapped.length - bodyRoom + 1} more lines`))] : wrapped;
+  const lines = [paint('\x1b[1;96m', fit(view.title)), '', ...body, ...(body.length ? [''] : []),
     ...view.items.map((item, index) => index === view!.selected ? paint('\x1b[1;95m', fit(`> [${index + 1}] ${item}`)) : fit(`  [${index + 1}] ${item}`)),
     '', paint('\x1b[2;37m', fit(view.hint))];
   output.write(`\x1b[?25l\x1b[H${lines.map(line => ` ${line}\x1b[K`).join('\r\n')}\x1b[J`);

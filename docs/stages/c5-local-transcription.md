@@ -1,6 +1,6 @@
 # C5: Local transcription and draft review
 
-Status: planned. This plan is committed before runtime changes. Stacked on PR #15 (`feature/microphone-capture`, C4); retarget after its prerequisites merge.
+Status: implemented in dev.18; automated acceptance passes locally and physical acceptance is pending. This plan was committed before runtime changes. Stacked on PR #15 (`feature/microphone-capture`, C4); retarget after its prerequisites merge.
 
 ## Scope
 
@@ -59,6 +59,21 @@ record (L2) -> `TRANSCRIBING... / O cancel` -> draft review popup.
 - C5-H2: in a Claude Code session, dictate several Chinese and mixed Chinese/English requests with the DS4; review correct drafts; rerecord and discard with the controller.
 - C5-H3: record transcription time for typical clips on this Mac; confirm no network use by Padcode and record whisper.cpp's behavior (local inference).
 
+## Implementation notes
+
+- Download cancellation: the plan said O, Esc or Ctrl+C cancel a model download. No menu reads keys while the download streams, so only Ctrl+C (which aborts setup) cancels it; the partial file is removed. Declining the consent prompt is the controller-friendly way to avoid a download.
+- whisper.cpp detection is injectable through `SetupServices.whisper` so tests never pick up a real `whisper-cli` or model on the developer's machine.
+- The draft popup is wider than the controls menu and is reopened when switching between the two. Its body is a bounded preview (2400 UTF-8 bytes plus a "+N more characters" line) so each popup message fits one IPC line; the full draft stays in the coordinator. Text wrapping counts CJK and emoji as two columns.
+- A draft that finishes while the controls menu is open is offered as "Review voice draft" in the menu instead of interrupting it.
+
 ## Validation record
 
-Pending.
+Plan commits: `14464ef` (first draft) and `93e11b9` (three-tier revision). On macOS 27.0.1 arm64 with Node 24.21.0 and tmux 3.7c, `npm run check` passed 128 tests with zero failures or skips.
+
+- C5-A0/A1: `test/transcribe.test.mjs` covers cleanup, the command runner (literal argv with `;`, `$()` and spaces, Unicode, control and paste markers, CRLF, empty, oversize, invalid UTF-8, nonzero exit, spawn error, timeout, cancellation with the process gone), the macOS tier through a fake helper and, on macOS, the real helper's unsupported-language and permission paths.
+- C5-A2: `test/draft.test.mjs` covers record -> transcribe -> draft, empty/failed/cancelled/late results, speech permission request, and the draft review context for every button, keyboard picks, reopening from the menu and drafts that arrive while the menu is open.
+- C5-A3: configuration validation, whisper.cpp detection, consented download against a local server (progress, redirect, checksum, size limit, HTTP error, abort, no partial files), and all setup tiers (macOS speech with permission, whisper.cpp found/declined/failed download/not installed, custom command, placeholder validation, self-test failure).
+- C5-A4: `test/panel_pty.py` `draft()` runs L2 -> TRANSCRIBING -> VOICE DRAFT with the cleaned Chinese text in a real tmux popup, keeps, reopens, discards with the popup keyboard, and cancels a slow transcriber with O (process gone); zero Agent bytes throughout.
+- Real-tool smoke test: macOS `say` produced a Chinese sentence converted to 16 kHz WAV; Padcode's runner with Homebrew whisper-cpp 1.8 and `ggml-large-v3-turbo.bin` (downloaded from the pinned URL, SHA-256 verified) returned `请帮我修复登录页面的Book,然后运行测试。` in 6.9 s including model load ("bug" was the synthetic voice's pronunciation). No microphone was used.
+
+Artifact `padcode-0.1.0-dev.18.tgz`, npm SHA-1 `c23ab1a320fd7971a2fbf7593a1a028192e60bd7`. C5-H1 to C5-H3 are pending physical testing.

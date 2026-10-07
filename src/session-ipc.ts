@@ -8,7 +8,7 @@ export interface Launch { command: string; args: string[]; cwd: string; env: Rec
 export type ToAgent = { t: 'launch'; launch: Launch } | { t: 'keys'; data: string } | { t: 'cancel' } | { t: 'close' };
 export type FromAgent = { t: 'exit'; code: number };
 export type ToPanel = { t: 'status'; text: string } | { t: 'notice'; text: string };
-export type ToMenu = { t: 'menu'; title: string; items: string[]; selected: number; hint: string } | { t: 'close' };
+export type ToMenu = { t: 'menu'; title: string; items: string[]; selected: number; hint: string; body?: string } | { t: 'close' };
 export type FromMenu = { t: 'action'; name: 'up' | 'down' | 'confirm' | 'back' } | { t: 'action'; name: 'pick'; index: number };
 export const maxLine = 4096;
 const maxKeys = 64;
@@ -67,10 +67,12 @@ export function parseToPanel(line: string): ToPanel {
 export function parseToMenu(line: string): ToMenu {
   const value = decode(line);
   if (value.t === 'close' && exact(value, ['t'])) return { t: 'close' };
-  if (value.t === 'menu' && exact(value, ['t', 'title', 'items', 'selected', 'hint']) && text(value.title, 64) && text(value.hint, 128)
+  const body = value.body;
+  if (value.t === 'menu' && (exact(value, ['t', 'title', 'items', 'selected', 'hint']) || (exact(value, ['t', 'title', 'items', 'selected', 'hint', 'body']) && text(body, 3000) && !/[\x00-\x09\x0b-\x1f\x7f-\x9f]/.test(body as string)))
+    && text(value.title, 64) && text(value.hint, 128)
     && Array.isArray(value.items) && value.items.length >= 1 && value.items.length <= 9 && value.items.every(item => text(item, 64))
     && Number.isInteger(value.selected) && (value.selected as number) >= 0 && (value.selected as number) < value.items.length) {
-    return { t: 'menu', title: value.title, items: [...value.items] as string[], selected: value.selected as number, hint: value.hint };
+    return { t: 'menu', title: value.title, items: [...value.items] as string[], selected: value.selected as number, hint: value.hint, ...(typeof body === 'string' ? { body } : {}) };
   }
   throw new Error('Invalid coordinator message for the menu popup.');
 }

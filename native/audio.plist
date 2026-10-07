@@ -3,5 +3,6 @@
 <plist version="1.0"><dict>
   <key>CFBundleIdentifier</key><string>com.thinxpro.padcode.audio</string>
   <key>CFBundleName</key><string>Padcode Audio</string>
+  <key>NSSpeechRecognitionUsageDescription</key><string>Padcode turns your L2 voice clips into text drafts on this Mac when you choose macOS on-device speech.</string>
   <key>NSMicrophoneUsageDescription</key><string>Padcode records voice only while you hold L2, after you enable voice in terminal setup.</string>
 </dict></plist>

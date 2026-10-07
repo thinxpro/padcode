@@ -32,7 +32,7 @@ if(APPLE)
   target_link_options(padcode-bluetooth PRIVATE "LINKER:-sectcreate,__TEXT,__info_plist,${CMAKE_CURRENT_SOURCE_DIR}/bluetooth.plist")
   add_executable(padcode-audio audio.m permission.m)
   target_compile_options(padcode-audio PRIVATE -fobjc-arc -Wall -Wextra -Werror)
-  target_link_libraries(padcode-audio PRIVATE "-framework Foundation" "-framework AVFoundation" "-framework AudioToolbox" "-framework CoreAudio")
+  target_link_libraries(padcode-audio PRIVATE "-framework Foundation" "-framework AVFoundation" "-framework AudioToolbox" "-framework CoreAudio" "-framework Speech")
   target_link_options(padcode-audio PRIVATE "LINKER:-sectcreate,__TEXT,__info_plist,${CMAKE_CURRENT_SOURCE_DIR}/audio.plist")
 endif()
 

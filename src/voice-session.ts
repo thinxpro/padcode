@@ -3,6 +3,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { AudioPort, Recording, RecordingResult } from './audio.js';
 import type { Button } from './protocol.js';
+import type { Transcriber } from './config.js';
+import { transcribe, type TranscriptionJob } from './transcribe.js';
 
 export interface VoiceEffects {
   routing(): boolean;
@@ -10,6 +12,7 @@ export interface VoiceEffects {
   release(resume: boolean): void;
   status(text: string): void;
   notice(text: string): void;
+  draft?(text: string): void;
 }
 export const startAt = 0.65, stopBelow = 0.35, debounceMs = 150, shortestSeconds = 0.3;
 const meter = (peak: number) => { const n = Math.round(Math.min(1, peak * 2) * 10); return `[${'#'.repeat(n)}${'.'.repeat(10 - n)}]`; };
@@ -17,7 +20,7 @@ const clock = (ms: number) => { const s = Math.floor(ms / 1000); return `${Strin
 
 // Push-to-talk on L2: hysteresis and debounce decide edges; one recording exists at a time.
 export class VoiceCapture {
-  state: 'idle' | 'recording' | 'stopping' | 'playing' | 'permission' = 'idle';
+  state: 'idle' | 'recording' | 'stopping' | 'transcribing' | 'playing' | 'permission' = 'idle';
   last: string | undefined;
   private pressed = false;
   private latest = 0;
@@ -26,10 +29,11 @@ export class VoiceCapture {
   private recording: Recording | undefined;
   private player: { stop(): void } | undefined;
   private cancelled = false;
+  private job: TranscriptionJob | undefined;
   private generation = 0;
   private count = 0;
   constructor(private audio: AudioPort, private directory: string, private microphone: string, private fx: VoiceEffects,
-    private now: () => number = Date.now, private maxSeconds = 60) {}
+    private now: () => number = Date.now, private maxSeconds = 60, private transcriber: Transcriber | null = null) {}
   trigger(value: number): void { this.latest = value; this.evaluate(); }
   private evaluate(): void {
     clearTimeout(this.timer); this.timer = undefined;
@@ -71,6 +75,7 @@ export class VoiceCapture {
     }
     if (result.kind === 'stopped' && !this.cancelled) {
       this.last = path;
+      if (this.transcriber) { this.transcribeClip(path, generation); return; }
       this.fx.release(true); this.fx.notice(`RECORDED ${result.seconds.toFixed(1)}s / Options > Play last recording`);
       return;
     }
@@ -80,6 +85,30 @@ export class VoiceCapture {
     if (result.kind === 'error' && result.code === 'permission-required') { this.requestPermission(generation); return; }
     if (result.kind === 'error' && result.code === 'permission-denied') { this.fx.notice('MIC DENIED / Allow Padcode Audio in System Settings > Privacy & Security > Microphone'); return; }
     this.fx.notice(result.kind === 'error' ? `MIC ERROR / ${result.message}` : 'RECORDING CANCELLED');
+  }
+  // The controller stays captured while the draft is produced; O cancels it. Nothing reaches the Agent.
+  private transcribeClip(path: string, generation: number): void {
+    this.state = 'transcribing'; this.cancelled = false;
+    this.fx.capture(button => { if (button === 'east') this.cancel(); }, 'TRANSCRIBING... / O cancel');
+    const job = transcribe(this.transcriber!, path, this.audio);
+    this.job = job;
+    void job.done.then(result => {
+      if (generation !== this.generation || this.job !== job) return;
+      this.job = undefined; this.state = 'idle'; this.fx.release(true);
+      if (result.ok) { if (result.text) this.fx.draft?.(result.text); else this.fx.notice('NO SPEECH RECOGNIZED / Hold L2 and try again'); return; }
+      if (result.code === 'speech-permission-required') { this.requestSpeech(generation); return; }
+      this.fx.notice(this.cancelled || result.code === 'cancelled' ? 'TRANSCRIPTION CANCELLED' : `TRANSCRIPTION FAILED / ${result.message}`);
+    });
+  }
+  private requestSpeech(generation: number): void {
+    this.state = 'permission';
+    this.fx.notice('SPEECH PERMISSION / Answer the macOS dialog for Padcode Audio');
+    void this.audio.speechRequest().then(status => {
+      if (generation !== this.generation) return;
+      this.state = 'idle';
+      this.fx.notice(status === 'authorized' ? 'SPEECH READY / Hold L2 to record again'
+        : 'SPEECH DENIED / Allow Padcode Audio in System Settings > Privacy & Security > Speech Recognition');
+    }, () => { if (generation === this.generation) { this.state = 'idle'; this.fx.notice('SPEECH PERMISSION FAILED'); } });
   }
   private requestPermission(generation: number): void {
     this.state = 'permission';
@@ -96,6 +125,7 @@ export class VoiceCapture {
   }
   cancel(): void {
     if (this.recording) { this.cancelled = true; this.recording.cancel(); }
+    if (this.job) { this.cancelled = true; this.job.cancel(); }
     this.player?.stop();
   }
   play(): void {
@@ -107,7 +137,7 @@ export class VoiceCapture {
     void playback.done.then(() => { this.player = undefined; this.state = 'idle'; this.fx.release(true); });
   }
   // Session end: stop everything; late helper results only delete their files.
-  dispose(): void { this.generation++; clearTimeout(this.timer); this.recording?.cancel(); this.player?.stop(); }
+  dispose(): void { this.generation++; clearTimeout(this.timer); this.recording?.cancel(); this.job?.cancel(); this.player?.stop(); }
 }
 
 // Per-session voice directory with an owner record used by stale recovery.

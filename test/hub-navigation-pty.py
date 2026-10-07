@@ -93,9 +93,12 @@ def journey(display):
         h.press('dpad_down'); h.expect(b'Select [2]'); h.press('south')      # Choose a microphone.
         h.expect(b'Audio stays on this Mac'); h.expect(b'Choose a microphone'); h.expect(b'Select [1]'); h.press('south')
         h.expect(b'Microphone check'); h.expect(b'Select [1]'); h.press('dpad_down'); h.expect(b'Select [2]'); h.press('south')
+        h.expect(b'VOICE / TRANSCRIPTION'); h.expect(b'Select [1]')
+        for n in (2, 3, 4): h.press('dpad_down'); h.expect(b'Select [%d]' % n)
+        h.press('south')                                                  # No transcription.
         h.hub(); assert b'VOICE ON / Fixture Mic' in h.output
         saved = json.loads((h.root / 'padcode/config.json').read_text())
-        assert saved['version'] == 2 and saved['voice'] == {'microphone': {'id': 'mic-1', 'name': 'Fixture Mic'}}, saved
+        assert saved['version'] == 2 and saved['voice'] == {'microphone': {'id': 'mic-1', 'name': 'Fixture Mic'}, 'transcriber': None}, saved
         assert saved['agent'] == json.loads(h.config)['agent'] and saved['controller'] == json.loads(h.config)['controller']
         h.pick(6); h.expect(b'Keep microphone Fixture Mic'); h.expect(b'Select [1]'); time.sleep(.3); h.press('east')
         h.hub(); assert b'VOICE UNCHANGED' in h.output

@@ -1,6 +1,6 @@
 # P0-4: Continuous controller sessions and voice drafts
 
-Status: C1 continuous handoff is implemented in dev.8 with physical acceptance pending. C2 isolated terminal controls are implemented in dev.9 under their [stage plan](c2-isolated-terminal-controls.md) with automated acceptance passing and manual/physical acceptance pending. C3 (controls menu) is implemented in dev.12 under its [stage plan](c3-controller-session-controls.md) with automated acceptance passing and physical acceptance pending. C4 (microphone setup and push-to-talk capture) is implemented in dev.14 under its [stage plan](c4-microphone-capture.md) with physical acceptance pending. C5-C6 remain design only.
+Status: C1 continuous handoff is implemented in dev.8 with physical acceptance pending. C2 isolated terminal controls are implemented in dev.9 under their [stage plan](c2-isolated-terminal-controls.md) with automated acceptance passing and manual/physical acceptance pending. C3 (controls menu) is implemented in dev.12 under its [stage plan](c3-controller-session-controls.md) with automated acceptance passing and physical acceptance pending. C4 (microphone setup and push-to-talk capture) is implemented in dev.14 under its [stage plan](c4-microphone-capture.md) with physical acceptance pending. C5 (transcription tiers and draft review) is implemented in dev.18 under its [stage plan](c5-local-transcription.md) with physical acceptance pending. C6 remains design only.
 
 ## Problem and verified baseline
 
