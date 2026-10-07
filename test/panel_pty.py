@@ -223,11 +223,11 @@ def controls():
         choose(1); s.until(lambda: 'PAUSED' in s.panel()); s.press('south'); s.quiet(.3)
         assert s.received() == expected
         s.press('start'); active(); s.press('south'); expected += b'\r'; s.until(lambda: s.received() == expected)
-        # C3-A4: interrupt writes exactly one Ctrl+C.
-        choose(3); expected += b'\x03'; s.until(lambda: s.received() == expected); active(); s.quiet(.3)
+        # C3-A4: interrupt writes exactly one Esc.
+        choose(3); expected += b'\x1b'; s.until(lambda: s.received() == expected); active(); s.quiet(.3)
         assert s.received() == expected
         # C3-A7: the popup accepts the keyboard: number 4 picks Send interrupt.
-        menu(); os.write(s.master, b'4'); expected += b'\x03'; s.until(lambda: s.received() == expected); active()
+        menu(); os.write(s.master, b'4'); expected += b'\x1b'; s.until(lambda: s.received() == expected); active()
         menu(); os.write(s.master, b'\x1b[B'); s.quiet(.2); os.write(s.master, b'\x1b'); active()
         assert s.received() == expected
         # C3-A5: history from the menu scrolls with the D-pad and leaves on O.

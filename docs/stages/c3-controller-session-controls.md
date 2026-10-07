@@ -31,7 +31,7 @@ Rendered in a tmux `display-popup` over the Agent pane, so the Agent is neither 
 1. Resume Agent controls (closes the menu; default)
 2. Pause gamepad mapping (Options resumes later)
 3. Browse history (enters the History context)
-4. Send interrupt (Ctrl+C) (writes one `0x03` to the Agent, then closes)
+4. Send interrupt (Esc) (writes one `0x1b` to the Agent, then closes)
 5. End session... (opens End confirmation: "Keep the session running" (default) / "End the Agent session")
 
 Ending the session stops the Agent process group exactly like Ctrl+] (status 130) and returns to Player Hub or the shell. Neither interrupt nor end session is ever triggered by disconnects, timeouts or Agent output.
@@ -49,7 +49,7 @@ History uses tmux copy mode on the Agent pane (`copy-mode -e`), driven by explic
 - C3-A1: the context transition matrix (Agent, Menu, End confirmation, History, Paused) is exercised for every DualShock button with press and release edges; each cell has exactly one expected effect and no other context receives the event.
 - C3-A2: 100 simulated X presses in Agent context produce exactly 100 Enter bytes; 100 presses in Menu/History contexts produce none.
 - C3-A3: closing the menu or leaving history with a still-held button emits nothing until all buttons are released for 250 ms.
-- C3-A4: Send interrupt writes exactly one `0x03`; End session requires the confirmation and ends with status 130; the default confirmation choice keeps the session.
+- C3-A4: Send interrupt writes exactly one `0x1b`; End session requires the confirmation and ends with status 130; the default confirmation choice keeps the session.
 - C3-A5: History scrolls the Agent pane's tmux history from the controller, mouse-wheel entry routes to the same context, and O leaves it; Agent bytes stay unchanged throughout.
 - C3-A6: disconnect while the menu or history is open closes it, cancels queued controller bytes and requires the C1 rearm; Agent exit while the menu is open closes the popup and cleans up.
 - C3-A7: keyboard operates the popup menu (arrows, Enter, Escape, number keys); menu IPC rejects malformed or wrong-role messages.
@@ -71,3 +71,9 @@ Plan commit: `1d572a1`. On macOS 27.0 arm64 with Node 24.21.0 and tmux 3.7c, `np
 - The C2 history hold is replaced by the History context; mouse-wheel entry routes there too. Transparent mode keeps the Options pause toggle (existing suites).
 
 Artifact `padcode-0.1.0-dev.12.tgz`, npm SHA-1 `51f1c2b15a83e5bcf5bcc22c710cef7f3c9751cb`. C3-H1 to C3-H3 are pending physical testing.
+
+### User-reported physical acceptance and interrupt change
+
+On 2026-10-07 the user reported that physical testing of dev.12 passed with Claude Code 2.1.292 and the DS4 over Bluetooth; per-item details were not reported individually. The user then asked to change Send interrupt from Ctrl+C to Esc. Reason: in Claude Code, Esc stops the running task while Ctrl+C clears the input and a second Ctrl+C exits the program, so a Ctrl+C interrupt risked ending the Agent. The menu item is now "Send interrupt (Esc)" and writes exactly one `0x1b`; C3-A4 and the PTY scenario assert that byte. Ctrl+C from the keyboard is still forwarded unchanged.
+
+Artifact after the interrupt change: `padcode-0.1.0-dev.13.tgz`, npm SHA-1 `5ba096a8a8272ce1213855b3d6c55cc083202a53`; `npm run check` passed 108 tests with zero failures or skips.

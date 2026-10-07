@@ -13,7 +13,7 @@ export interface ControlEffects {
   history(command: HistoryCommand): void;
   end(): void;
 }
-export const menuItems = ['Resume Agent controls', 'Pause gamepad mapping', 'Browse history', 'Send interrupt (Ctrl+C)', 'End session...'];
+export const menuItems = ['Resume Agent controls', 'Pause gamepad mapping', 'Browse history', 'Send interrupt (Esc)', 'End session...'];
 export const confirmItems = ['Keep the session running', 'End the Agent session'];
 const statuses = {
   menu: 'MENU / D-pad select, X confirm, O back',

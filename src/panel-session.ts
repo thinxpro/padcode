@@ -143,7 +143,8 @@ export async function runPanelAgent(agent: Agent, options: PanelOptions): Promis
     const controls = new SessionControls({
       capture: (handler, status) => gamepad?.capture(handler, status),
       release: resume => gamepad?.releaseCapture(resume),
-      interrupt: () => ipc.send('agent', { t: 'keys', data: Buffer.from([3]).toString('base64') }),
+      // Esc stops the running task in Claude Code; Ctrl+C there clears input and a second one exits.
+      interrupt: () => ipc.send('agent', { t: 'keys', data: Buffer.from([0x1b]).toString('base64') }),
       showMenu,
       history: command => { history = history.then(() => tmux.run(historyCommands[command])).then(() => {}, () => {}); },
       end: () => terminate(130),
