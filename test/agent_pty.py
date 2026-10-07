@@ -11,8 +11,9 @@ with tempfile.TemporaryDirectory(prefix='padcode-agent-') as directory:
     (root / 'padcode').mkdir()
     fixture = root / 'agent.py'
     fixture.write_text('''import os, signal, sys
-print("AGENT_READY", flush=True)
+# Install the handler before announcing readiness: the harness sends Ctrl+C as soon as it sees READY.
 signal.signal(signal.SIGINT, lambda *_: print("CHILD_INTERRUPT", flush=True))
+print("AGENT_READY", flush=True)
 for line in sys.stdin:
     print("ECHO:" + line.strip(), flush=True)
     if line.strip() == "exit!":
