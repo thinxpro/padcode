@@ -6,6 +6,9 @@ const { runPanelAgent, PanelFallback } = await import(pathToFileURL(join(root, '
 const { runAgent } = await import(pathToFileURL(join(root, 'dist/agent-session.js')));
 const { AgentGamepad } = await import(pathToFileURL(join(root, 'dist/agent-gamepad.js')));
 const { ControllerProbe } = await import(pathToFileURL(join(root, 'dist/probe.js')));
+const { NativeAudio } = await import(pathToFileURL(join(root, 'dist/audio.js')));
+// Opt-in fake microphone; never microphone evidence.
+const voice = process.env.PADCODE_VOICE === '1' ? { voice: { microphone: { id: 'mic-1', name: 'Fixture Mic' } }, audio: new NativeAudio({ command: process.execPath, args: [resolve('test/fixtures/audio-helper.mjs')], player: resolve('test/fixtures/fake-player.sh'), supported: true }) } : {};
 const [events, mode = 'basic'] = process.argv.slice(2);
 const agent = { command: process.env.PADCODE_PYTHON, args: [resolve('test/fixtures/pty-agent.py'), mode] };
 const gamepad = new AgentGamepad(
@@ -15,6 +18,7 @@ const gamepad = new AgentGamepad(
 try {
   process.exitCode = await runPanelAgent(agent, {
     tmux: process.env.PADCODE_TMUX, gamepad, onReady: ready => writeFileSync(events + '.ready', JSON.stringify(ready)),
+    ...voice,
   });
 } catch (error) {
   if (!(error instanceof PanelFallback)) throw error;

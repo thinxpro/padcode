@@ -5,10 +5,11 @@ import { delimiter, dirname, isAbsolute, join, resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
 
 export interface Config {
-  version: 1;
+  version: 2;
   controller: { transport: 'bluetooth' | 'usb'; name?: string; address?: string; inputVerified: boolean };
   agent: { command: string; args: string[] } | null;
   profile: 'terminal-basic';
+  voice: { microphone: { id: string; name: string } } | null;
 }
 export function configPath(env: NodeJS.ProcessEnv = process.env): string {
   const root = env.XDG_CONFIG_HOME && isAbsolute(env.XDG_CONFIG_HOME) ? env.XDG_CONFIG_HOME : join(homedir(), '.config');
@@ -17,19 +18,23 @@ export function configPath(env: NodeJS.ProcessEnv = process.env): string {
 const text = (value: unknown, limit: number): value is string => typeof value === 'string' && value.length <= limit && !/[\x00-\x1f\x7f]/u.test(value);
 export function validateConfig(value: unknown): Config {
   if (!value || typeof value !== 'object') throw new Error('Configuration must be a JSON object.');
-  const c = value as Partial<Config>;
-  if (c.version !== 1) throw new Error('Unsupported configuration version.');
+  const c = value as Partial<Omit<Config, 'version'>> & { version?: number };
+  // Version 1 predates voice; it migrates to version 2 with voice off.
+  if (c.version !== 1 && c.version !== 2) throw new Error('Unsupported configuration version.');
+  const voice = c.version === 1 || c.voice === undefined ? null : c.voice;
+  if (voice !== null && (!voice || typeof voice !== 'object' || !voice.microphone || !text(voice.microphone.id, 512) || !voice.microphone.id || !text(voice.microphone.name, 512))) throw new Error('Invalid voice configuration.');
   if (!c.controller || !['bluetooth', 'usb'].includes(c.controller.transport) || typeof c.controller.inputVerified !== 'boolean') throw new Error('Invalid controller configuration.');
   if (c.controller.name !== undefined && !text(c.controller.name, 512)) throw new Error('Invalid controller name.');
   if (c.controller.address !== undefined && !/^([\da-f]{2}[:-]){5}[\da-f]{2}$/i.test(c.controller.address)) throw new Error('Invalid Bluetooth address.');
   if (c.agent !== null && (!c.agent || !text(c.agent.command, 4096) || !isAbsolute(c.agent.command) || !Array.isArray(c.agent.args) || c.agent.args.length > 64 || !c.agent.args.every(a => text(a, 4096)))) throw new Error('Invalid Agent command or arguments.');
   if (c.profile !== 'terminal-basic') throw new Error('Unsupported key profile.');
   // Strip unknown fields rather than persisting credentials or unrelated project settings.
-  return { version: 1, controller: {
+  return { version: 2, controller: {
     transport: c.controller.transport, inputVerified: c.controller.inputVerified,
     ...(c.controller.name === undefined ? {} : { name: c.controller.name }),
     ...(c.controller.address === undefined ? {} : { address: c.controller.address }),
-  }, agent: c.agent === null ? null : { command: c.agent.command, args: [...c.agent.args] }, profile: c.profile };
+  }, agent: c.agent === null ? null : { command: c.agent.command, args: [...c.agent.args] }, profile: c.profile,
+  voice: voice === null ? null : { microphone: { id: voice.microphone.id, name: voice.microphone.name } } };
 }
 export async function loadConfig(path = configPath()): Promise<Config | null> {
   try {

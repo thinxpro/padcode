@@ -56,6 +56,11 @@ export class AgentGamepad implements ControllerSource {
   onControl(listener: (event: ControlEvent) => void): () => void {
     this.events.on('control', listener); return () => this.events.removeListener('control', listener);
   }
+  onTrigger(listener: (value: number) => void): () => void {
+    this.events.on('trigger', listener); return () => this.events.removeListener('trigger', listener);
+  }
+  // True only while presses route to the Agent: not paused, arming or inside a Padcode context.
+  get routing(): boolean { return this.active && !this.capturing && !this.failed; }
   // With an isolated controls surface, Options opens the session menu instead of toggling pause.
   enableMenu(): void { this.menu = true; }
   private activeStatus(): string { return this.menu ? 'ACTIVE / Options menu' : 'ACTIVE / Options to pause'; }
@@ -142,6 +147,11 @@ export class AgentGamepad implements ControllerSource {
     if (event.type === 'disconnected') {
       this.devices.delete(event.device); this.held.delete(event.device); this.optionPresses.delete(event.device); this.settling.delete(event.device);
       if (this.selected === event.device) { this.selected = undefined; this.automaticAvailable = false; this.rearming = false; this.resumeActive = false; this.suspend('DISCONNECTED / Reconnect then Options'); if (this.capturing) this.events.emit('control', 'lost'); }
+      return;
+    }
+    if (event.type === 'axis') {
+      // L2 drives push-to-talk; only the selected controller's trigger is reported, as a 0..1 value.
+      if (event.axis === 'left_trigger' && event.device === this.selected) this.events.emit('trigger', Math.max(0, event.value) / 32767);
       return;
     }
     if (event.type !== 'button') return;

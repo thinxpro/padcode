@@ -13,7 +13,7 @@ test('local npm tarball installs outside the checkout with CLI, setup and native
   const packed = JSON.parse(npm(['pack', '--ignore-scripts', '--json', '--pack-destination', root]))[0];
   const names = packed.files.map(file => file.path);
   assert.ok(names.includes('dist/cli.js')); assert.ok(names.includes('build/native/padcode-controller'));
-  if (process.platform === 'darwin') assert.ok(names.includes('build/native/padcode-bluetooth'));
+  if (process.platform === 'darwin') { assert.ok(names.includes('build/native/padcode-bluetooth')); assert.ok(names.includes('build/native/padcode-audio')); }
   assert.ok(names.every(name => !name.startsWith('test/') && !name.includes('config.json')));
   npm(['install', '--prefix', join(root, 'prefix'), '--omit=dev', '--ignore-scripts', join(root, packed.filename)]);
   const installed = join(root, 'prefix/node_modules/padcode');
@@ -36,6 +36,10 @@ test('local npm tarball installs outside the checkout with CLI, setup and native
     assert.equal(permission.status, 0, permission.stderr);
     const diagnostic = JSON.parse(permission.stdout);
     assert.equal(diagnostic.selfResponsible, true); assert.equal(diagnostic.usageDescription, true);
+    const audio = spawnSync(join(installed, 'build/native/padcode-audio'), ['diagnose'], { encoding: 'utf8', timeout: 5000 });
+    assert.equal(audio.status, 0, audio.stderr);
+    const audioDiagnostic = JSON.parse(audio.stdout);
+    assert.equal(audioDiagnostic.selfResponsible, true); assert.equal(audioDiagnostic.usageDescription, true);
   }
   const platform = JSON.parse(await readFile(join(installed, 'build/native/platform.json'), 'utf8'));
   assert.deepEqual(platform, { platform: process.platform, arch: process.arch });

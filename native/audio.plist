@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>CFBundleIdentifier</key><string>com.thinxpro.padcode.audio</string>
+  <key>CFBundleName</key><string>Padcode Audio</string>
+  <key>NSMicrophoneUsageDescription</key><string>Padcode records voice only while you hold L2, after you enable voice in terminal setup.</string>
+</dict></plist>

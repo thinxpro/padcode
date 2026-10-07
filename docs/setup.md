@@ -151,3 +151,11 @@ In the controls pane (tmux) mode, **Options** opens the Padcode controls menu ov
 | End session... | Asks again; "End the Agent session" ends it and returns to Player Hub |
 
 In the menu, D-pad moves, X confirms, O or Options closes. The keyboard works too: arrows, Enter, Esc, q and the number keys. After the menu or history closes, release all buttons; controller keys reach the Agent again after 250 ms, so the closing press never does. Scrolling with the mouse wheel opens the same history view. Transparent mode (`PADCODE_PANEL=off` or no tmux) keeps Options as pause/resume.
+
+## Voice capture (dev.14, macOS)
+
+Voice is off until you turn it on in setup (`padcode config`, step **VOICE (optional)**). Choosing a microphone shows what capture does, asks macOS for microphone access for **Padcode Audio**, lists your input devices and offers a 3-second check that plays back with `afplay`. If access is denied, allow Padcode Audio in System Settings > Privacy & Security > Microphone and choose Retry.
+
+In an Agent session (controls pane mode), hold **L2** to record and release to stop; recordings stop at 60 seconds. While recording, the status pane shows `REC` with a level meter, controller buttons do nothing except **O**, which cancels. Afterwards, Options > **Play last recording** plays it back. Transcription is not available yet, so nothing is typed into the Agent.
+
+Recordings are 16 kHz mono WAV files in a private temporary folder that is deleted when the session ends; folders left by a crash are removed on the next session. Linux and transparent mode do not support voice capture.

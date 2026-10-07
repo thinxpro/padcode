@@ -2,7 +2,7 @@ import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { existsSync, readFileSync } from 'node:fs';
 
-export function helperPath(name: 'padcode-controller' | 'padcode-bluetooth'): string {
+export function helperPath(name: 'padcode-controller' | 'padcode-bluetooth' | 'padcode-audio'): string {
   const manifest = new URL('../build/native/platform.json', import.meta.url);
   if (existsSync(manifest)) {
     const built = JSON.parse(readFileSync(manifest, 'utf8')) as { platform: string; arch: string };

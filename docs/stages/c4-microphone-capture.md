@@ -1,6 +1,6 @@
 # C4: Microphone setup and capture
 
-Status: planned. This plan is committed before runtime changes. Stacked on PR #14 (`feature/session-controls`, C3); retarget to `main` after #14 merges.
+Status: implemented in dev.14; automated acceptance passes locally and physical acceptance is pending. This plan was committed before runtime changes. Stacked on PR #14 (`feature/session-controls`, C3); retarget to `main` after #14 merges.
 
 ## Scope
 
@@ -52,6 +52,20 @@ Out of scope: transcription, drafts, insertion, network providers, the DualShock
 - C4-H3: cancel with O during recording; disconnect the controller during recording; both discard the recording.
 - C4-H4: confirm the L2 thresholds feel right on the DS4; record any adjustment request.
 
+## Implementation notes
+
+- Held-trigger rule: the plan's "held trigger at session start" case is implemented through routing, not a separate arming step. A trigger press that arrives while the controller is not routing to the Agent (C1 arming barrier, pause, menus) is tracked as pressed without recording, so it must be released and pressed again. An earlier draft that required observing the trigger below 0.35 first could miss a fast fresh press, because SDL reports axis changes only.
+- `permission.m` now exposes a generic `preparePermissionOwner`; `padcode-bluetooth` behavior is unchanged.
+- The macOS 27 SDK deprecates `installTapOnBus:bufferSize:format:block:`; the helper uses the replacement when the SDK and OS provide it and the old call otherwise.
+- The setup microphone check and in-session recordings share the `pcv-` directory format with an owner record, so stale recovery covers both.
+
 ## Validation record
 
-Pending.
+Plan commit: `91c77ba`. On macOS 27.0 arm64 with Node 24.21.0 and tmux 3.7c, `npm run check` passed 116 tests with zero failures or skips.
+
+- C4-A1 to A4 and A6: `test/voice.test.mjs` (hysteresis, jitter, debounce, held trigger through the barrier, routing guard, one job, replacement, O cancel, helper errors and crashes, late results, playback, stale-directory recovery, v1 -> v2 migration, the setup voice step with a fake helper, and `NativeAudio` parsing).
+- C4-A5: the real `padcode-audio` binary's synthetic mode writes a valid 16 kHz mono 16-bit WAV with mode 0600, refuses existing paths and symlinks, cancels on `cancel`, EOF and SIGTERM without leaving files, honors `--max-seconds`; `diagnose` reports self-responsibility and usage metadata, also from the installed package. On Linux the test asserts the helper is absent and voice is unsupported.
+- C4-A4/A7 end to end: `test/panel_pty.py` `voice()` records with L2 in a real tmux session through a fake helper, keeps all controller presses away from the Agent while recording, plays back from the controls menu, cancels with O and on disconnect, and removes the mode-0700 session directory when the Agent exits mid-recording.
+- `list` on this Mac returned two real input devices; no real microphone recording or permission request was made during automated testing.
+
+Artifact `padcode-0.1.0-dev.14.tgz`, npm SHA-1 `adcdd8f0f4325b4f428260620fb0c20cce88e647`. C4-H1 to C4-H4 are pending physical testing.
