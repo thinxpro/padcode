@@ -100,3 +100,7 @@ The PR stays draft until C2-H passes and C1-H is recorded. Known limits to verif
 ## Validation record
 
 Plan commit: `7c0c676`. On macOS 27.0 arm64 with Node 24.21.0 and tmux 3.7c (Homebrew), `npm run check` passed 101 tests with zero failures or skips. C2-P1 through C2-P3 and C2-A1 through C2-A9 pass locally; the prototype criteria therefore pass on macOS. Fixture-path controller-to-Agent latency over 20 presses: p50 11.0 ms, p95 11.3 ms (includes the fixture helper's 10 ms polling; not hardware latency). The current-platform artifact is `padcode-0.1.0-dev.9.tgz`, npm SHA-1 `490346f7010f18c84b2f2a27f68fd09f6f6370f4`. macOS/Ubuntu CI with tmux installed is required and tracked on the PR. C2-H1 through C2-H7 have not been performed: no Warp, Terminal.app, Codex or physical controller session was run, so the PR stays draft.
+
+### Rebase onto the Player Hub fix (dev.10)
+
+After the C1 Player Hub launch fix, both launch paths share `launchConfigured`, which now also selects the display mode, so `padcode` -> Start agent session uses the controls pane too. `test/hub-agent-pty.py` runs the Hub flow in transparent and panel modes. `npm run check` passed 102 tests with zero failures or skips. Artifact `padcode-0.1.0-dev.10.tgz`, npm SHA-1 `43cc8f5bc877c454f203aace104fd202150a5d86`. C2-H remains pending.
