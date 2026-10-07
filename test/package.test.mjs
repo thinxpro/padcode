@@ -24,6 +24,12 @@ test('local npm tarball installs outside the checkout with CLI, setup and native
   assert.equal(helper.status, 0, helper.stderr); assert.match(helper.stdout, /"source":"virtual"/);
   const pty = spawnSync('python3', ['test/onboarding_pty.py', join(installed, 'dist/cli.js')], { encoding: 'utf8', timeout: 20000, env: { ...process.env, PADCODE_NODE: process.execPath } });
   assert.equal(pty.status, 0, `${pty.stdout}\n${pty.stderr}`);
+  if (process.platform === 'darwin') {
+    const permission = spawnSync(join(installed, 'build/native/padcode-bluetooth'), ['diagnose-permission'], { encoding: 'utf8', timeout: 5000 });
+    assert.equal(permission.status, 0, permission.stderr);
+    const diagnostic = JSON.parse(permission.stdout);
+    assert.equal(diagnostic.selfResponsible, true); assert.equal(diagnostic.usageDescription, true);
+  }
   const platform = JSON.parse(await readFile(join(installed, 'build/native/platform.json'), 'utf8'));
   assert.deepEqual(platform, { platform: process.platform, arch: process.arch });
   await writeFile(join(installed, 'build/native/platform.json'), JSON.stringify({ platform: 'wrong-platform', arch: 'wrong-cpu' }));

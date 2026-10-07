@@ -28,7 +28,7 @@ async function linkController(io: PromptPort, services: SetupServices, signal: A
       return { transport: 'usb', inputVerified: false };
     }
     try {
-      io.say('Checking Bluetooth. macOS may ask for Bluetooth permission for this terminal.');
+      io.say('Checking Bluetooth. macOS may ask for Bluetooth permission for padcode-bluetooth.');
       let devices = await services.bluetooth.list(false, signal);
       for (;;) {
         const selected = await io.choose('Select a device, or discover a new controller', [

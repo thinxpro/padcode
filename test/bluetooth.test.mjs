@@ -33,12 +33,44 @@ test('untrusted Bluetooth output fails validation', () => {
 });
 test('native Bluetooth command validation never touches the radio', () => {
   if (process.platform === 'darwin') {
-    for (const args of [[], ['invalid'], ['pair', 'not-an-address'], ['connect'], ['scan', 'extra']]) {
+    for (const args of [[], ['invalid'], ['pair', 'not-an-address'], ['connect'], ['scan', 'extra'], ['--permission-owner'], ['--permission-owner', 'invalid'], ['--permission-owner', '--permission-owner', 'status']]) {
       const result = spawnSync('build/native/padcode-bluetooth', args, { encoding: 'utf8', timeout: 3000 });
       assert.equal(result.status, 1, result.stderr); const response = JSON.parse(result.stdout); assert.equal(response.ok, false); assert.ok(['usage', 'address'].includes(response.code));
     }
   } else {
     // The platform contract is an explicit unsupported result, not a skipped hardware test.
     return assert.rejects(new NativeBluetooth(process.platform).list(true, signal), /macOS/);
+  }
+});
+test('macOS permission handoff retains PID and validates its own usage metadata without radio access', async () => {
+  if (process.platform !== 'darwin') return assert.rejects(new NativeBluetooth(process.platform).list(false, signal), /macOS/);
+  const { spawn } = await import('node:child_process');
+  const child = spawn('build/native/padcode-bluetooth', ['diagnose-permission']);
+  let output = '', errors = '';
+  child.stdout.on('data', data => { output += data; }); child.stderr.on('data', data => { errors += data; });
+  const timeout = setTimeout(() => child.kill('SIGKILL'), 5000);
+  try {
+    const result = await new Promise((resolve, reject) => { child.on('error', reject); child.on('close', (code, signal) => resolve({ code, signal })); });
+    assert.deepEqual(result, { code: 0, signal: null }, errors);
+    assert.deepEqual(JSON.parse(output), { v: 1, ok: true, selfResponsible: true, usageDescription: true, pid: child.pid });
+  } finally { clearTimeout(timeout); }
+});
+test('macOS permission ownership failures stop before Bluetooth access', async t => {
+  if (process.platform !== 'darwin') return assert.rejects(new NativeBluetooth(process.platform).list(false, signal), /macOS/);
+  const { mkdtemp, rm } = await import('node:fs/promises');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const root = await mkdtemp(join(tmpdir(), 'padcode-permission-')); t.after(() => rm(root, { recursive: true, force: true }));
+  const sdk = spawnSync('xcrun', ['--sdk', 'macosx', '--show-sdk-path'], { encoding: 'utf8' });
+  assert.equal(sdk.status, 0, sdk.stderr);
+  for (const metadata of [true, false]) {
+    const binary = join(root, metadata ? 'with-metadata' : 'without-metadata');
+    const built = spawnSync('xcrun', ['clang', '-isysroot', sdk.stdout.trim(), '-fobjc-arc', '-Wall', '-Wextra', '-Werror', 'test/fixtures/permission-harness.m', '-framework', 'Foundation', ...(metadata ? ['-Wl,-sectcreate,__TEXT,__info_plist,native/bluetooth.plist'] : []), '-o', binary], { encoding: 'utf8', timeout: 20000 });
+    assert.equal(built.status, 0, built.stderr);
+    const cases = metadata ? [['missing-symbol', /cannot establish/], ['foreign-owner', /retained the terminal/], ['disclaim-failure', /identity \(22\)/], ['spawn-failure', /identity \(13\)/], ['self-owner', /self-owner/]] : [['missing-metadata', /metadata is missing/]];
+    for (const [mode, expected] of cases) {
+      const result = spawnSync(binary, [mode], { encoding: 'utf8', timeout: 3000 });
+      assert.equal(result.status, 0, result.stderr); assert.match(result.stdout, expected);
+    }
   }
 });
