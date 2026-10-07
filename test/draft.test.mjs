@@ -124,10 +124,21 @@ test('C5-A3 setup transcription tiers: macOS speech, whisper.cpp detection and c
   const audio = settings => { process.env.PADCODE_AUDIO_FIXTURE = JSON.stringify(settings); return new NativeAudio({ command: process.execPath, args: [resolve('test/fixtures/audio-helper.mjs')], player: resolve('test/fixtures/fake-player.sh'), supported: true }); };
   const run = async (choices, settings = {}, answers = []) => { const h = harness([...base, ...choices, 'save'], audio(settings), answers); const config = await setup(h.io, h.services, new AbortController().signal); return { config, text: h.output.join('\n') }; };
 
-  let r = await run(['system', 'zh', 'try'], { speech: 'not-determined', speechRequest: 'authorized' });
+  let r = await run(['system', 'zh', 'try', 'done'], { speech: 'not-determined', speechRequest: 'authorized' });
   assert.deepEqual(r.config.voice.transcriber, { kind: 'system', language: 'zh' });
   assert.match(r.text, /Padcode sends audio nowhere/); assert.match(r.text, /Speech Recognition/); assert.match(r.text, /SELF-TEST PASSED/); assert.match(r.text, /HEARD {2}system zh-CN: 你好 world/);
   assert.match(r.text, /VOICE {3}Fixture Mic \/ macOS on-device speech \(zh\)/);
+  // Keeping the microphone after an update: the lost grant is requested before anything records.
+  const initial = { version: 2, controller: { transport: 'bluetooth', inputVerified: false }, agent: null, profile: 'terminal-basic', voice: { microphone: { id: 'mic-1', name: 'Fixture Mic' }, transcriber: { kind: 'system', language: 'zh' } } };
+  let h = harness(['later', 'skip', 'later', 'terminal-basic', 'keep', 'keep', 'save'], audio({ permission: 'not-determined', request: 'authorized' }));
+  let config = await setup(h.io, h.services, new AbortController().signal, initial);
+  assert.deepEqual(config.voice, initial.voice); assert.match(h.output.join('\n'), /macOS will now ask whether Padcode Audio may use the microphone/);
+  // A denied microphone makes the try fail with guidance and offers Try again instead of moving on.
+  h = harness(['later', 'skip', 'later', 'terminal-basic', 'keep', 'system', 'zh', 'try', 'try', 'done', 'save'], audio({ permission: 'denied' }));
+  config = await setup(h.io, h.services, new AbortController().signal, initial);
+  const text = h.output.join('\n');
+  assert.equal((text.match(/Privacy & Security > Microphone/g) ?? []).length >= 3, true); assert.match(text, /Try it DEFAULT:try\nTry again \| Done/);
+  assert.ok(!/RECORDING 5 SECONDS/.test(text), 'recorded without microphone access');
   r = await run(['system', 'en', 'none'], { speech: 'denied' });
   assert.equal(r.config.voice.transcriber, null); assert.match(r.text, /TRANSCRIPTION NOT READY: Speech recognition is not allowed/);
   r = await run(['system', 'other', 'done'], {}, ['ja']);

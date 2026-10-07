@@ -34,7 +34,7 @@ After building and testing locally, create a package for the current platform. N
 ```sh
 mkdir -p artifacts
 npm pack --ignore-scripts --pack-destination artifacts
-npm install -g ./artifacts/padcode-0.1.0-dev.18.tgz
+npm install -g ./artifacts/padcode-0.1.0-dev.19.tgz
 padcode
 ```
 

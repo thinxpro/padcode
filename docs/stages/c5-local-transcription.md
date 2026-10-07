@@ -77,3 +77,7 @@ Plan commits: `14464ef` (first draft) and `93e11b9` (three-tier revision). On ma
 - Real-tool smoke test: macOS `say` produced a Chinese sentence converted to 16 kHz WAV; Padcode's runner with Homebrew whisper-cpp 1.8 and `ggml-large-v3-turbo.bin` (downloaded from the pinned URL, SHA-256 verified) returned `请帮我修复登录页面的Book,然后运行测试。` in 6.9 s including model load ("bug" was the synthetic voice's pronunciation). No microphone was used.
 
 Artifact `padcode-0.1.0-dev.18.tgz`, npm SHA-1 `c23ab1a320fd7971a2fbf7593a1a028192e60bd7`. C5-H1 to C5-H3 are pending physical testing.
+
+### Try-it after keeping the microphone (dev.19)
+
+User report (2026-10-07): in Voice settings, after "Keep microphone" and macOS on-device speech, choosing "Record 5 seconds and show the text" printed `TRY FAILED: Microphone access has not been granted to Padcode Audio yet.` and returned straight to Player Hub. Cause: only the "Choose a microphone" path checked microphone access; the rebuilt dev.18 helper had lost its macOS grant, and the try offered no retry. Fix: a shared `microphoneReady` check runs on the keep path and before every try recording (requesting access when not determined, with guidance when denied), and the try step repeats as "Try again" / "Done" until the user finishes. `test/draft.test.mjs` covers both. `npm run check` passed 128 tests with zero failures or skips. Artifact `padcode-0.1.0-dev.19.tgz`, npm SHA-1 `e4e9565247a56d6565ff5308761ccd7d7c8af667`. The native helper is byte-identical to dev.18, so a grant made now carries over.

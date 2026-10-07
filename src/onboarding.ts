@@ -144,6 +144,14 @@ async function chooseAgent(io: PromptPort, services: SetupServices, initial?: Co
 }
 
 const permissionHelp = 'Microphone access is denied. Allow Padcode Audio in macOS System Settings > Privacy & Security > Microphone, then choose Retry.';
+// Every path that records checks access first: development builds lose the macOS grant when rebuilt.
+async function microphoneReady(io: PromptPort, audio: AudioPort): Promise<boolean> {
+  let status = await audio.permission();
+  if (status === 'not-determined') { io.say('macOS will now ask whether Padcode Audio may use the microphone.'); status = await audio.request(); }
+  if (status === 'authorized') return true;
+  io.say(status === 'restricted' ? 'Microphone access is restricted on this Mac.' : permissionHelp);
+  return false;
+}
 // Voice stays off unless the user picks a microphone after reading what capture does.
 async function chooseVoice(io: PromptPort, audio: AudioPort | undefined, signal: AbortSignal, initial?: Config, title = 'MISSION 05 / VOICE (optional)', whisper = systemWhisper): Promise<Config['voice']> {
   if (!audio) return initial?.voice ?? null;
@@ -155,16 +163,17 @@ async function chooseVoice(io: PromptPort, audio: AudioPort | undefined, signal:
     { label: current ? 'Turn voice off' : 'Keep voice off', value: 'off' },
     { label: 'Choose a microphone', value: 'choose' },
   ]);
-  if (first === 'keep') return { microphone: current!.microphone, transcriber: await chooseTranscriber(io, audio, signal, current!.microphone.id, current!.transcriber, whisper) };
+  if (first === 'keep') {
+    await microphoneReady(io, audio);
+    return { microphone: current!.microphone, transcriber: await chooseTranscriber(io, audio, signal, current!.microphone.id, current!.transcriber, whisper) };
+  }
   if (first === 'off') return null;
   io.say('CAPTURE  macOS AVAudioEngine through padcode-audio, only while you hold L2.');
   io.say('PRIVACY  Audio stays on this Mac in a private temporary folder and is deleted when the session ends.');
   for (;;) {
     signal.throwIfAborted();
     try {
-      let status = await audio.permission();
-      if (status === 'not-determined') { io.say('macOS will now ask whether Padcode Audio may use the microphone.'); status = await audio.request(); }
-      if (status !== 'authorized') throw new Error(status === 'restricted' ? 'Microphone access is restricted on this Mac.' : permissionHelp);
+      if (!await microphoneReady(io, audio)) throw new Error('The microphone is not available to Padcode Audio.');
       const devices = await audio.list();
       if (!devices.length) throw new Error('No microphone is connected. Connect one, then choose Retry.');
       if (devices.some(device => device.transport === 'bluetooth')) io.say('NOTE     Bluetooth headset microphones take about a second to start and switch the headset to lower call quality; a wired, USB or built-in microphone works best.');
@@ -251,7 +260,10 @@ async function chooseTranscriber(io: PromptPort, audio: AudioPort, signal: Abort
         const began = Date.now(), result = await transcribe(transcriber, join(directory, 'silence.wav'), audio).done;
         if (!result.ok) throw new Error(`Self-test failed: ${result.message}`);
         io.say(`SELF-TEST PASSED in ${((Date.now() - began) / 1000).toFixed(1)}s.`);
-        if (await io.choose('Try it', [{ label: 'Record 5 seconds and show the text', value: 'try' }, { label: 'Done', value: 'done' }], 1) === 'try') {
+        for (let attempt = 1; await io.choose('Try it', [{ label: attempt === 1 ? 'Record 5 seconds and show the text' : 'Try again', value: 'try' }, { label: 'Done', value: 'done' }], attempt === 1 ? 1 : 0) === 'try'; attempt++) {
+          signal.throwIfAborted();
+          if (!await microphoneReady(io, audio)) continue;
+          await rm(join(directory, 'try.wav'), { force: true });
           io.say('MIC STARTING...');
           const recording = audio.record({ path: join(directory, 'try.wav'), device: microphone, maxSeconds: 5 });
           recording.onLive(() => io.say('RECORDING 5 SECONDS... speak now.'));
