@@ -1,36 +1,37 @@
-# 决策记录
+# Decisions
 
-状态含义：已确定为产品约束；提议为待验证技术路线；待决定不阻塞文档建仓。
+Confirmed decisions are product constraints. Proposed decisions require technical validation. Open decisions do not block initial documentation.
 
-| 决策 | 状态 | 理由 |
+| Decision | Status | Rationale |
 | --- | --- | --- |
-| 提供终端安装的开发工具 | 已确定 | 用户要求 CLI 工具，而非独立 App/DMG |
-| 用户自带并选择 Agent | 已确定 | 工具只提供输入与连接能力 |
-| 无自建账号、模型与云服务 | 已确定 | 保持工具边界与本地使用方式 |
-| 用户现有终端负责显示 | 已确定 | 不要求更换终端，不嵌入 xterm.js |
-| 通用 PTY 作为基础入口 | 提议 | 允许自定义 CLI，不依赖厂商接口 |
-| Node.js/TypeScript + SDL3 helper | 提议 | 兼顾 npm 分发与原生手柄事件 |
-| node-pty | 提议 | 必须验证原生依赖分发与 TUI 兼容 |
-| npm 为第一个安装渠道 | 提议 | 先验证一条完整安装链路 |
-| macOS + DualShock 4 蓝牙优先 | 已确定 | 用户明确要求；USB 保留为备选，蓝牙进入首次终端配置流程 |
-| 语音、桌面模式与结构化适配可选 | 已确定 | 不增加基础安装和 Agent 选择约束 |
-| Padcode 名称 | 暂定 | 需确认包名归属与公开命名 |
-| 开源许可证 | 已确定 | 维护者指定 MIT，见 LICENSE；第三方依赖保留各自许可 |
-| npm 发布账号 | 已确认具备 | 维护者已有账号，发布前核实包名和登录，不需要新建账号 |
-| 首次公开时间 | 待决定 | 仓库先 private，公开由维护者另行决定 |
+| Terminal-installed developer tool | Confirmed | A CLI rather than a standalone app/DMG |
+| Users bring and select their agent | Confirmed | The tool provides input and session connectivity |
+| No hosted accounts, models or cloud service | Confirmed | Preserve local use and the tool's scope |
+| Existing terminal handles rendering | Confirmed | No replacement terminal or embedded xterm.js |
+| Generic PTY as the base integration | Proposed | Support custom CLIs without vendor-specific interfaces |
+| Node.js/TypeScript + SDL3 helper | Proposed; prototype implemented | Combine npm distribution with native controller events |
+| node-pty | Proposed | Native distribution and TUI compatibility require validation |
+| npm as the first installation channel | Proposed; local tarball tested | Validate one complete installation path first |
+| macOS + DualShock 4, Bluetooth first | Confirmed | Explicit user requirement; USB remains an alternative and Bluetooth belongs in terminal onboarding |
+| Optional voice, desktop mode and structured adapters | Confirmed | Avoid extra base installation and agent-selection requirements |
+| Padcode name | Provisional | Package ownership and public naming require confirmation |
+| Open-source license | Confirmed | Maintainer selected MIT; see LICENSE; dependencies retain their own licenses |
+| npm publishing account | Available | Maintainer has an account; verify login and package ownership before release |
+| Initial public release date | Open | Repository remains private until the maintainer decides otherwise |
+| English repository and PR content | Confirmed | Prepare for public collaboration; applies to future contributions |
 
-## 已替代方案
+## Superseded approaches
 
-早期讨论中的 Electron/React 桌面应用、内置 xterm.js 终端、强制 Codex app-server、内置 whisper.cpp 不再是首版架构。后续若引入某项能力，必须通过可选模块和单独决策说明。
+The early Electron/React desktop app, embedded xterm.js terminal, mandatory Codex app-server and bundled whisper.cpp are not part of the initial architecture. Any future addition requires an optional module and a separate decision.
 
-## 尚待实验回答
+## Questions for experiments
 
-用户调整优先级后，先实现 [蓝牙优先终端配置](stages/p0-config-bluetooth.md)，再继续 PTY 桥接。阶段标准按该明确需求调整，不因测试失败降低标准。
+The user moved [Bluetooth-first terminal setup](stages/p0-config-bluetooth.md) ahead of the PTY bridge. Stage criteria changed to reflect that explicit priority, not to accommodate failed tests.
 
-1. 原生依赖是否可以在用户没有编译工具时直接安装？
-2. 不同 TUI 对终端查询与滚动操作的兼容性如何？
-3. 手柄后台事件和断线行为在目标系统上是否稳定？
-4. 哪组工具快捷键容易记忆，并能避免误退出和误提交？
-5. 语音是否实际需要内置接口，还是现有听写工具已足够？
+1. Can native dependencies install without developer build tools?
+2. How do different TUIs handle terminal queries and scrolling?
+3. Are background controller events and disconnect behavior stable on target systems?
+4. Which tool shortcuts are memorable and avoid accidental exits or submissions?
+5. Does voice need a built-in interface, or are existing dictation tools sufficient?
 
-硬件是否已连接、Agent 是否已安装，以及任何兼容性测试结果目前均未验证。
+Physical controller acceptance and actual agent compatibility remain unverified. The Bluetooth permission fix has passed a real status query; that is not a pairing or input acceptance result.

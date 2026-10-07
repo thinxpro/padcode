@@ -1,58 +1,58 @@
-# 蓝牙优先配置：验证记录
+# Bluetooth-first onboarding validation
 
-状态：实现、本地自动化及 macOS/Ubuntu CI 验证完成；实体 PS4 蓝牙验收待完成。[PR #2](https://github.com/thinxpro/padcode/pull/2) 保持 Draft。
+Status: implementation, local automation and macOS/Ubuntu CI complete; physical PS4 Bluetooth acceptance pending. [PR #2](https://github.com/thinxpro/padcode/pull/2) remains Draft. The subsequent Warp permission failure and fix are recorded in the [permission ownership stage](fix-bluetooth-permission-host.md).
 
-## 范围和依赖
+## Scope and dependency
 
-本阶段实现前的计划提交为 `37ce2c0`。分支 `feature/bluetooth-onboarding` 基于未合并的 Controller Lab，独立 PR 先指向 `feature/controller-lab`，不隐式合并 PR #1。
+The pre-implementation plan commit is `37ce2c0`. Branch `feature/bluetooth-onboarding` builds on unmerged Controller Lab and initially targets `feature/controller-lab`, without implicitly merging PR #1.
 
-用户明确要求蓝牙优先，因此原 USB 优先测试改为蓝牙优先。按键/轴、三次断开重连、后台输入和十分钟稳定性标准保留；蓝牙用手柄关机/开机重连代替 USB 拔插。
+The user explicitly prioritized Bluetooth over USB. Button/axis, three reconnects, background input and ten-minute stability criteria remain. Power-cycle the Bluetooth controller instead of unplugging a USB cable.
 
-## 自动化结果
+## Automated results
 
-本地 macOS 27.0 / arm64 / Node 23.5.0 / SDL 3.4.16。完整命令为 `npm ci --ignore-scripts` 和 `npm run check`。
+Local environment: macOS 27.0 / arm64 / Node 23.5.0 / SDL 3.4.16. Run `npm ci --ignore-scripts`, then `npm run check`.
 
-本地完整门槛通过：45 项测试，0 失败、0 跳过。仓库 CLI JavaScript 行覆盖率 98.72%，分支覆盖率 93.10%；不包含 Objective-C/SDL 的代码覆盖率。已检查覆盖报告；例如入口异常捕获在安装包错误平台测试中执行，安装后的副本不计入仓库 dist 的覆盖行。
+The local gate passed all 45 tests with zero failures/skips. Repository CLI JavaScript line coverage was 98.72%, branch coverage 93.10%; Objective-C/SDL coverage is excluded. Coverage was reviewed. For example, the installed-package platform-mismatch test exercises the entry-point exception handler, but installed-copy execution does not count toward checkout `dist` coverage.
 
-测试包含原有 Controller Lab 全部测试，并增加配置持久化、命令发现不执行、蓝牙适配器错误/身份验证、子进程超时/取消、SDL 新按下事件验证、完整真实 PTY 向导（含彩色窄终端/纯文本）和本地 npm 安装测试。CI 结果通过 PR Checks 跟踪。
+Tests retain all Controller Lab checks and add persistence, executable discovery without execution, Bluetooth adapter errors/identity, subprocess timeout/cancellation, fresh SDL press validation, complete real PTY setup (colored narrow and plain modes) and local npm installation. CI status is tracked through PR checks.
 
-[实现提交 `0c64c93` 的 CI](https://github.com/thinxpro/padcode/actions/runs/35321800645)：macOS 与 Ubuntu 的 Node 22 完整门槛均通过。后续仅追加验证文档；最新状态见 [PR Checks](https://github.com/thinxpro/padcode/pull/2/checks)。
+[CI for implementation commit `0c64c93`](https://github.com/thinxpro/padcode/actions/runs/35321800645) passed the full Node 22 gate on macOS and Ubuntu. Later commits only recorded evidence; see [latest PR checks](https://github.com/thinxpro/padcode/pull/2/checks).
 
-测试修正记录：彩色模式退出测试必须持续读取 PTY，模拟真实终端的输出消费。否则 macOS 的终端状态恢复可能等待输出排空，造成测试侧假超时。修正后保留 Ctrl+C、termios 恢复及退出码断言，没有放宽退出标准。
+Test harness correction: colored exit tests must continuously drain PTY output like a real terminal. Otherwise macOS terminal restoration can block while waiting for output to drain, causing a false timeout. Ctrl+C, termios restoration and exit-code assertions were retained; exit criteria were not relaxed.
 
-npm 安装测试使用临时 prefix/cache，安装本机平台 tarball，再从仓库外运行帮助、原生 SDL 虚拟设备和完整首次配置/再次启动流程。不会修改用户的全局 npm 安装或真实配置。另验证错误平台的包拒绝运行原生 helper。
+The npm integration test uses temporary prefix/cache directories, installs the current-platform tarball, then runs help, the native SDL virtual device and full first-run/restart flow outside the checkout. It does not change global npm installation or real configuration. It also verifies that mismatched platform packages reject native helper execution.
 
-蓝牙单元测试使用模拟适配器；原生 helper 的自动化检查仅执行无无线操作的参数校验。真实扫描、权限弹窗、配对、连接仍需硬件确认。CI 中不自动配对任何设备，也不把模拟结果标记为 B9 通过。
+Bluetooth unit tests use simulated adapters. At this stage, native automated checks only validated arguments without radio access. Actual discovery, permission dialogs, pairing and connection require physical evidence. CI never automatically pairs devices or counts simulation as B9 acceptance.
 
-## 验收状态
+## Acceptance status
 
-| 标准 | 状态 |
+| Criterion | Status |
 | --- | --- |
-| B1–B8 自动化/安装/终端流程 | 本地及 macOS/Ubuntu CI 通过 |
-| B2/B4 的实体蓝牙部分 | 待用户验证 |
-| B9 真实 PS4 全流程与稳定性 | 待用户验证，PR 保持 Draft |
+| B1–B8 automated/install/terminal checks | Local and macOS/Ubuntu CI passed |
+| Physical portions of B2/B4 | User validation pending |
+| B9 actual PS4 workflow and stability | User validation pending; PR remains Draft |
 
-## 真机测试：所有业务操作在终端
+## Physical procedure: product interaction in terminal
 
-当前本地开发目录可以运行 `node dist/cli.js`，安装测试包后运行 `padcode`。第一次会进入向导，已有配置时使用 `padcode config`。
+Run `node dist/cli.js` in the built checkout, or `padcode` after installing the test package. First launch enters setup; use `padcode config` when configuration already exists.
 
-1. 拔掉 USB 线，手柄关机时按住 Share + PS，直到灯条快速闪烁。
-2. 向导默认蓝牙；若 macOS 请求蓝牙授权，请允许当前终端。记录是否出现系统提示。蓝牙无线开关若关闭，需要在系统中打开。
-3. 在终端选择扫描，确认列表中的 PS4 名称/地址，选择配对/连接。记录成功、失败或认证模式错误，不跳过问题。
-4. 选择对应 SDL 控制器，按一个按钮，确认终端出现 INPUT CHECK PASSED。
-5. 选择自己已安装的 Agent 或自定义命令，确认按键方案并保存。
-6. 退出重新运行，确认进入 Player Hub，配置仍在。历史验证标记不能当作当前在线状态。
-7. 进入 Controller Lab，测试方向键、四面键、L1/R1、L3/R3、Share、Options、双摇杆和 L2/R2。按住 X 五秒后松开，应只有两个按钮边沿。
-8. 关闭手柄再按 PS 唤醒，必要时通过终端配置选择已配对设备重连，重复三次。状态应清空并恢复。
-9. 切到其他应用操作手柄，切回查看输入；继续运行十分钟，确认无卡键、重复提交或崩溃。
-10. 测试 q、Q、Esc（检测面板）及 Ctrl+C 退出后终端正常。配置菜单仅 q/Ctrl+C 为取消入口。
+1. Disconnect USB. With the controller off, hold Share + PS until the light bar flashes rapidly.
+2. Select the default Bluetooth route. Allow the macOS Bluetooth prompt and record whether it appears. From dev.2, permission belongs to `padcode-bluetooth`; enable the radio in system settings if it is off.
+3. Scan in terminal, confirm the PS4 name/address, then select pairing/connection. Record success, failure or unsupported authentication mode; do not skip errors.
+4. Select the corresponding SDL controller and press a button. Confirm INPUT CHECK PASSED.
+5. Choose an installed agent or custom command, confirm the profile and save.
+6. Exit and restart. Confirm Player Hub and persistent settings. Historical verification is not current online status.
+7. Open Controller Lab. Test D-pad, face buttons, L1/R1, L3/R3, Share, Options, both sticks and L2/R2. A five-second X hold/release should produce exactly two button edges.
+8. Turn the controller off and wake it with PS. If necessary, reconnect the paired device through terminal setup. Repeat three times; state must clear and recover.
+9. Operate the controller while another app has focus, then inspect input on return. Continue for ten minutes; check for stuck state, repeated submissions or crashes.
+10. Test q, Q, Esc (dashboard) and Ctrl+C, confirming the terminal remains usable. Setup menus use q/Ctrl+C for cancellation.
 
-反馈需要：终端名称/版本、手柄型号、系统授权表现、每项结果与失败复现步骤。无需提供 Agent 凭据。
+Report terminal/version, controller model, permission behavior, each result and failure reproduction steps. No agent credentials are needed.
 
-## 当前明确限制
+## Explicit limitations
 
-- 业务配置在终端；系统隐私授权、无线电开关不保证终端可完成。
-- PIN/数字比较认证模式明确不支持，不会自动批准。
-- 非 macOS 不提供内置蓝牙配对，菜单提供明确说明及 USB/稍后配置选项。
-- Agent 命令和基础按键方案只保存，执行/键盘映射等待 PTY 阶段。
-- npm registry 尚未发布；本地 tarball 是当前平台开发包，不是跨平台正式发行版。
+- Product configuration stays in terminal; system permission and radio settings may require system UI.
+- PIN/passkey comparison is unsupported and never auto-approved.
+- Built-in Bluetooth pairing is macOS-only; other platforms receive an explicit explanation and USB/configure-later options.
+- Agent commands and the basic profile are saved only; execution/key mapping await the PTY stage.
+- No npm registry publication; local tarballs are current-platform development packages, not universal releases.

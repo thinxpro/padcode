@@ -1,50 +1,50 @@
-# 终端配置指南
+# Terminal setup guide
 
-目标体验是 npm 安装 → `padcode` → 全程终端配置。当前可以安装本地构建的 npm 测试包；npm registry 发布还未开始。
+The intended flow is npm installation → `padcode` → terminal configuration. Local development tarballs are installable; npm registry publication has not started.
 
-## 第一次启动
+## First launch
 
-交互式终端运行 `padcode`，按数字选择、Enter 确认，q 取消菜单、Ctrl+C 中断操作。
+Run `padcode` in an interactive terminal. Select with number keys, confirm with Enter, cancel menus with q and interrupt operations with Ctrl+C.
 
-1. **LINK CONTROLLER**：蓝牙为默认入口；也可选择 USB 或稍后配置。
-2. **蓝牙设备**：先列出系统已配对设备。新手柄按住 Share + PS 直到灯条快速闪烁，然后在终端选择扫描。选择设备后明确确认配对/连接，过程显示状态与错误。
-3. **INPUT CHECK**：选择 SDL 检测到的控制器，按一个手柄按钮。只有来自选定设备的新按下事件才通过；配对成功本身不算通过。传输方式或序列号不匹配的设备不会自动被选中；元数据缺失时必须手动确认设备。
-4. **CHOOSE YOUR AGENT**：显示 PATH 中可执行的候选命令；可选自定义命令。参数逐项输入，含空格的一个参数仍作为一个值保存，不进行 shell 展开。配置过程不执行 Agent。
-5. **LOADOUT**：查看并选择基础按键方案。
-6. **SAVE POINT**：查看全部配置并确认保存。取消或失败时保留原配置。蓝牙系统配对是独立动作，取消配置不会自动取消已有配对。
+1. **LINK CONTROLLER**: Bluetooth is the default; USB and configure-later are alternatives.
+2. **Bluetooth devices**: list paired devices first. For a new controller, hold Share + PS until the light bar flashes rapidly, then choose scan. Select a device and explicitly confirm pairing/connection. Progress and errors appear in terminal.
+3. **INPUT CHECK**: select the SDL controller and press a button. Only a fresh press from the selected device passes; pairing alone is insufficient. Devices with mismatched transport/serial metadata are not selected automatically; missing metadata requires manual selection.
+4. **CHOOSE YOUR AGENT**: select an executable found on PATH or enter a custom command. Enter arguments individually; spaces remain part of each literal argument, with no shell expansion. Setup never executes the agent.
+5. **LOADOUT**: review and select the basic key profile.
+6. **SAVE POINT**: review and confirm configuration. Cancellation or failure preserves the previous file. System Bluetooth pairing is separate; cancelling setup does not undo an existing pairing.
 
-任何尚未验证的环节都明确显示 UNVERIFIED；允许稍后补齐，但不会标记成已成功。
+Incomplete verification is labeled UNVERIFIED. Deferral is allowed but never reported as success.
 
-## 再次启动与修改
+## Later launches and changes
 
-- `padcode`：已有配置时显示 Player Hub，可进入实时输入检测、修改配置、预览界面或退出。
-- `padcode config`：重新运行向导，可保留已有 Agent 命令和参数。
-- `padcode controllers`：实时手柄面板。
-- `padcode controllers --json`：结构化诊断事件。设备连接事件可能包含设备序列号，分享日志前自行检查。
-- `padcode demo`：纯模拟界面预览。
+- `padcode`: open Player Hub when configuration exists; access live input checks, configuration, interface preview or exit.
+- `padcode config`: rerun setup, optionally keeping the existing agent command and arguments.
+- `padcode controllers`: live controller dashboard.
+- `padcode controllers --json`: structured diagnostics. Connection events may contain device serial numbers; inspect logs before sharing.
+- `padcode demo`: simulated interface preview.
 
-当前开发版的 Agent 配置和按键方案只保存、不执行。Player Hub 会明确提示 Agent 会话尚未实现。历史输入验证通过不代表当前设备在线。
+The current development build saves agent configuration and the key profile but does not execute them. Player Hub explicitly states that agent sessions are not implemented. Historical input verification does not prove a device is currently online.
 
-## macOS 系统边界
+## macOS system boundaries
 
-工具使用系统 IOBluetooth API，在终端中发起扫描、配对与连接，不要求安装额外的蓝牙命令行工具。
+The tool uses IOBluetooth to initiate discovery, pairing and connection from terminal. No additional Homebrew Bluetooth utility is required.
 
-macOS 首次蓝牙隐私授权可能显示系统弹窗；拒绝授权后需要在「隐私与安全 → 蓝牙」中重新允许 `padcode-bluetooth`。蓝牙无线开关关闭时需先在系统中打开。这些属于操作系统控制，工具不能承诺所有系统授权/无线开关操作都能在终端完成；业务配置与错误恢复入口保留在终端。
+Initial Bluetooth authorization may display a system dialog. If denied, allow `padcode-bluetooth` under Privacy & Security → Bluetooth. If Bluetooth is off, enable it in macOS. These are system-controlled operations; Padcode cannot promise that every permission or radio setting can be changed from terminal. Product configuration and error recovery remain in terminal.
 
-当前原生配对入口面向不需要 PIN/数字比较的控制器配对方式。若设备请求此类认证，工具返回明确错误而不自动批准；该方式尚未支持。PS4 实际配对方式与权限行为仍需要用户在目标系统上验证。
+Native pairing currently supports flows without PIN/passkey comparison. Authentication challenges produce an explicit unsupported error and are never automatically approved. Actual PS4 pairing and permission behavior require physical validation on the target system.
 
-## 本地文件
+## Local files
 
-默认配置为 `~/.config/padcode/config.json`；支持绝对路径 `XDG_CONFIG_HOME`。文件以 0600 权限原子替换写入，父目录首次创建为 0700。配置包含选定设备名称/地址、连接偏好、历史输入验证标记、Agent 可执行路径/参数和 profile，不包含账号或 API Key。
+Configuration defaults to `~/.config/padcode/config.json`, or uses an absolute `XDG_CONFIG_HOME`. Atomic replacement writes use mode 0600; newly created parent directories use 0700. Configuration contains the selected device name/address, transport preference, historical input verification, agent executable/arguments and profile. It contains no account or API key.
 
-卸载 npm 包默认保留配置。如需重置，可自行删除该配置文件，下一次启动重新配置。不要在 Agent 参数中填写密钥；认证由 Agent 自己管理。
+npm uninstall preserves configuration. To reset, explicitly remove the configuration file; the next launch opens setup. Do not put secrets in agent arguments; the agent manages its own authentication.
 
-## 出错后怎么办
+## Recovery
 
-发现不到设备：重新进入 Share + PS 配对模式，在菜单中再次扫描。连接失败：唤醒手柄后重试，或明确选择 USB/稍后配置。系统连接成功但没有输入：重新检测 SDL 设备，不跳过这一差异。损坏的配置文件：终端会让用户选择重新配置或保留文件退出，只有最终确认保存才覆盖。
+If discovery finds no device, re-enter Share + PS pairing mode and scan again. If connection fails, wake the controller and retry, or explicitly choose USB/configure-later. If the system connects but no input appears, repeat SDL detection rather than skipping verification. For damaged configuration, choose reconfigure or preserve-and-exit; only final save confirmation overwrites the file.
 
-### Warp 蓝牙权限崩溃（dev.2 修复）
+### Warp Bluetooth permission crash (fixed in dev.2)
 
-`dev.1` 在 Warp 中可能显示 `Helper stopped (SIGABRT)`：macOS 将隐私访问归给没有蓝牙用途声明的宿主终端。`dev.2` 在调用蓝牙 API 前，让辅助程序以自己的权限身份运行并检查用途声明。系统仍需要用户正常授权，不修改 Warp、系统权限数据库或蓝牙开关。
+`dev.1` may show `Helper stopped (SIGABRT)` under Warp: macOS attributes privacy access to a host terminal without a Bluetooth usage declaration. Before Bluetooth access, `dev.2` establishes the helper's own permission identity and checks its usage metadata. Normal user consent remains required; the tool does not modify Warp, the permission database or radio settings.
 
-该兼容层使用运行时查找的 macOS 非公开 responsibility API；未来系统可能不支持。缺少接口或身份检查失败时会在终端明确报错，不继续访问蓝牙。辅助程序保持原 PID，超时和 Ctrl+C 仍管理同一个进程。可运行安装目录下的 `build/native/padcode-bluetooth diagnose-permission` 做不访问蓝牙的权限身份诊断；它不等于真机配对验收。
+This compatibility layer resolves private macOS responsibility APIs at runtime. Future OS versions may not support them. Missing APIs or failed ownership checks return a terminal error before Bluetooth access. The helper keeps the same PID, preserving timeout and Ctrl+C handling. Run `build/native/padcode-bluetooth diagnose-permission` from the installed package directory for a no-radio ownership diagnostic; it is not a physical pairing test.

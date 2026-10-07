@@ -1,71 +1,71 @@
-# 产品方案
+# Product design
 
-## 目标
+## Goal
 
-让开发者在现有终端和项目中，通过游戏手柄操作自己选择的 AI Coding Agent。减少重复键盘操作，探索更舒适的 AI 开发交互方式。
+Let developers use a gamepad to operate their chosen AI coding agent in their existing terminal and project. Reduce repetitive keyboard actions and explore a more comfortable development workflow.
 
-工具负责输入和会话连接。用户负责选择 Agent、登录账号、配置模型和决定开发任务。启动工具不会自动发出需求、修改代码或批准 Agent 操作。
+The tool handles input and session connectivity. Users choose the agent, authenticate, configure models and decide development tasks. Starting Padcode does not automatically submit a request, modify code or approve agent actions.
 
-## 用户自带的环境
+## User-provided environment
 
-- 电脑、终端和项目目录。
-- 已安装且能独立运行的 Coding Agent CLI。
-- Agent 所需的账号、认证与网络环境。
-- 支持的游戏手柄；首个验证对象为 DualShock 4。
-- 可选：已有语音听写工具或外部转写服务。
+- Computer, terminal and project directory.
+- An installed coding agent CLI that works independently.
+- The agent's required accounts, authentication and network access.
+- A supported controller; DualShock 4 is the first validation target.
+- Optionally, an existing dictation tool or external transcription service.
 
-## 首次使用
+## First use
 
-1. 在项目目录启动工具。
-2. 默认进入蓝牙配置：在终端列出/扫描设备，确认选中的手柄后配对/连接，再验证一次真实按键。USB 是备选；跳过时明确标记未验证。
-3. 从 PATH 中发现候选 Agent 命令，只展示实际找到的命令；也可手动指定程序路径和参数。
-4. 用户确认运行命令与当前工作目录，选择按键方案。
-5. 在终端审阅并保存用户配置。当前开发版到此进入 Player Hub；启动所选进程将在 PTY 阶段实现。
-6. 转发原有终端界面；手柄和键盘输入进入同一个会话。
-7. Agent 退出后恢复终端并退出，返回明确的退出状态。
+1. Start the tool in a project directory.
+2. Default to Bluetooth setup: list/scan devices in terminal, explicitly select the controller, pair/connect and verify a real button press. USB is an alternative; deferred verification is labeled unverified.
+3. Discover candidate agent commands on PATH, showing only commands actually found, or accept a custom executable path and arguments.
+4. Confirm the command and working directory, then choose a key profile.
+5. Review and save configuration in terminal. The current build enters Player Hub here; process launch is part of the future PTY stage.
+6. Forward the native terminal interface, with controller and keyboard input sharing one session.
+7. Restore the terminal when the agent exits and return a clear exit status.
 
-扫描候选命令不等于已经登录、兼容或可用。工具不自动安装 Agent、不收集其凭据。
+Finding a command does not establish authentication, compatibility or usability. Padcode does not install agents or collect their credentials.
 
-## 日常使用
+## Daily use
 
-- `padcode`：首次进入配置向导，之后进入 Player Hub；完整 Agent 会话启动仍属后续功能。
-- `padcode config`：修改 Agent 命令、按键映射和控制器选项。
-- `padcode doctor`：检查可执行文件、控制器、TTY、辅助程序和平台支持，默认不输出凭据或完整环境变量。
-- 一个明确的工具组合键用于暂停/恢复手柄映射。具体组合在真机验证后确定，需避免与退出操作冲突。
+- `padcode`: setup on first launch, Player Hub thereafter; agent session launch is future work.
+- `padcode config`: configure the agent command, key profile and controller options.
+- `padcode doctor` (planned): check executables, controller, TTY, helpers and platform support without printing credentials or full environment values.
+- A dedicated tool chord will pause/resume mapping. Choose it after physical testing to avoid conflicts with exit actions.
 
-## 初始按键方案草案
+## Initial key profile concept
 
-| 操作 | 通用会话模式 |
+| Control | Generic session mode |
 | --- | --- |
-| 方向键 | 方向键输入 |
+| D-pad | Arrow keys |
 | × | Enter |
 | ○ | Escape |
-| L1 / R1 | 可配置的 Tab / Shift+Tab |
-| 摇杆 | 先保留；滚动方案验证后提供 |
-| 工具组合键 | 暂停/恢复映射 |
+| L1 / R1 | Configurable Tab / Shift+Tab |
+| Sticks | Reserved until scrolling behavior is validated |
+| Tool chord | Pause/resume mapping |
 
-Enter 和 Escape 仅代表终端输入，不能在所有 Agent 中解释为“批准”或“停止”。首版不把退出进程、提交、推送等动作放在易误触的单键上。
+Enter and Escape are terminal inputs, not universal "Approve" or "Stop" actions. Do not assign exit, commit or push to easily triggered single buttons in the initial release.
 
-摇杆需死区、速度曲线与重复频率限制。提交类按键使用按下边沿触发，避免长按重复提交。断开连接后清除所有按下状态。
+Sticks need deadzones, response curves and repeat limits. Submission keys trigger on press edges to prevent repeated submissions during holds. Clear held state on disconnect.
 
-## 两种控制范围
+## Control scopes
 
-### 会话模式：首版
+### Session mode: initial release
 
-输入定向发送给工具启动的 PTY。无需依赖操作系统当前窗口焦点。支持多个终端产品并不意味着每种终端功能均已兼容，按验证矩阵发布支持情况。
+Send input to the PTY started by Padcode, independently of OS window focus. Supporting multiple terminal products does not imply every terminal feature works; publish support based on the validation matrix.
 
-### 桌面模式：后续可选
+### Desktop mode: optional future work
 
-向当前桌面发送鼠标移动、滚轮、快捷键。需要平台专用实现和相应权限；与会话模式有明确的状态提示和切换规则。不得同时向桌面和 PTY 重复发送同一输入。
+Send mouse movement, scrolling and shortcuts to the active desktop. This needs platform-specific implementation and permissions, explicit mode indication and switching rules. Never duplicate one input to both desktop and PTY.
 
-## 非目标
+## Non-goals
 
-- 自研 Coding Agent 或替用户选择默认模型服务。
-- 提供账号、API Key、模型额度、托管项目或云端任务平台。
-- 首版构建编辑器、终端模拟器、代码审查 GUI 或内置网页浏览器。
-- 默认记录提示词、代码、完整终端输出或上传遥测。
-- 首版承诺任意 CLI 全功能兼容、任意平台或控制器即插即用。
+- Building a coding agent or choosing a default model service for users.
+- Providing accounts, API keys, model credits, hosted projects or cloud tasks.
+- Building an editor, terminal emulator, review GUI or embedded browser in the initial release.
+- Recording prompts, code or full terminal output, or uploading telemetry by default.
+- Promising complete compatibility with every CLI, platform or controller.
 
-## 体验验证
+## Experience validation
 
-用户可独立完成：启动自己选择的 Agent → 键盘或既有听写工具输入需求 → 用手柄操作菜单与发送 → 查看原生输出 → 继续交互 → 正常退出。比较连接与设置步骤、误触次数、终端显示异常和实际操作舒适度。
+The user should independently launch their chosen agent, enter a request by keyboard or existing dictation tool, operate menus and submit with the controller, inspect native output, continue and exit normally. Evaluate connection/setup steps, accidental actions, display issues and actual comfort.

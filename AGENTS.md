@@ -1,5 +1,7 @@
 # Development rules
 
+- Use English for all maintained repository content, documentation, code comments, CLI text, examples, commit messages, PR titles/descriptions, and project issue/review text. Do not introduce Chinese content. Keep Unicode behavior and user-provided runtime data unrestricted; use non-Chinese Unicode fixtures for encoding tests.
+
 - One clearly scoped task per branch and pull request targeting `main`. Multiple commits per PR are welcome. Do not push implementation directly to `main` or merge without user authorization.
 - If a task depends on an unmerged PR, use an explicitly documented stacked PR targeting that prerequisite branch, then retarget to `main` after it merges. This keeps each PR's diff scoped; it is not permission to merge the prerequisite.
 - Before writing implementation code, commit the stage's implementation plan, acceptance criteria and test matrix under `docs/stages/`.
