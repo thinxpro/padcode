@@ -23,6 +23,9 @@ export interface AudioPort {
   request(): Promise<MicPermission>;
   record(options: { path: string; device?: string; maxSeconds: number }): Recording;
   play(path: string): { stop(): void; done: Promise<void> };
+  speechPermission(): Promise<MicPermission>;
+  speechRequest(): Promise<MicPermission>;
+  transcribe(path: string, locale: string, signal: AbortSignal): Promise<{ ok: true; text: string } | { ok: false; code: string; message: string }>;
 }
 const clean = (text: unknown, limit: number) => typeof text === 'string' ? text.replace(/[\x00-\x1f\x7f]/g, '').slice(0, limit) : '';
 const permissions: MicPermission[] = ['authorized', 'denied', 'restricted', 'not-determined'];
@@ -59,6 +62,21 @@ export class NativeAudio implements AudioPort {
   async permission(): Promise<MicPermission> { return this.status(await this.call(['permission'])); }
   // The system prompt waits for the user, so the request allows up to five minutes.
   async request(): Promise<MicPermission> { return this.status(await this.call(['request'], 300000)); }
+  async speechPermission(): Promise<MicPermission> { return this.status(await this.call(['speech-permission'])); }
+  async speechRequest(): Promise<MicPermission> { return this.status(await this.call(['speech-request'], 300000)); }
+  // On-device macOS speech; helper failures come back as structured results instead of exceptions.
+  async transcribe(path: string, locale: string, signal: AbortSignal): Promise<{ ok: true; text: string } | { ok: false; code: string; message: string }> {
+    try {
+      const result = await runCommand(this.command, [...this.extraArgs, 'transcribe', '--file', path, '--language', locale], { timeout: 130000, maxBytes: 128 * 1024, signal });
+      const line = result.stdout.trim().split('\n').at(-1) ?? '';
+      const value = JSON.parse(line) as Record<string, unknown>;
+      if (value.ok === true && typeof value.text === 'string') return { ok: true, text: value.text };
+      return { ok: false, code: clean(value.code, 40) || 'transcription', message: clean(value.message, 300) || 'Speech recognition failed.' };
+    } catch (error) {
+      if (signal.aborted) return { ok: false, code: 'cancelled', message: 'Transcription cancelled.' };
+      return { ok: false, code: 'helper', message: clean((error as Error).message, 200) || 'The speech helper failed.' };
+    }
+  }
   record(options: { path: string; device?: string; maxSeconds: number }): Recording {
     const args = [...this.extraArgs, 'record', '--out', options.path, '--max-seconds', String(options.maxSeconds), ...(options.device ? ['--device', options.device] : [])];
     const child = spawn(this.command, args, { stdio: ['pipe', 'pipe', 'ignore'] });

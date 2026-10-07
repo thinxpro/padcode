@@ -17,7 +17,7 @@ test('C4-A6 version 1 configuration migrates to version 2 with voice off and kee
   assert.deepEqual(validateConfig(legacy), valid()); assert.equal(voice, null);
   assert.deepEqual(validateConfig({ ...legacy, voice: { microphone: { id: 'ignored', name: 'v1 had no voice' } } }), valid());
   const withVoice = { ...valid(), voice: { microphone: { id: 'BuiltInMicrophoneDevice', name: 'MacBook Pro Microphone', extra: 1 } } };
-  assert.deepEqual(validateConfig(withVoice).voice, { microphone: { id: 'BuiltInMicrophoneDevice', name: 'MacBook Pro Microphone' } });
+  assert.deepEqual(validateConfig(withVoice).voice, { microphone: { id: 'BuiltInMicrophoneDevice', name: 'MacBook Pro Microphone' }, transcriber: null });
   assert.deepEqual(validateConfig({ ...valid(), voice: undefined }).voice, null);
   const dir = await temporary(t), file = join(dir, 'config.json');
   await writeFile(file, JSON.stringify(legacy)); assert.deepEqual(await loadConfig(file), valid());

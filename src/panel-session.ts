@@ -12,6 +12,7 @@ import { SessionServer } from './session-ipc.js';
 import { SessionControls, type HistoryCommand, type MenuView } from './session-controls.js';
 import { removeStaleVoice, voiceDirectory, VoiceCapture } from './voice-session.js';
 import type { AudioPort } from './audio.js';
+import { previewText, wrapText } from './text-width.js';
 import { clientEnv, ControlClient, PrivateTmux } from './tmux.js';
 
 type Agent = NonNullable<Config['agent']>;
@@ -118,28 +119,49 @@ export async function runPanelAgent(agent: Agent, options: PanelOptions): Promis
     let signalled: number | undefined;
     const terminate = (code: number) => { signalled ??= code; try { process.kill(Number(agentPid), 'SIGTERM'); } catch { /* Already gone. */ } };
     // The controls popup is drawn over the Agent pane, so the Agent is neither resized nor overwritten.
-    let popup: ChildProcess | undefined, menuView: MenuView | null = null, closingPopup = false;
-    const openPopup = async () => {
+    let popup: ChildProcess | undefined, menuView: MenuView | null = null, closingPopup = false, popupBody = false;
+    // Draft previews are bounded so every popup message fits one IPC line; the full draft stays here.
+    const sendView = (view: MenuView) => ({ ...view, ...(view.body === undefined ? {} : { body: previewText(view.body) }) });
+    // The menu can close or change while tmux is queried, so the view is read again after every await,
+    // only one open runs at a time, and a failure never escapes into the session.
+    let opening = false;
+    const openPopup = () => { if (!opening) void openPopupOnce().catch(() => {}); };
+    const openPopupOnce = async () => {
       if (popup || finished || !menuView) return;
-      const clients = await tmux.run(['list-clients', '-F', '#{client_name} #{client_control_mode}']).catch(() => '');
-      const name = clients.split('\n').map(line => line.split(' ')).find(([, controlMode]) => controlMode === '0')?.[0];
-      if (!name || popup || !menuView) { if (!name) controls.lost(); return; }
+      opening = true;
+      try {
+        const clients = await tmux.run(['list-clients', '-F', '#{client_name} #{client_control_mode}']).catch(() => '');
+        const name = clients.split('\n').map(line => line.split(' ')).find(([, controlMode]) => controlMode === '0')?.[0];
+        // Drafts get a wider popup with room for the wrapped text; the Agent pane is never resized.
+        const [cols, rows] = (await tmux.run(['display', '-p', '-t', agentPane!, '#{window_width} #{window_height}']).catch(() => '80 24')).trim().split(' ').map(Number);
+        const view = menuView;
+        if (!view || popup || finished) return;
+        if (!name) { controls.lost(); return; }
+        spawnPopup(name, view, cols || 80, rows || 24);
+      } finally { opening = false; }
+    };
+    const spawnPopup = (name: string, view: MenuView, cols: number, rows: number) => {
       const shell = (text: string) => `'${text.replace(/'/g, `'\\''`)}'`;
-      popup = spawn(tmux.binary, tmux.args(['display-popup', '-c', name, '-E', '-w', '46', '-h', String(menuView.items.length + 6), '-x', 'C', '-y', 'C', `${shell(node)} ${shell(paneMenu)}`]), { stdio: 'ignore', env: clientEnv(env) });
+      popupBody = view.body !== undefined;
+      const width = popupBody ? Math.min(72, Math.max(30, cols - 4)) : 46;
+      const bodyLines = popupBody ? wrapText(view.body!, width - 4).length + 1 : 0;
+      const height = Math.min(Math.max(8, rows - 2), view.items.length + 6 + bodyLines);
+      popup = spawn(tmux.binary, tmux.args(['display-popup', '-c', name, '-E', '-w', String(width), '-h', String(height), '-x', 'C', '-y', 'C', `${shell(node)} ${shell(paneMenu)}`]), { stdio: 'ignore', env: clientEnv(env) });
       popup.on('error', () => {});
       popup.on('close', () => {
         popup = undefined;
         if (finished) return;
-        if (closingPopup) { closingPopup = false; if (menuView) void openPopup(); }
+        if (closingPopup) { closingPopup = false; if (menuView) openPopup(); }
         else if (menuView) controls.lost();
       });
     };
     const showMenu = (view: MenuView | null) => {
       menuView = view;
       if (!view) { if (popup) { closingPopup = true; ipc.send('menu', { t: 'close' }); } return; }
-      if (popup && !closingPopup) ipc.send('menu', { t: 'menu', ...view }); else void openPopup();
+      if (popup && !closingPopup && (view.body !== undefined) !== popupBody) { closingPopup = true; ipc.send('menu', { t: 'close' }); return; }
+      if (popup && !closingPopup) ipc.send('menu', { t: 'menu', ...sendView(view) }); else openPopup();
     };
-    ipc.on('connect', role => { if (role === 'menu') ipc.send('menu', menuView && !closingPopup ? { t: 'menu', ...menuView } : { t: 'close' }); });
+    ipc.on('connect', role => { if (role === 'menu') ipc.send('menu', menuView && !closingPopup ? { t: 'menu', ...sendView(menuView) } : { t: 'close' }); });
     const historyCommands: Record<HistoryCommand, string[]> = {
       enter: ['copy-mode', '-e', '-t', agentPane!], up: ['send-keys', '-X', '-t', agentPane!, 'scroll-up'], down: ['send-keys', '-X', '-t', agentPane!, 'scroll-down'],
       'page-up': ['send-keys', '-X', '-t', agentPane!, 'page-up'], 'page-down': ['send-keys', '-X', '-t', agentPane!, 'page-down'], exit: ['send-keys', '-X', '-t', agentPane!, 'cancel'],
@@ -154,11 +176,13 @@ export async function runPanelAgent(agent: Agent, options: PanelOptions): Promis
         release: resume => gamepad.releaseCapture(resume),
         status: text => { latest = text; ipc.send('panel', { t: 'status', text }); },
         notice: text => ipc.send('panel', { t: 'notice', text }),
-      });
+        draft: text => controls.openDraft(text),
+      }, Date.now, 60, options.voice.transcriber);
       gamepad.onTrigger(value => voice?.trigger(value));
     }
     const controls = new SessionControls({
       hasRecording: () => Boolean(voice?.last),
+      notice: text => ipc.send('panel', { t: 'notice', text }),
       play: () => voice?.play(),
       capture: (handler, status) => gamepad?.capture(handler, status),
       release: resume => gamepad?.releaseCapture(resume),

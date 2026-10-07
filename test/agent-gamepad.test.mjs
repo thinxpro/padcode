@@ -1,4 +1,5 @@
 import test from 'node:test';
+import { childEnv } from './child-env.mjs';
 import assert from 'node:assert/strict';
 import { AgentGamepad, terminalKeys } from '../dist/agent-gamepad.js';
 import { PtyWriter } from '../dist/pty-writer.js';
@@ -109,7 +110,7 @@ test('unidentified menu controller can claim and navigate in a single D-pad pres
 });
 test('production controller protocol reaches a real Agent PTY with safe lifecycle and keyboard coexistence', { timeout: 40000 }, async () => {
   const { spawnSync } = await import('node:child_process');
-  const r = spawnSync('python3', ['test/gamepad-agent-pty.py'], { encoding: 'utf8', timeout: 35000, env: { ...process.env, PADCODE_NODE: process.execPath } });
+  const r = spawnSync('python3', ['test/gamepad-agent-pty.py'], { encoding: 'utf8', timeout: 35000, env: childEnv({ PADCODE_NODE: process.execPath }) });
   assert.equal(r.status, 0, `${r.error ?? ''}\n${r.stdout}\n${r.stderr}`);
 });
 test('status output failure still restores input mode and stops the gamepad helper', async () => {

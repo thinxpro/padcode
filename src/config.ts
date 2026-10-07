@@ -9,7 +9,10 @@ export interface Config {
   controller: { transport: 'bluetooth' | 'usb'; name?: string; address?: string; inputVerified: boolean };
   agent: { command: string; args: string[] } | null;
   profile: 'terminal-basic';
-  voice: { microphone: { id: string; name: string } } | null;
+  voice: VoiceSettings | null;
+}
+export type Transcriber = { kind: 'system'; language: string } | { kind: 'command'; command: string; args: string[]; language: string };
+export interface VoiceSettings { microphone: { id: string; name: string }; transcriber: Transcriber | null
 }
 export function configPath(env: NodeJS.ProcessEnv = process.env): string {
   const root = env.XDG_CONFIG_HOME && isAbsolute(env.XDG_CONFIG_HOME) ? env.XDG_CONFIG_HOME : join(homedir(), '.config');
@@ -23,6 +26,8 @@ export function validateConfig(value: unknown): Config {
   if (c.version !== 1 && c.version !== 2) throw new Error('Unsupported configuration version.');
   const voice = c.version === 1 || c.voice === undefined ? null : c.voice;
   if (voice !== null && (!voice || typeof voice !== 'object' || !voice.microphone || !text(voice.microphone.id, 512) || !voice.microphone.id || !text(voice.microphone.name, 512))) throw new Error('Invalid voice configuration.');
+  const transcriber = voice?.transcriber ?? null;
+  if (transcriber !== null && !validTranscriber(transcriber)) throw new Error('Invalid transcription command.');
   if (!c.controller || !['bluetooth', 'usb'].includes(c.controller.transport) || typeof c.controller.inputVerified !== 'boolean') throw new Error('Invalid controller configuration.');
   if (c.controller.name !== undefined && !text(c.controller.name, 512)) throw new Error('Invalid controller name.');
   if (c.controller.address !== undefined && !/^([\da-f]{2}[:-]){5}[\da-f]{2}$/i.test(c.controller.address)) throw new Error('Invalid Bluetooth address.');
@@ -34,7 +39,19 @@ export function validateConfig(value: unknown): Config {
     ...(c.controller.name === undefined ? {} : { name: c.controller.name }),
     ...(c.controller.address === undefined ? {} : { address: c.controller.address }),
   }, agent: c.agent === null ? null : { command: c.agent.command, args: [...c.agent.args] }, profile: c.profile,
-  voice: voice === null ? null : { microphone: { id: voice.microphone.id, name: voice.microphone.name } } };
+  voice: voice === null ? null : { microphone: { id: voice.microphone.id, name: voice.microphone.name },
+    transcriber: transcriber === null ? null : transcriber.kind === 'system' ? { kind: 'system', language: transcriber.language }
+      : { kind: 'command', command: transcriber.command, args: [...transcriber.args], language: transcriber.language } } };
+}
+// Transcription runs a literal argv: {audio} must appear, {language} may; nothing is shell-evaluated.
+export const validLanguage = (value: unknown): value is string => typeof value === 'string' && /^(auto|[a-z]{2,3})$/.test(value);
+export function validTranscriber(value: unknown): value is Transcriber {
+  if (!value || typeof value !== 'object') return false;
+  const t = value as Record<string, unknown>;
+  if (t.kind === 'system') return validLanguage(t.language);
+  const args = t.args;
+  return t.kind === 'command' && text(t.command, 4096) && isAbsolute(t.command) && Array.isArray(args) && args.length <= 64
+    && args.every(a => text(a, 4096)) && args.some(a => (a as string).includes('{audio}')) && validLanguage(t.language);
 }
 export async function loadConfig(path = configPath()): Promise<Config | null> {
   try {

@@ -1,6 +1,6 @@
 import { confirmAgent, launchConfigured } from './agent-session.js';
 import { chooseDisplay, type Display } from './tmux.js';
-import { configPath, discoverAgents, loadConfig, resolveExecutable, saveConfig, type Config } from './config.js';
+import { configPath, discoverAgents, loadConfig, resolveExecutable, saveConfig, validLanguage, validTranscriber, type Config, type Transcriber } from './config.js';
 import { NativeBluetooth, type BluetoothPort } from './bluetooth.js';
 import { identityMatch, type ProbePort } from './probe.js';
 import { TerminalPrompt, type PromptPort } from './prompt.js';
@@ -8,6 +8,7 @@ import { session } from './session.js';
 import { GamepadMenus, type MenuFeed } from './menu-controller.js';
 import { mergeDeviceChoices, scanDeviceChoices } from './bluetooth-picker.js';
 import { NativeAudio, type AudioPort } from './audio.js';
+import { downloadModel, findModels, findWhisper, modelDirectory, transcribe, whisperModels, whisperSource, whisperTranscriber, writeSilentWav } from './transcribe.js';
 import { rm } from 'node:fs/promises';
 import { voiceDirectory } from './voice-session.js';
 import { join } from 'node:path';
@@ -20,7 +21,10 @@ export interface SetupServices {
   resolve: typeof resolveExecutable;
   save: (config: Config) => Promise<void>;
   audio?: AudioPort;
+  whisper?: WhisperTools;
 }
+export interface WhisperTools { findWhisper: () => Promise<string | null>; findModels: () => Promise<string[]> }
+const systemWhisper: WhisperTools = { findWhisper: () => findWhisper(), findModels: () => findModels() };
 const cleanName = (text: string) => text.replace(/[\x00-\x1f\x7f]/g, '').slice(0, 512);
 
 async function linkController(io: PromptPort, services: SetupServices, signal: AbortSignal, initial?: Config): Promise<Config['controller']> {
@@ -140,8 +144,16 @@ async function chooseAgent(io: PromptPort, services: SetupServices, initial?: Co
 }
 
 const permissionHelp = 'Microphone access is denied. Allow Padcode Audio in macOS System Settings > Privacy & Security > Microphone, then choose Retry.';
+// Every path that records checks access first: development builds lose the macOS grant when rebuilt.
+async function microphoneReady(io: PromptPort, audio: AudioPort): Promise<boolean> {
+  let status = await audio.permission();
+  if (status === 'not-determined') { io.say('macOS will now ask whether Padcode Audio may use the microphone.'); status = await audio.request(); }
+  if (status === 'authorized') return true;
+  io.say(status === 'restricted' ? 'Microphone access is restricted on this Mac.' : permissionHelp);
+  return false;
+}
 // Voice stays off unless the user picks a microphone after reading what capture does.
-async function chooseVoice(io: PromptPort, audio: AudioPort | undefined, signal: AbortSignal, initial?: Config, title = 'MISSION 05 / VOICE (optional)'): Promise<Config['voice']> {
+async function chooseVoice(io: PromptPort, audio: AudioPort | undefined, signal: AbortSignal, initial?: Config, title = 'MISSION 05 / VOICE (optional)', whisper = systemWhisper): Promise<Config['voice']> {
   if (!audio) return initial?.voice ?? null;
   io.banner(title);
   if (!audio.supported) { io.say('Voice capture currently requires macOS. Voice stays off.'); return null; }
@@ -151,17 +163,17 @@ async function chooseVoice(io: PromptPort, audio: AudioPort | undefined, signal:
     { label: current ? 'Turn voice off' : 'Keep voice off', value: 'off' },
     { label: 'Choose a microphone', value: 'choose' },
   ]);
-  if (first === 'keep') return current!;
+  if (first === 'keep') {
+    await microphoneReady(io, audio);
+    return { microphone: current!.microphone, transcriber: await chooseTranscriber(io, audio, signal, current!.microphone.id, current!.transcriber, whisper) };
+  }
   if (first === 'off') return null;
   io.say('CAPTURE  macOS AVAudioEngine through padcode-audio, only while you hold L2.');
   io.say('PRIVACY  Audio stays on this Mac in a private temporary folder and is deleted when the session ends.');
-  io.say('TEXT     Transcription is not available yet; recordings can only be played back.');
   for (;;) {
     signal.throwIfAborted();
     try {
-      let status = await audio.permission();
-      if (status === 'not-determined') { io.say('macOS will now ask whether Padcode Audio may use the microphone.'); status = await audio.request(); }
-      if (status !== 'authorized') throw new Error(status === 'restricted' ? 'Microphone access is restricted on this Mac.' : permissionHelp);
+      if (!await microphoneReady(io, audio)) throw new Error('The microphone is not available to Padcode Audio.');
       const devices = await audio.list();
       if (!devices.length) throw new Error('No microphone is connected. Connect one, then choose Retry.');
       if (devices.some(device => device.transport === 'bluetooth')) io.say('NOTE     Bluetooth headset microphones take about a second to start and switch the headset to lower call quality; a wired, USB or built-in microphone works best.');
@@ -181,7 +193,7 @@ async function chooseVoice(io: PromptPort, audio: AudioPort | undefined, signal:
           await audio.play(join(directory, 'check.wav')).done;
         } finally { await rm(directory, { recursive: true, force: true }); }
       }
-      return { microphone: { id: device.id, name: cleanName(device.name) } };
+      return { microphone: { id: device.id, name: cleanName(device.name) }, transcriber: await chooseTranscriber(io, audio, signal, device.id, current?.transcriber ?? null, whisper) };
     } catch (error) {
       signal.throwIfAborted();
       if ((error as Error).message === 'Setup cancelled.') throw error;
@@ -191,6 +203,107 @@ async function chooseVoice(io: PromptPort, audio: AudioPort | undefined, signal:
   }
 }
 
+const describeTranscriber = (t: Transcriber) => t.kind === 'system' ? `macOS on-device speech (${t.language})`
+  : `${cleanName(t.command.split('/').pop() ?? t.command)} (${t.language})`;
+const languages = [{ label: 'Chinese (zh)', value: 'zh' }, { label: 'English (en)', value: 'en' }, { label: 'Detect automatically', value: 'auto' }, { label: 'Other language code', value: 'other' }];
+// Transcription tiers: macOS on-device speech, guided whisper.cpp, or a custom command; every choice is tested before saving.
+async function chooseTranscriber(io: PromptPort, audio: AudioPort, signal: AbortSignal, microphone: string, current: Transcriber | null, whisper: WhisperTools): Promise<Transcriber | null> {
+  io.banner('VOICE / TRANSCRIPTION');
+  io.say('TEXT     Turns each L2 clip into a draft you review before anything reaches the Agent.');
+  io.say('PRIVACY  Padcode sends audio nowhere. macOS on-device speech and whisper.cpp run on this Mac; a custom command decides its own network use.');
+  for (;;) {
+    signal.throwIfAborted();
+    const kind = await io.choose('Transcription', [
+      ...(current ? [{ label: `Keep ${describeTranscriber(current)}`, value: 'keep' }] : []),
+      { label: 'macOS on-device speech / nothing to install', value: 'system' },
+      { label: 'whisper.cpp / best accuracy, guided setup', value: 'whisper' },
+      { label: 'Custom command', value: 'custom' },
+      { label: 'No transcription / record and play back only', value: 'none' },
+    ]);
+    if (kind === 'keep') return current;
+    if (kind === 'none') return null;
+    try {
+      let language = await io.choose('Spoken language', languages, Math.max(0, languages.findIndex(item => item.value === (current?.language ?? 'zh'))));
+      if (language === 'other') {
+        language = (await io.ask('Language code (2-3 lowercase letters, for example ja):')).trim();
+        if (!validLanguage(language)) throw new Error('Use a 2-3 letter language code such as ja, or auto.');
+      }
+      let transcriber: Transcriber;
+      if (kind === 'system') {
+        transcriber = { kind: 'system', language };
+        let status = await audio.speechPermission();
+        if (status === 'not-determined') { io.say('macOS will now ask whether Padcode Audio may use Speech Recognition.'); status = await audio.speechRequest(); }
+        if (status !== 'authorized') throw new Error('Speech recognition is not allowed. Allow Padcode Audio in System Settings > Privacy & Security > Speech Recognition, then choose Retry.');
+      } else if (kind === 'whisper') {
+        const cli = await whisper.findWhisper();
+        if (!cli) throw new Error('whisper.cpp is not installed. Install it yourself (macOS: brew install whisper-cpp), then choose Retry.');
+        transcriber = whisperTranscriber(cli, await chooseModel(io, signal, whisper), language);
+      } else {
+        const command = await resolveExecutable(await io.ask('Transcriber executable (path or command name, no arguments):'));
+        if (!command) throw new Error('Executable not found.');
+        io.say('Arguments are literal values, one per line. {audio} becomes the WAV path and must appear; {language} is optional. Empty finishes.');
+        const args: string[] = [];
+        for (;;) {
+          const argument = await io.ask(`Argument ${args.length + 1} (Enter to finish):`);
+          if (!argument) break;
+          if (/[\x00-\x1f\x7f]/.test(argument) || argument.length > 4096) { io.say('Argument is too long or contains control characters.'); continue; }
+          args.push(argument);
+          if (args.length === 64) break;
+        }
+        transcriber = { kind: 'command', command, args, language };
+        if (!validTranscriber(transcriber)) throw new Error('Add an argument containing {audio}.');
+      }
+      const directory = await voiceDirectory();
+      try {
+        io.say('SELF-TEST  Transcribing one second of silence...');
+        await writeSilentWav(join(directory, 'silence.wav'));
+        const began = Date.now(), result = await transcribe(transcriber, join(directory, 'silence.wav'), audio).done;
+        if (!result.ok) throw new Error(`Self-test failed: ${result.message}`);
+        io.say(`SELF-TEST PASSED in ${((Date.now() - began) / 1000).toFixed(1)}s.`);
+        for (let attempt = 1; await io.choose('Try it', [{ label: attempt === 1 ? 'Record 5 seconds and show the text' : 'Try again', value: 'try' }, { label: 'Done', value: 'done' }], attempt === 1 ? 1 : 0) === 'try'; attempt++) {
+          signal.throwIfAborted();
+          if (!await microphoneReady(io, audio)) continue;
+          await rm(join(directory, 'try.wav'), { force: true });
+          io.say('MIC STARTING...');
+          const recording = audio.record({ path: join(directory, 'try.wav'), device: microphone, maxSeconds: 5 });
+          recording.onLive(() => io.say('RECORDING 5 SECONDS... speak now.'));
+          const clip = await recording.done;
+          if (clip.kind === 'stopped') {
+            io.say('TRANSCRIBING...');
+            const heard = await transcribe(transcriber, join(directory, 'try.wav'), audio).done;
+            io.say(heard.ok ? `HEARD  ${heard.text || '(no speech recognized)'}` : `TRY FAILED: ${heard.message}`);
+          } else io.say(`TRY FAILED: ${clip.kind === 'error' ? clip.message : 'cancelled'}`);
+        }
+      } finally { await rm(directory, { recursive: true, force: true }); }
+      return transcriber;
+    } catch (error) {
+      signal.throwIfAborted();
+      if ((error as Error).message === 'Setup cancelled.') throw error;
+      io.say(`TRANSCRIPTION NOT READY: ${(error as Error).message}`);
+    }
+  }
+}
+async function chooseModel(io: PromptPort, signal: AbortSignal, whisper: WhisperTools): Promise<string> {
+  const found = await whisper.findModels();
+  const choice = await io.choose('whisper.cpp model', [
+    ...found.map((path, index) => ({ label: `Use ${path}`, value: `found:${index}` })),
+    ...whisperModels.map((model, index) => ({ label: `Download ${model.label}`, value: `download:${index}` })),
+  ]);
+  if (choice.startsWith('found:')) return found[Number(choice.slice(6))]!;
+  const model = whisperModels[Number(choice.slice(9))]!, directory = modelDirectory();
+  io.say(`SOURCE   ${whisperSource}/${model.file}`);
+  io.say(`SIZE     ${(model.size / 1e6).toFixed(0)} MB, verified with SHA-256 ${model.sha256.slice(0, 16)}...`);
+  io.say(`SAVE TO  ${join(directory, model.file)}`);
+  if (await io.choose('Download this model now?', [{ label: 'Download', value: 'yes' }, { label: 'Cancel', value: 'cancel' }], 1) !== 'yes') throw new Error('Model download cancelled; nothing was downloaded.');
+  let shown = -1;
+  const path = await downloadModel(model, directory, {
+    signal, ...(process.env.PADCODE_MODEL_SOURCE ? { source: process.env.PADCODE_MODEL_SOURCE } : {}),
+    onProgress: (bytes, total) => { const step = Math.floor(bytes / total * 10); if (step !== shown) { shown = step; io.say(`DOWNLOAD ${step * 10}%  (Ctrl+C cancels)`); } },
+  });
+  io.say('DOWNLOAD COMPLETE / checksum verified.');
+  return path;
+}
+
 export async function setup(io: PromptPort, services: SetupServices, signal: AbortSignal, initial?: Config): Promise<Config | null> {
   const linked = await linkController(io, services, signal, initial);
   if (linked.address || linked.transport === 'usb') await services.activateMenus?.(linked);
@@ -198,7 +311,7 @@ export async function setup(io: PromptPort, services: SetupServices, signal: Abo
   const agent = await chooseAgent(io, services, initial);
   io.banner('MISSION 04 / LOADOUT');
   await io.choose('Key profile', [{ label: 'Terminal basic / D-pad arrows, X Enter, O Escape, L1 Tab / R1 Shift+Tab', value: 'terminal-basic' }]);
-  const voice = await chooseVoice(io, services.audio, signal, initial);
+  const voice = await chooseVoice(io, services.audio, signal, initial, undefined, services.whisper);
   const config: Config = { version: 2, controller, agent, profile: 'terminal-basic', voice };
   io.banner(services.audio ? 'MISSION 06 / SAVE POINT' : 'MISSION 05 / SAVE POINT');
   io.say(`LINK    ${controller.transport.toUpperCase()} / ${controller.name ?? 'not selected'}`);
@@ -206,7 +319,7 @@ export async function setup(io: PromptPort, services: SetupServices, signal: Abo
   io.say(`AGENT   ${agent?.command ?? 'not selected'}`);
   if (agent?.args.length) io.say(`ARGS    ${JSON.stringify(agent.args)}`);
   io.say('PROFILE terminal-basic');
-  io.say(`VOICE   ${voice ? cleanName(voice.microphone.name) : 'off'}`);
+  io.say(`VOICE   ${voice ? `${cleanName(voice.microphone.name)} / ${voice.transcriber ? describeTranscriber(voice.transcriber) : 'no transcription'}` : 'off'}`);
   io.say('Saving does not launch your Agent. Start a session explicitly from Player Hub.');
   if (await io.choose('Save this configuration?', [{ label: 'Save locally', value: 'save' }, { label: 'Cancel / keep previous configuration', value: 'cancel' }]) === 'cancel') return null;
   signal.throwIfAborted();
@@ -273,7 +386,7 @@ async function hubStep(edit: boolean, menus: GamepadMenus, audio: AudioPort, not
     io.say(`INPUT ${config.controller.inputVerified ? 'last setup check passed (not a live connection status)' : 'UNVERIFIED'}`);
     io.say(`AGENT ${config.agent?.command ?? 'not selected'}`);
     io.say('AGENT CONTROLS / D-pad, X, O, L1, R1 / Options opens the controls menu (pause in transparent mode).');
-    io.say(`VOICE ${config.voice ? `${cleanName(config.voice.microphone.name)} / hold L2 to record` : 'off'}`);
+    io.say(`VOICE ${config.voice ? `${cleanName(config.voice.microphone.name)} / ${config.voice.transcriber ? describeTranscriber(config.voice.transcriber) : 'record only'} / hold L2` : 'off'}`);
     const action = await io.choose('Ready when you are', [
       { label: 'Controller lab / test live input (hold O to return)', value: 'controllers' },
       { label: 'Edit configuration', value: 'config' },

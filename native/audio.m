@@ -2,6 +2,7 @@
 #import <AVFoundation/AVFoundation.h>
 #import <AudioToolbox/AudioToolbox.h>
 #import <CoreAudio/CoreAudio.h>
+#import <Speech/Speech.h>
 #import "permission.h"
 #include <fcntl.h>
 #include <math.h>
@@ -88,6 +89,54 @@ static NSString *permissionStatus(void) {
         case AVAuthorizationStatusRestricted: return @"restricted";
         default: return @"not-determined";
     }
+}
+
+static NSString *speechStatus(void) {
+    switch ([SFSpeechRecognizer authorizationStatus]) {
+        case SFSpeechRecognizerAuthorizationStatusAuthorized: return @"authorized";
+        case SFSpeechRecognizerAuthorizationStatusDenied: return @"denied";
+        case SFSpeechRecognizerAuthorizationStatusRestricted: return @"restricted";
+        default: return @"not-determined";
+    }
+}
+// On-device only: a language without an on-device model is reported as unsupported, never sent to a server.
+static int transcribe(NSArray<NSString *> *args) {
+    NSString *file = nil, *language = nil;
+    for (NSUInteger i = 0; i + 1 < args.count; i += 2) {
+        if ([args[i] isEqual:@"--file"]) file = args[i + 1];
+        else if ([args[i] isEqual:@"--language"]) language = args[i + 1];
+        else return failure(@"usage", @"Usage: padcode-audio transcribe --file PATH --language LOCALE");
+    }
+    if (!file.length || !language.length || args.count % 2) return failure(@"usage", @"Usage: padcode-audio transcribe --file PATH --language LOCALE");
+    NSLocale *locale = [language isEqual:@"auto"] ? [NSLocale currentLocale] : [NSLocale localeWithLocaleIdentifier:language];
+    SFSpeechRecognizer *recognizer = [[SFSpeechRecognizer alloc] initWithLocale:locale];
+    if (!recognizer || !recognizer.supportsOnDeviceRecognition)
+        return failure(@"unsupported-language", [NSString stringWithFormat:@"macOS has no on-device speech model for %@. Choose another language or use whisper.cpp.", locale.localeIdentifier]);
+    NSString *status = speechStatus();
+    if ([status isEqual:@"denied"] || [status isEqual:@"restricted"])
+        return failure(@"speech-permission-denied", @"Speech recognition is denied. Allow Padcode Audio in System Settings > Privacy & Security > Speech Recognition.");
+    if (![status isEqual:@"authorized"]) return failure(@"speech-permission-required", @"Speech recognition has not been granted to Padcode Audio yet.");
+    if (!recognizer.isAvailable) return failure(@"unavailable", @"macOS speech recognition is not available right now.");
+    SFSpeechURLRecognitionRequest *request = [[SFSpeechURLRecognitionRequest alloc] initWithURL:[NSURL fileURLWithPath:file]];
+    request.requiresOnDeviceRecognition = YES;
+    request.shouldReportPartialResults = NO;
+    if (@available(macOS 13.0, *)) request.addsPunctuation = YES;
+    signal(SIGTERM, SIG_IGN);
+    dispatch_source_t term = dispatch_source_create(DISPATCH_SOURCE_TYPE_SIGNAL, SIGTERM, 0, dispatch_get_main_queue());
+    dispatch_source_set_event_handler(term, ^{ exit(failure(@"cancelled", @"Transcription cancelled.")); });
+    dispatch_resume(term);
+    retained = [NSMutableArray arrayWithObjects:recognizer, request, term, nil];
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 120 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{ exit(failure(@"timeout", @"Transcription took longer than 120 seconds.")); });
+    SFSpeechRecognitionTask *task = [recognizer recognitionTaskWithRequest:request resultHandler:^(SFSpeechRecognitionResult *result, NSError *error) {
+        if (error) {
+            // 1110: no speech detected; an empty draft is a valid result.
+            if (error.code == 1110) { output(@{@"v": @1, @"ok": @YES, @"text": @""}); exit(0); }
+            exit(failure(@"transcription", error.localizedDescription ?: @"Speech recognition failed."));
+        }
+        if (result.isFinal) { output(@{@"v": @1, @"ok": @YES, @"text": result.bestTranscription.formattedString ?: @""}); exit(0); }
+    }];
+    [retained addObject:task];
+    dispatch_main();
 }
 
 @interface Recorder : NSObject
@@ -291,8 +340,9 @@ int main(int argc, const char **argv) {
             output(@{@"v": @1, @"ok": @YES, @"devices": visible});
             return 0;
         }
-        if (![@[@"permission", @"request", @"record", @"diagnose"] containsObject:command] || (![command isEqual:@"record"] && rest.count))
-            return failure(@"usage", @"Usage: padcode-audio list | permission | request | diagnose | record --out PATH [--device UID] [--max-seconds N]");
+        NSArray *withArguments = @[@"record", @"transcribe"];
+        if (![@[@"permission", @"request", @"record", @"diagnose", @"speech-permission", @"speech-request", @"transcribe"] containsObject:command] || (![withArguments containsObject:command] && rest.count))
+            return failure(@"usage", @"Usage: padcode-audio list | permission | request | speech-permission | speech-request | diagnose | record --out PATH [--device UID] [--max-seconds N] | transcribe --file PATH --language LOCALE");
         NSString *permissionError = preparePermissionOwner(argc, argv, handedOff, @"NSMicrophoneUsageDescription", @"microphone");
         if (permissionError) return failure(@"permission-host", permissionError);
         if ([command isEqual:@"diagnose"]) {
@@ -300,6 +350,15 @@ int main(int argc, const char **argv) {
             return 0;
         }
         if ([command isEqual:@"permission"]) { output(@{@"v": @1, @"ok": @YES, @"status": permissionStatus()}); return 0; }
+        if ([command isEqual:@"speech-permission"]) { output(@{@"v": @1, @"ok": @YES, @"status": speechStatus()}); return 0; }
+        if ([command isEqual:@"speech-request"]) {
+            if (![speechStatus() isEqual:@"not-determined"]) { output(@{@"v": @1, @"ok": @YES, @"status": speechStatus()}); return 0; }
+            [SFSpeechRecognizer requestAuthorization:^(SFSpeechRecognizerAuthorizationStatus value) {
+                (void)value; output(@{@"v": @1, @"ok": @YES, @"status": speechStatus()}); exit(0);
+            }];
+            dispatch_main();
+        }
+        if ([command isEqual:@"transcribe"]) return transcribe(rest);
         if ([command isEqual:@"request"]) {
             if (![permissionStatus() isEqual:@"not-determined"]) { output(@{@"v": @1, @"ok": @YES, @"status": permissionStatus()}); return 0; }
             [AVCaptureDevice requestAccessForMediaType:AVMediaTypeAudio completionHandler:^(BOOL granted) {

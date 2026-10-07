@@ -1,4 +1,5 @@
 import test from 'node:test';
+import { childEnv } from './child-env.mjs';
 import assert from 'node:assert/strict';
 import { mkdtemp, rm, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -22,14 +23,14 @@ test('local npm tarball installs outside the checkout with CLI, setup and native
   assert.equal(help.status, 0, help.stderr); assert.match(help.stdout, /config/);
   const helper = spawnSync(join(installed, 'build/native/padcode-controller'), ['--virtual-test'], { encoding: 'utf8', timeout: 5000 });
   assert.equal(helper.status, 0, helper.stderr); assert.match(helper.stdout, /"source":"virtual"/);
-  const pty = spawnSync('python3', ['test/onboarding_pty.py', join(installed, 'dist/cli.js')], { encoding: 'utf8', timeout: 20000, env: { ...process.env, PADCODE_NODE: process.execPath } });
+  const pty = spawnSync('python3', ['test/onboarding_pty.py', join(installed, 'dist/cli.js')], { encoding: 'utf8', timeout: 20000, env: childEnv({ PADCODE_NODE: process.execPath }) });
   assert.equal(pty.status, 0, `${pty.stdout}\n${pty.stderr}`);
   assert.ok(names.includes('build/pty/LICENSE'));
   assert.ok(names.includes('build/pty/LICENSE-node-addon-api.md'));
   assert.ok(names.includes('build/pty/prebuilds/' + process.platform + '-' + process.arch + '/pty.node'));
-  const agent = spawnSync('python3', ['test/agent_pty.py', join(installed, 'dist/cli.js')], { encoding: 'utf8', timeout: 25000, env: { ...process.env, PADCODE_NODE: process.execPath } });
+  const agent = spawnSync('python3', ['test/agent_pty.py', join(installed, 'dist/cli.js')], { encoding: 'utf8', timeout: 25000, env: childEnv({ PADCODE_NODE: process.execPath }) });
   assert.equal(agent.status, 0, `${agent.error ?? ''}\n${agent.stdout}\n${agent.stderr}`);
-  const mapped = spawnSync('python3', ['test/gamepad-agent-pty.py', installed], { encoding: 'utf8', timeout: 35000, env: { ...process.env, PADCODE_NODE: process.execPath } });
+  const mapped = spawnSync('python3', ['test/gamepad-agent-pty.py', installed], { encoding: 'utf8', timeout: 35000, env: childEnv({ PADCODE_NODE: process.execPath }) });
   assert.equal(mapped.status, 0, `${mapped.error ?? ''}\n${mapped.stdout}\n${mapped.stderr}`);
   if (process.platform === 'darwin') {
     const permission = spawnSync(join(installed, 'build/native/padcode-bluetooth'), ['diagnose-permission'], { encoding: 'utf8', timeout: 5000 });

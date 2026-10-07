@@ -159,3 +159,16 @@ Voice is off until you turn it on: in Player Hub choose **Voice / microphone set
 In an Agent session (controls pane mode), hold **L2** to record and release to stop; recordings stop at 60 seconds. The status pane first shows `MIC STARTING`; start speaking when it changes to `REC`. Bluetooth headset microphones take about a second to start and switch the headset to call quality, so a wired, USB or built-in microphone works best. Releasing L2 before `REC` (or after less than 0.3 s) discards the clip. While recording, the status pane shows `REC` with a level meter, controller buttons do nothing except **O**, which cancels. Afterwards, Options > **Play last recording** plays it back. Transcription is not available yet, so nothing is typed into the Agent.
 
 Development builds are not signed with a Developer ID, so macOS treats every Padcode update as a new Padcode Audio and asks for microphone access again; the first L2 press after an update shows the macOS dialog, and you hold L2 again once you have allowed it. Recordings are 16 kHz mono WAV files in a private temporary folder that is deleted when the session ends; folders left by a crash are removed on the next session. Linux and transparent mode do not support voice capture.
+
+## Voice drafts (dev.18)
+
+In Player Hub > **Voice / microphone settings**, after the microphone, choose how clips become text:
+
+| Option | Install | Notes |
+| --- | --- | --- |
+| macOS on-device speech | Nothing | Apple's on-device recognizer; asks for Speech Recognition permission for Padcode Audio. Languages without an on-device model are refused, never sent to a server. |
+| whisper.cpp | `brew install whisper-cpp` | Best accuracy for Chinese and mixed speech. Padcode finds existing models or, after you confirm, downloads a pinned official model (574 MB or 1.6 GB) to `~/.local/share/padcode/models` and verifies its SHA-256. |
+| Custom command | Your choice | Any program that reads the WAV path given by `{audio}` and prints UTF-8 text; arguments are literal, never shell code. |
+| No transcription | - | Record and play back only. |
+
+Each option runs a self-test, and you can record 5 seconds to see the text. In a session, release L2 to see `TRANSCRIBING...` (O cancels), then a **VOICE DRAFT** popup: Keep draft (default, also O), Rerecord or Discard. Reopen a kept draft from Options > Review voice draft. Drafts are not typed into the Agent yet; that is the next stage.

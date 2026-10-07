@@ -7,6 +7,15 @@ const out = value => process.stdout.write(JSON.stringify({ v: 1, ...value }) + '
 const command = args[0];
 if (command === 'list') { out({ ok: true, devices: settings.devices ?? [{ id: 'mic-1', name: 'Fixture Mic', default: true, transport: 'usb' }, { id: 'mic-2', name: 'Second Mic', default: false, transport: 'bluetooth' }] }); process.exit(0); }
 if (command === 'permission') { out({ ok: true, status: settings.permission ?? 'authorized' }); process.exit(0); }
+if (command === 'speech-permission') { out({ ok: true, status: settings.speech ?? 'authorized' }); process.exit(0); }
+if (command === 'speech-request') { out({ ok: true, status: settings.speechRequest ?? 'authorized' }); process.exit(0); }
+if (command === 'transcribe') {
+  const language = args[args.indexOf('--language') + 1];
+  if (settings.transcribe === 'unsupported') { out({ ok: false, event: 'error', code: 'unsupported-language', message: `macOS has no on-device speech model for ${language}.` }); process.exit(1); }
+  if (settings.transcribe === 'permission') { out({ ok: false, event: 'error', code: 'speech-permission-required', message: 'Speech recognition has not been granted to Padcode Audio yet.' }); process.exit(1); }
+  if (settings.transcribe === 'slow') { setTimeout(() => {}, 60000); process.on('SIGTERM', () => process.exit(1)); await new Promise(() => {}); }
+  else { out({ ok: true, text: settings.text ?? `system ${language}: 你好 world` }); process.exit(0); }
+}
 if (command === 'request') { out({ ok: true, status: settings.request ?? 'authorized' }); process.exit(0); }
 if (command !== 'record') { out({ ok: false, event: 'error', code: 'usage', message: 'usage' }); process.exit(1); }
 const path = args[args.indexOf('--out') + 1];
