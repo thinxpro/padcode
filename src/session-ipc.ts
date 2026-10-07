@@ -5,8 +5,9 @@ import { randomBytes } from 'node:crypto';
 // Private, per-session protocol between the coordinator and its tmux panes.
 export type Role = 'agent' | 'panel' | 'menu';
 export interface Launch { command: string; args: string[]; cwd: string; env: Record<string, string | null> }
-export type ToAgent = { t: 'launch'; launch: Launch } | { t: 'keys'; data: string } | { t: 'cancel' } | { t: 'close' };
-export type FromAgent = { t: 'exit'; code: number };
+export type ToAgent = { t: 'launch'; launch: Launch } | { t: 'keys'; data: string } | { t: 'cancel' } | { t: 'close' }
+  | { t: 'paste-part'; text: string } | { t: 'paste-end' } | { t: 'undo'; count: number };
+export type FromAgent = { t: 'exit'; code: number } | { t: 'undo-result'; ok: boolean; reason: string };
 export type ToPanel = { t: 'status'; text: string } | { t: 'notice'; text: string };
 export type ToMenu = { t: 'menu'; title: string; items: string[]; selected: number; hint: string; body?: string } | { t: 'close' };
 export type FromMenu = { t: 'action'; name: 'up' | 'down' | 'confirm' | 'back' } | { t: 'action'; name: 'pick'; index: number };
@@ -39,12 +40,16 @@ export function parseHello(line: string, session: string): Role {
 }
 export function parseFromAgent(line: string): FromAgent {
   const value = decode(line);
+  if (value.t === 'undo-result' && exact(value, ['t', 'ok', 'reason']) && typeof value.ok === 'boolean' && text(value.reason, 64)) return { t: 'undo-result', ok: value.ok, reason: value.reason as string };
   if (value.t === 'exit' && exact(value, ['t', 'code']) && Number.isInteger(value.code) && (value.code as number) >= 0 && (value.code as number) <= 255) return { t: 'exit', code: value.code as number };
   throw new Error('Invalid Agent pane message.');
 }
 export function parseToAgent(line: string): ToAgent {
   const value = decode(line);
-  if ((value.t === 'cancel' || value.t === 'close') && exact(value, ['t'])) return { t: value.t };
+  if ((value.t === 'cancel' || value.t === 'close' || value.t === 'paste-end') && exact(value, ['t'])) return { t: value.t };
+  // Voice text arrives in bounded chunks of already-cleaned text: no control characters at all.
+  if (value.t === 'paste-part' && exact(value, ['t', 'text']) && text(value.text, 1024) && value.text && !/[\x00-\x1f\x7f-\x9f]/.test(value.text)) return { t: 'paste-part', text: value.text };
+  if (value.t === 'undo' && exact(value, ['t', 'count']) && Number.isInteger(value.count) && (value.count as number) >= 1 && (value.count as number) <= 65536) return { t: 'undo', count: value.count as number };
   if (value.t === 'keys' && exact(value, ['t', 'data']) && text(value.data, 128)) {
     const data = Buffer.from(value.data, 'base64');
     if (data.length && data.length <= maxKeys && data.toString('base64') === value.data) return { t: 'keys', data: value.data };
@@ -118,8 +123,9 @@ export class SessionServer {
             this.events.emit('connect', role);
           } else if (role === 'agent') {
             const message = parseFromAgent(line);
-            if (this.agentExited) throw new Error('Duplicate Agent exit.');
-            this.agentExited = true; this.events.emit('exit', message.code);
+            if (this.agentExited) throw new Error('Agent messages after exit.');
+            if (message.t === 'undo-result') this.events.emit('undo', message);
+            else { this.agentExited = true; this.events.emit('exit', message.code); }
           } else if (role === 'menu') this.events.emit('action', parseFromMenu(line));
           else throw new Error('The status pane cannot send messages.');
         }
@@ -129,6 +135,7 @@ export class SessionServer {
   on(event: 'connect' | 'disconnect', listener: (role: Role) => void): void;
   on(event: 'exit', listener: (code: number) => void): void;
   on(event: 'action', listener: (action: FromMenu) => void): void;
+  on(event: 'undo', listener: (result: { ok: boolean; reason: string }) => void): void;
   on(event: string, listener: (value: any) => void): void { this.events.on(event, listener); }
   connected(role: Role): boolean { return this.peers.has(role); }
   send(role: 'agent', message: ToAgent): void;

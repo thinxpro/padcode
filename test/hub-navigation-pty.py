@@ -98,7 +98,7 @@ def journey(display):
         h.press('south')                                                  # No transcription.
         h.hub(); assert b'VOICE ON / Fixture Mic' in h.output
         saved = json.loads((h.root / 'padcode/config.json').read_text())
-        assert saved['version'] == 2 and saved['voice'] == {'microphone': {'id': 'mic-1', 'name': 'Fixture Mic'}, 'transcriber': None}, saved
+        assert saved['version'] == 2 and saved['voice'] == {'microphone': {'id': 'mic-1', 'name': 'Fixture Mic'}, 'transcriber': None, 'insert': 'auto'}, saved
         assert saved['agent'] == json.loads(h.config)['agent'] and saved['controller'] == json.loads(h.config)['controller']
         h.pick(6); h.expect(b'Keep microphone Fixture Mic'); h.expect(b'Select [1]'); time.sleep(.3); h.press('east')
         h.hub(); assert b'VOICE UNCHANGED' in h.output

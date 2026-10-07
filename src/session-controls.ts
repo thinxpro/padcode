@@ -15,11 +15,14 @@ export interface ControlEffects {
   hasRecording?(): boolean;
   play?(): void;
   notice?(text: string): void;
+  insert?(text: string): void;
+  canUndo?(): boolean;
+  undo?(rerecord: boolean): void;
 }
 export const menuItems = ['Resume Agent controls', 'Pause gamepad mapping', 'Browse history', 'Send interrupt (Esc)', 'End session...'];
 const menuIds = ['resume', 'pause', 'history', 'interrupt', 'end'] as const;
-type MenuId = typeof menuIds[number] | 'play' | 'draft';
-export const draftItems = ['Keep draft', 'Rerecord', 'Discard'];
+type MenuId = typeof menuIds[number] | 'play' | 'draft' | 'undo' | 'rerecord';
+export const draftItems = ['Insert into Agent', 'Keep draft', 'Rerecord', 'Discard'];
 export const confirmItems = ['Keep the session running', 'End the Agent session'];
 const statuses = {
   menu: 'MENU / D-pad select, X confirm, O back',
@@ -40,6 +43,7 @@ export class SessionControls {
     const entries: { id: MenuId; label: string }[] = menuIds.map((id, index) => ({ id, label: menuItems[index]! }));
     if (this.fx.hasRecording?.()) entries.splice(4, 0, { id: 'play', label: 'Play last recording' });
     if (this.draftText) entries.splice(4, 0, { id: 'draft', label: 'Review voice draft' });
+    if (this.fx.canUndo?.()) entries.splice(4, 0, { id: 'undo', label: 'Undo voice insert' }, { id: 'rerecord', label: 'Undo and rerecord' });
     return entries;
   }
   private endIndex(): number { return this.entries().findIndex(entry => entry.id === 'end'); }
@@ -85,8 +89,11 @@ export class SessionControls {
     }
     if (key === 'back') { if (this.context === 'confirm') this.enter('menu', this.endIndex()); else this.close(); return; }
     if (this.context === 'draft') {
-      if (this.selected !== 0) { this.draftText = undefined; this.fx.notice?.(this.selected === 1 ? 'DRAFT DISCARDED / Hold L2 to record again' : 'DRAFT DISCARDED'); }
-      this.close(); return;
+      const text = this.draftText;
+      if (this.selected >= 2) { this.draftText = undefined; this.fx.notice?.(this.selected === 2 ? 'DRAFT DISCARDED / Hold L2 to record again' : 'DRAFT DISCARDED'); }
+      this.close();
+      if (this.selected === 0 && text) this.fx.insert?.(text);
+      return;
     }
     if (this.context === 'confirm') {
       if (this.selected === 1) { this.fx.showMenu(null); this.context = 'agent'; this.fx.end(); }
@@ -100,6 +107,7 @@ export class SessionControls {
     else if (id === 'interrupt') { this.fx.interrupt(); this.close(); }
     else if (id === 'play') { this.close(); this.fx.play?.(); }
     else if (id === 'draft') this.enter('draft');
+    else if (id === 'undo' || id === 'rerecord') { this.close(); this.fx.undo?.(id === 'rerecord'); }
     else this.enter('confirm');
   }
   // tmux reports history mode changes for mouse-wheel entry and for exits such as scrolling past the bottom.

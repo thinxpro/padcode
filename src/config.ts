@@ -12,7 +12,7 @@ export interface Config {
   voice: VoiceSettings | null;
 }
 export type Transcriber = { kind: 'system'; language: string } | { kind: 'command'; command: string; args: string[]; language: string };
-export interface VoiceSettings { microphone: { id: string; name: string }; transcriber: Transcriber | null
+export interface VoiceSettings { microphone: { id: string; name: string }; transcriber: Transcriber | null; insert: 'auto' | 'review'
 }
 export function configPath(env: NodeJS.ProcessEnv = process.env): string {
   const root = env.XDG_CONFIG_HOME && isAbsolute(env.XDG_CONFIG_HOME) ? env.XDG_CONFIG_HOME : join(homedir(), '.config');
@@ -28,6 +28,9 @@ export function validateConfig(value: unknown): Config {
   if (voice !== null && (!voice || typeof voice !== 'object' || !voice.microphone || !text(voice.microphone.id, 512) || !voice.microphone.id || !text(voice.microphone.name, 512))) throw new Error('Invalid voice configuration.');
   const transcriber = voice?.transcriber ?? null;
   if (transcriber !== null && !validTranscriber(transcriber)) throw new Error('Invalid transcription command.');
+  // Missing means the default: finished drafts go straight into the Agent's input.
+  const insert = voice?.insert ?? 'auto';
+  if (insert !== 'auto' && insert !== 'review') throw new Error('Invalid voice insertion mode.');
   if (!c.controller || !['bluetooth', 'usb'].includes(c.controller.transport) || typeof c.controller.inputVerified !== 'boolean') throw new Error('Invalid controller configuration.');
   if (c.controller.name !== undefined && !text(c.controller.name, 512)) throw new Error('Invalid controller name.');
   if (c.controller.address !== undefined && !/^([\da-f]{2}[:-]){5}[\da-f]{2}$/i.test(c.controller.address)) throw new Error('Invalid Bluetooth address.');
@@ -41,7 +44,7 @@ export function validateConfig(value: unknown): Config {
   }, agent: c.agent === null ? null : { command: c.agent.command, args: [...c.agent.args] }, profile: c.profile,
   voice: voice === null ? null : { microphone: { id: voice.microphone.id, name: voice.microphone.name },
     transcriber: transcriber === null ? null : transcriber.kind === 'system' ? { kind: 'system', language: transcriber.language }
-      : { kind: 'command', command: transcriber.command, args: [...transcriber.args], language: transcriber.language } } };
+      : { kind: 'command', command: transcriber.command, args: [...transcriber.args], language: transcriber.language }, insert } };
 }
 // Transcription runs a literal argv: {audio} must appear, {language} may; nothing is shell-evaluated.
 export const validLanguage = (value: unknown): value is string => typeof value === 'string' && /^(auto|[a-z]{2,3})$/.test(value);

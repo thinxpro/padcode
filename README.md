@@ -4,7 +4,18 @@ Control your own AI coding agent with a gamepad.
 
 Padcode is a local developer tool designed for terminal installation. You choose your terminal, project, agent and accounts. Padcode provides controller input, key mapping, terminal session bridging and optional agent integrations.
 
-**Current status: terminal onboarding, keyboard PTY sessions and basic gamepad mapping are implemented; physical and real-agent compatibility acceptance is pending.** Controller-operated menus, first-run setup, local configuration, macOS Bluetooth discovery/pairing/connection, SDL input verification and a game-style dashboard are implemented. Voice input and npm registry publication are not implemented. The repository is private; public release requires validation and a maintainer decision. Padcode is a provisional name; npm and Homebrew name availability has not been confirmed.
+**Current status: private release candidate `0.1.0-rc.1` for macOS.** The full controller flow works end to end with a user-provided Agent (tested with Claude Code): Bluetooth setup, controller-operated menus, launching the Agent with automatic controller handoff, a tmux controls pane with an Options menu, and opt-in voice dictation that types into the Agent's input. Each stage's automated tests pass; physical acceptance so far rests on the maintainer's reports recorded in [`docs/stages`](docs/stages). npm publication, Developer ID signing and Linux/Windows controller support are not done. Padcode is a provisional name.
+
+## What you can do with a controller
+
+| Where | Controls |
+| --- | --- |
+| Player Hub and setup | D-pad moves, X confirms, O goes back. Every screen returns to the Hub. |
+| Agent session | D-pad arrows, X Enter, O Escape, L1 Tab, R1 Shift+Tab. Keyboard always works too. |
+| Options (with tmux) | Controls menu: resume, pause, browse history, send interrupt (Esc), voice undo/review, end session. |
+| L2 (macOS, opt-in) | Hold to dictate, release to transcribe. The text is typed into the Agent's input and **never sent**; X sends it. Options > Undo voice insert removes it. |
+
+Voice transcription runs on your Mac: macOS on-device speech needs nothing installed; whisper.cpp (`brew install whisper-cpp`) is more accurate, and Padcode can download a pinned, checksum-verified model after you confirm; any command that prints text also works. Padcode never sends audio anywhere.
 
 ## Run the development build
 
@@ -23,7 +34,7 @@ Bluetooth discovery keeps known paired/connected controllers visible, even when 
 
 A uniquely identity-matched saved controller can operate menus directly: D-pad up/down, X to confirm and O to go back/cancel. During initial setup or when identity is ambiguous, D-pad navigates and claims control, or X claims without confirming. Keyboard input remains available, and custom command text still uses the keyboard.
 
-Interactive startup without arguments opens setup, or the Player Hub if configuration exists. Use `node dist/cli.js config` to reconfigure. Configuration lives at `$XDG_CONFIG_HOME/padcode/config.json` when that variable is an absolute path, otherwise `~/.config/padcode/config.json`. Saving configuration never launches an agent. Run `padcode run`, or choose Start agent session in Player Hub, to review the executable, literal arguments and current project directory before confirming launch. Your keyboard controls the Agent; Ctrl+C is forwarded and Ctrl+] terminates the session. A uniquely matched saved controller transfers from Player Hub and activates automatically after all buttons are released for 250 ms; the launch-confirmation X is consumed. Unidentified controllers start paused and require Options. D-pad sends arrows, X Enter, O Escape, L1 Tab and R1 Shift+Tab. Options pauses/resumes mapping; reconnect always requires rearming. Activation is printed once and later status appears in the terminal title where supported. With tmux 3.2+ installed (dev.9), the session shows a persistent Padcode status pane under the Agent instead of using the terminal title; Padcode never installs tmux, and `PADCODE_PANEL=off` keeps the previous transparent mode. Set `PADCODE_INPUT_TRACE=1` only for metadata-only routing diagnostics. In the controls pane, Options opens a controls menu (resume, pause, history, interrupt, end session), and on macOS an opt-in microphone lets you hold L2 to dictate a text draft using macOS on-device speech, whisper.cpp or your own command (inserting drafts into the Agent is not implemented yet). Every Player Hub screen and Agent session returns to the Hub; hold O for one second to leave Controller Lab. Padcode does not collect credentials or record session content.
+Interactive startup without arguments opens setup, or the Player Hub if configuration exists. `padcode config` reconfigures, and Player Hub > Voice / microphone settings changes only voice. Configuration lives at `$XDG_CONFIG_HOME/padcode/config.json` when that variable is an absolute path, otherwise `~/.config/padcode/config.json`. Saving configuration never launches an Agent; Start agent session (or `padcode run`) shows the executable, literal arguments and project directory before you confirm. With tmux 3.2+ installed the session runs in a private tmux server with a status pane; Padcode never installs tmux, and `PADCODE_PANEL=off` keeps the plain transparent mode (Options then pauses/resumes). Ctrl+] always ends the session. `PADCODE_INPUT_TRACE=1` prints metadata-only routing diagnostics. Padcode does not collect credentials or record session content.
 
 See the [terminal setup guide](docs/setup.md) for the complete flow and macOS permission boundaries, and the [Bluetooth acceptance report](docs/stages/p0-config-validation.md) for physical test status.
 
@@ -34,7 +45,7 @@ After building and testing locally, create a package for the current platform. N
 ```sh
 mkdir -p artifacts
 npm pack --ignore-scripts --pack-destination artifacts
-npm install -g ./artifacts/padcode-0.1.0-dev.20.tgz
+npm install -g ./artifacts/padcode-0.1.0-rc.1.tgz
 padcode
 ```
 
@@ -47,7 +58,7 @@ The package includes compiled helpers and runs no compilation scripts during ins
 - Preserve the selected agent's terminal interface, with keyboard and controller input available together.
 - No model service, account system, prompt proxy, cloud execution or hosted code service.
 - Keep configuration and tool records local. The selected agent determines its own networking, model billing and data handling.
-- Voice input and desktop control are optional future extensions.
+- Voice input is optional and local (macOS). Desktop control is a possible future extension.
 
 ## Intended experience
 
@@ -67,9 +78,9 @@ Currently, `padcode` provides setup and the Player Hub, and `padcode config` is 
 
 The initial target is macOS with a DualShock 4 over Bluetooth and one foreground terminal session. USB is an alternative. Generic mode will launch a user-provided interactive CLI, map basic controller inputs to terminal keys and preserve keyboard input. Physical controller support on Windows/Linux will only be claimed after platform-specific validation.
 
-No coding agent is bundled, and no vendor API is mandatory. Structured agent adapters, global mouse control, multiple sessions and background residency are deferred. Voice follows continuous controller session acceptance under the next stage plan.
+No coding agent is bundled, and no vendor API is mandatory. Structured agent adapters, global mouse control, multiple sessions and background residency are deferred. Voice is opt-in, macOS-only and local.
 
-The next planned work is [continuous controller sessions and voice drafts](docs/stages/p0-4-continuous-controller-and-voice.md). C1 (controller handoff into Codex) and C2 (isolated tmux status pane) are implemented with physical acceptance pending; the Options controls panel and opt-in voice review are not implemented yet.
+The [continuous controller sessions and voice](docs/stages/p0-4-continuous-controller-and-voice.md) stages C1-C6 are implemented. Remaining before a public release: Developer ID signing (development builds re-ask for microphone access after each update), installation without build tools, Codex and second-terminal compatibility records, and the maintainer's release decision.
 
 ## Design documents
 
