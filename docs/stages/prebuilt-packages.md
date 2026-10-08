@@ -57,6 +57,22 @@ People installing Padcode should not need Xcode, CMake or a compiler. The mainta
    After publishing this becomes `npm install -g padcode`, and npm picks `padcode-darwin` automatically on macOS.
 6. **Documentation.** README install section, the setup guide and contributing notes describe user versus developer requirements. Third-party notices are updated for the bundled node-pty and SDL in the platform package.
 
+## Scope change: reuse unchanged helpers
+
+Added after the first implementation, at the maintainer's request. Releases are expected without a paid Developer ID at first. macOS ties ad-hoc permission grants (microphone, speech recognition, Bluetooth) to the exact helper binary, and rebuilds are not bit-identical, so every release would make users grant permissions again. Reuse limits that to releases that change the native code.
+
+- `platform.json` records `native: { source, signer, since }`:
+  - `source` is a SHA-256 over every file in `native/` (sources, CMake settings with the SDL pin and targets, plists, entitlements) and `scripts/build-native.mjs`;
+  - `signer` is `adhoc` or the certificate's team ID, read from the signature;
+  - `since` is the version the binaries were first built for.
+- `npm run package` looks for a previous platform package. By default this is `padcode-darwin@latest` from npm; `--reuse SPEC` takes a tarball path or another npm spec, and `--fresh` skips the lookup. Its helpers are copied byte for byte, keeping their original signature, only when all of these hold:
+  - the source hash matches;
+  - the signer matches the current identity (for certificates, the team comes from the keychain certificate's OU, not from the name);
+  - every helper passes the full verification (architectures, minos, strict signature, identifier, signer).
+- Otherwise the helpers are built and signed fresh, and the script prints the reason (package not available, native sources changed, other signer, failed verification). A failed lookup never fails packaging.
+
+- P6: packaging twice reuses the helpers byte for byte and keeps `native`. A previous package with changed sources, another signer, a damaged helper, or a missing tarball each leads to freshly signed helpers that pass strict verification, with the reason printed.
+
 ## Automated acceptance
 
 - P1: the native build produces universal helpers with deployment target 13.0. `lipo` and `vtool` checks run on every helper slice, and the existing native tests still pass.
@@ -101,10 +117,11 @@ Not covered automatically here: running the x86_64 slices (no Intel Mac or Roset
 
 ## Validation record
 
-Plan commit: `31c27ac`. Environment: macOS 27.0.1, M4 Pro arm64, Xcode 27.0, CMake 4.0.3, Node 24.21, npm 11.19. `npm run check` passed 154 tests with zero failures or skips. CI is disabled by the maintainer's decision, so Linux was not exercised.
+Plan commit: `31c27ac`. Environment: macOS 27.0.1, M4 Pro arm64, Xcode 27.0, CMake 4.0.3, Node 24.21, npm 11.19. `npm run check` passed 155 tests with zero failures or skips (154 before the reuse scope change). CI is disabled by the maintainer's decision, so Linux was not exercised.
 
 - P1: all three helpers contain `arm64` and `x86_64` slices, each with `minos 13.0`.
 - P2: runtime resolution covers every case in the criteria.
 - P3: package contents and manifests are checked. Ad-hoc signing applies the `com.thinxpro.padcode.*` identifiers and passes `codesign --verify --strict`. A missing identity fails and leaves the output directory empty.
 - P4: the install runs offline with install scripts enabled. `PATH` contains only `node` and `/bin`, and the test asserts that `cmake`, `cc`, `clang`, `xcrun`, `make` and `python3` are unreachable. From the installed copy, `--help`, `--version`, the virtual helper, both diagnostics, and the onboarding, Agent PTY and gamepad Agent PTY scenarios pass. The mismatch and missing-package messages print no stack trace.
+- P6 (added with the scope change): passes. A manual run with the Apple Development identity rebuilt helpers when the previous package was ad-hoc ("was signed by adhoc, now P7WKBU5DDV"). A second run reused the signed helpers ("reused P7WKBU5DDV signature").
 - Not run: x86_64 slices (no Rosetta or Intel Mac), macOS 13–26, a full Apple Development signed package (only the trial signing in the notes above).

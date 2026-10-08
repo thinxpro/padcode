@@ -50,7 +50,7 @@ npm install -g ./artifacts/padcode-darwin-0.1.0-rc.9.tgz ./artifacts/padcode-0.1
 padcode
 ```
 
-Once published, `npm install -g padcode` installs the platform package automatically on macOS. Helpers are ad-hoc signed by default. Set `PADCODE_SIGN_IDENTITY` to a codesign identity (for example an Apple Development or Developer ID Application certificate) to sign them with hardened runtime and their microphone/Bluetooth entitlements; `PADCODE_SIGN_TIMESTAMP=off` skips the secure timestamp for offline development signing. With a stable identity, macOS keeps microphone permission across rebuilds. The [prebuilt packages stage](docs/stages/prebuilt-packages.md) records the checks. Other operating systems are not packaged yet.
+Once published, `npm install -g padcode` installs the platform package automatically on macOS. Helpers are ad-hoc signed by default. Set `PADCODE_SIGN_IDENTITY` to a codesign identity (for example an Apple Development or Developer ID Application certificate) to sign them with hardened runtime and their microphone/Bluetooth entitlements; `PADCODE_SIGN_TIMESTAMP=off` skips the secure timestamp for offline development signing. With a stable identity, macOS keeps microphone permission across rebuilds. Without one, packaging reuses the previous release's helpers byte for byte (`padcode-darwin@latest`, or `--reuse <tarball>`; `--fresh` to skip) when nothing under `native/` changed and the signer is the same, so users are asked for microphone, speech or Bluetooth permission again only after releases that change the native helpers. The [prebuilt packages stage](docs/stages/prebuilt-packages.md) records the checks. Other operating systems are not packaged yet.
 
 ## Product boundaries
 
