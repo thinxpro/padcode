@@ -47,7 +47,7 @@ test('A2 map context: open from the menu, O back to the map item, X/Options clos
     mapProfile: () => ({ claude: true, voice: false }),
   });
   controls.openMenu(); for (let i = 0; i < 5; i++) handler('dpad_down'); calls.length = 0; handler('south');
-  assert.equal(controls.context, 'map'); assert.deepEqual(calls, ['capture:CONTROLLER MAP', 'menu:CONTROLLER MAP / DUALSHOCK 4:0:{"claude":true,"voice":false}']);
+  assert.equal(controls.context, 'map'); assert.deepEqual(calls, ['capture:CONTROLLER MAP', 'menu:CONTROLLER MAP / {padName}:0:{"claude":true,"voice":false}']);
   for (const button of ['dpad_left', 'dpad_right', 'west', 'north', 'left_shoulder']) handler(button);
   assert.equal(controls.context, 'map');
   handler('east'); assert.equal(controls.context, 'menu'); assert.match(calls.at(-1), /^menu:PADCODE CONTROLS:5:/);

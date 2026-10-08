@@ -39,7 +39,7 @@ def scenario(mode, plain=False):
             press('start'); edge('dpad_down',True); edge('south',True); quiet(); assert received()==expected
             edge('south',False); press('south'); expected+=b'\r'; until(lambda:received()==expected)
             event(dict(type='disconnected',device=1)); until(lambda:b'DISCONNECTED' in output)
-            event(dict(type='connected',device=1,name='Fixture PS4',connection='wireless',serial='aa:bb:cc:dd:ee:ff'))
+            event(dict(type='connected',device=1,name='Fixture PS4',connection='wireless',family='playstation',serial='aa:bb:cc:dd:ee:ff'))
             time.sleep(.3); press('south'); quiet(); assert received()==expected
             press('start'); press('dpad_up'); expected+=b'\x1b[A'; until(lambda:received()==expected)
             helper=int(Path(str(events)+'.pid').read_text())

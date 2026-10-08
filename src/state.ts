@@ -1,5 +1,6 @@
 import { axes, type Axis, type Button, type Event } from './protocol.js';
-export interface Device { id: number; name: string; buttons: Set<Button>; axes: Record<Axis, number> }
+import type { Family } from './glyphs.js';
+export interface Device { id: number; name: string; buttons: Set<Button>; axes: Record<Axis, number>; family?: Family }
 export interface State { devices: Map<number, Device>; selected: number | null; history: string[]; transitions: number; source: string; ready: boolean; back?: 'hold' | 'release' | 'press' }
 export function createState(): State { return { devices: new Map(), selected: null, history: [], transitions: 0, source: 'hardware', ready: false }; }
 export function deadzone(value: number, trigger = false): number {
@@ -12,7 +13,7 @@ export function reduce(state: State, event: Event): void {
   if (event.type === 'ready') { state.ready = true; state.source = event.source; return; }
   if (event.type === 'connected') {
     if (state.devices.has(event.device)) return;
-    state.devices.set(event.device, { id: event.device, name: event.name, buttons: new Set(), axes: Object.fromEntries(axes.map(a => [a, 0])) as Record<Axis, number> });
+    state.devices.set(event.device, { id: event.device, name: event.name, buttons: new Set(), axes: Object.fromEntries(axes.map(a => [a, 0])) as Record<Axis, number>, ...(event.family ? { family: event.family } : {}) });
     state.selected ??= event.device;
     record(state, `+ PLAYER ${event.device} CONNECTED`); return;
   }

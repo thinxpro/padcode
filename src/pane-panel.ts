@@ -2,20 +2,22 @@
 import { joinSession } from './session-ipc.js';
 import { renderPanel } from './panel.js';
 import { colorEnabled } from './ui.js';
+import type { Glyphs } from './glyphs.js';
 
 const path = process.env.PADCODE_IPC, session = process.env.PADCODE_SESSION;
 if (!path || !session) throw new Error('Status pane requires its private session channel.');
 const output = process.stdout;
 const color = colorEnabled(process.env, Boolean(output.isTTY));
-let status = 'STARTING / Waiting for Agent', notice: string | undefined;
+let status = 'STARTING / Waiting for Agent', notice: string | undefined, names: Glyphs = { family: 'standard' };
 let noticeTimer: NodeJS.Timeout | undefined;
 const draw = () => {
-  const lines = renderPanel(status, output.columns || 80, output.rows || 2, color, notice);
+  const lines = renderPanel(status, output.columns || 80, output.rows || 2, color, notice, names);
   output.write(`\x1b[?25l\x1b[H${lines.map(line => `${line}\x1b[K`).join('\r\n')}\x1b[J`);
 };
 const peer = await joinSession(path, session, 'panel');
 peer.onMessage(message => {
   if (message.t === 'status') status = message.text;
+  else if (message.t === 'names') names = { family: message.family, swap: message.swap };
   else { notice = message.text; clearTimeout(noticeTimer); noticeTimer = setTimeout(() => { notice = undefined; draw(); }, 5000); }
   draw();
 });

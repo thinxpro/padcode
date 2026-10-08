@@ -205,3 +205,17 @@ In an Agent session (both display modes):
 
 None of these sends Enter. R2 and R3 are only active when the Agent is Claude Code, because the newline key acts as Enter in many other programs. Claude Code's input has no text selection; select with the mouse in the terminal instead. In Padcode menus and history the left stick works like the D-pad and the right stick pages history.
 
+## Controllers
+
+Padcode reads controllers through SDL3, which recognises thousands of gamepads and reports their family. Buttons work by position, so the bottom face button always confirms and the right one goes back; names on screen follow the controller.
+
+| Family | Status | Pairing mode (Bluetooth) |
+| --- | --- | --- |
+| PlayStation DualShock 4 | Tested by the maintainer | Hold SHARE + PS until the light bar flashes quickly |
+| PlayStation DualSense (PS5) | SDL-supported, not yet tested | Hold CREATE + PS |
+| Xbox Wireless / One / Series | SDL-supported, not yet tested | Hold the pair button on top until the logo flashes quickly |
+| Nintendo Switch Pro | SDL-supported, not yet tested | Hold the sync button on top |
+| Other SDL gamepads | Standard (Xbox-style) names, not yet tested | See the controller's manual |
+
+Nintendo controllers print B on the bottom button. Setup asks whether B (bottom, like other controllers) or A (right, Nintendo style) confirms; the choice swaps both buttons everywhere, and on-screen names follow it. Controllers SDL does not recognise are not supported yet; the keyboard always works. The PS / Xbox / Home button is not used because macOS can take it for its game overlay.
+

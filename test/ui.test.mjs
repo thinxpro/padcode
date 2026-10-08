@@ -12,7 +12,14 @@ test('arcade dashboard obeys terminal bounds at many widths and heights', () => 
     assert.ok(!frame.includes('\x1b')); assert.ok(!frame.includes('\x07'));
   }
   const plain = render(state, 80, 32, false);
-  assert.match(plain, /PLAYER READY/); assert.match(plain, /\[X\]/); assert.match(plain, /-#####/);
+  // Without a reported family the lab uses standard (Xbox-style) names; each family shows its own.
+  assert.match(plain, /PLAYER READY/); assert.match(plain, /\[A\]/); assert.match(plain, /-#####/); assert.match(plain, /HOLD B 1S|Q \/ ESC EXIT/);
+  for (const [family, south, shoulder] of [['playstation', 'X', 'L1'], ['xbox', 'A', 'LB'], ['nintendo', 'B', 'L']]) {
+    state.devices.get(1).family = family;
+    const named = render(state, 80, 32, false);
+    assert.match(named, new RegExp(`\\[${south}\\]`), family); assert.match(named, new RegExp(` ${shoulder} `), family);
+  }
+  delete state.devices.get(1).family;
   assert.match(render(state), /\x1b\[/);
 });
 test('boot, waiting, demo and virtual states are honest', () => {

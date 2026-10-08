@@ -8,6 +8,7 @@ import { session } from './session.js';
 import { GamepadMenus, type MenuFeed } from './menu-controller.js';
 import { mergeDeviceChoices, scanDeviceChoices } from './bluetooth-picker.js';
 import { NativeAudio, type AudioPort } from './audio.js';
+import { familyFromName, pairingHints } from './glyphs.js';
 import { downloadModel, findModels, findWhisper, modelDirectory, transcribe, whisperModels, whisperSource, whisperTranscriber, writeSilentWav } from './transcribe.js';
 import { rm } from 'node:fs/promises';
 import { voiceDirectory } from './voice-session.js';
@@ -46,13 +47,15 @@ async function linkController(io: PromptPort, services: SetupServices, signal: A
       let devices = mergeDeviceChoices(await services.bluetooth.list(false, signal), []);
       for (;;) {
         const selected = await io.choose('Select a device, or discover a new controller', [
-          { label: 'Scan nearby / hold SHARE + PS until the light flashes', value: 'scan' },
+          { label: 'Scan nearby / put the controller in pairing mode first', value: 'scan' },
           ...devices.map((device, i) => ({ label: `${cleanName(device.name)} / ${device.address} / ${device.cached ? 'status unknown / cached' : device.connected ? 'connected' : device.paired ? 'paired' : 'new'} / ${device.source}`, value: String(i) })),
           { label: 'Use USB instead', value: 'usb' },
           { label: 'Configure Bluetooth later', value: 'later' },
         ]);
         if (selected === 'scan') {
-          io.say('SCANNING... keep SHARE + PS pairing mode active (20-second scan; up to 35 seconds including macOS initialization).');
+          // Pairing differs by controller; the family is not known until SDL sees the device.
+          for (const hint of Object.values(pairingHints)) io.say(`PAIRING  ${hint}`);
+          io.say('SCANNING... keep pairing mode active (20-second scan; up to 35 seconds including macOS initialization).');
           const result = await scanDeviceChoices(services.bluetooth, devices, signal, () => io.say('Refreshing paired/connected devices...'));
           devices = result.devices;
           for (const warning of result.warnings) io.say(warning);
@@ -67,6 +70,8 @@ async function linkController(io: PromptPort, services: SetupServices, signal: A
         if (await io.choose(`Connect ${cleanName(device.name)} (${device.address})?`, [
           { label: device.connected ? 'Use this connected controller' : 'Pair/connect this device', value: 'connect' }, { label: 'Back to device list', value: 'back' },
         ]) === 'back') continue;
+        const family = familyFromName(device.name);
+        if (!device.paired && family && family !== 'standard') io.say(`PAIRING  ${pairingHints[family]}`);
         if (!device.paired) { io.say('PAIRING...'); device = await services.bluetooth.pair(device.address, signal); }
         if (!device.connected) { io.say('CONNECTING...'); device = await services.bluetooth.connect(device.address, signal); }
         io.say('Bluetooth connected. Controller input still needs a separate check.');
@@ -104,7 +109,8 @@ async function verifyInput(io: PromptPort, services: SetupServices, controller: 
       io.say('PRESS ANY CONTROLLER BUTTON NOW (20 seconds)...');
       const button = await probe.press(device.device, signal);
       io.say(`INPUT CHECK PASSED / ${button}`);
-      return { ...controller, name: controller.name ?? cleanName(device.name), inputVerified: true };
+      // The verified controller's family names its buttons everywhere ({confirm}, {menu}...).
+      return { ...controller, name: controller.name ?? cleanName(device.name), inputVerified: true, ...(device.family ? { family: device.family } : {}) };
     } catch (error) {
       signal.throwIfAborted();
       if ((error as Error).message === 'Setup cancelled.') throw error;
@@ -158,7 +164,7 @@ async function chooseVoice(io: PromptPort, audio: AudioPort | undefined, signal:
   io.banner(title);
   if (!audio.supported) { io.say('Voice capture currently requires macOS. Voice stays off.'); return null; }
   const current = initial?.voice;
-  const first = await io.choose('Voice input (hold L2 to record in an Agent session)', [
+  const first = await io.choose('Voice input (hold {l2} to record in an Agent session)', [
     ...(current ? [{ label: `Keep microphone ${cleanName(current.microphone.name)}`, value: 'keep' }] : []),
     { label: current ? 'Turn voice off' : 'Keep voice off', value: 'off' },
     { label: 'Choose a microphone', value: 'choose' },
@@ -169,7 +175,7 @@ async function chooseVoice(io: PromptPort, audio: AudioPort | undefined, signal:
     return { microphone: current!.microphone, transcriber, insert: await chooseInsert(io, transcriber, current!.insert) };
   }
   if (first === 'off') return null;
-  io.say('CAPTURE  macOS AVAudioEngine through padcode-audio, only while you hold L2.');
+  io.say('CAPTURE  macOS AVAudioEngine through padcode-audio, only while you hold {l2}.');
   io.say('PRIVACY  Audio stays on this Mac in a private temporary folder and is deleted when the session ends.');
   for (;;) {
     signal.throwIfAborted();
@@ -219,7 +225,7 @@ const languages = [{ label: 'Chinese (zh)', value: 'zh' }, { label: 'English (en
 // Transcription tiers: macOS on-device speech, guided whisper.cpp, or a custom command; every choice is tested before saving.
 async function chooseTranscriber(io: PromptPort, audio: AudioPort, signal: AbortSignal, microphone: string, current: Transcriber | null, whisper: WhisperTools): Promise<Transcriber | null> {
   io.banner('VOICE / TRANSCRIPTION');
-  io.say('TEXT     Turns each L2 clip into a draft you review before anything reaches the Agent.');
+  io.say('TEXT     Turns each {l2} clip into a draft you review before anything reaches the Agent.');
   io.say('PRIVACY  Padcode sends audio nowhere. macOS on-device speech and whisper.cpp run on this Mac; a custom command decides its own network use.');
   for (;;) {
     signal.throwIfAborted();
@@ -314,13 +320,25 @@ async function chooseModel(io: PromptPort, signal: AbortSignal, whisper: Whisper
   return path;
 }
 
+// Nintendo prints A on the right button. Confirm stays positional (bottom) unless the user prefers A.
+async function chooseConfirm(io: PromptPort, controller: Config['controller'], initial?: Config): Promise<Config['controller']> {
+  const { confirm: _previous, ...rest } = controller;
+  if (controller.family !== 'nintendo') return rest;
+  const choice = await io.choose('Confirm button on this Nintendo controller', [
+    { label: 'B (bottom) confirms, like other controllers', value: 'south' },
+    { label: 'A (right) confirms, Nintendo style', value: 'east' },
+  ], initial?.controller.confirm === 'east' ? 1 : 0);
+  return choice === 'east' ? { ...rest, confirm: 'east' } : rest;
+}
+
 export async function setup(io: PromptPort, services: SetupServices, signal: AbortSignal, initial?: Config): Promise<Config | null> {
   const linked = await linkController(io, services, signal, initial);
   if (linked.address || linked.transport === 'usb') await services.activateMenus?.(linked);
-  const controller = await verifyInput(io, services, linked, signal);
+  const verified = await verifyInput(io, services, linked, signal);
+  const controller = await chooseConfirm(io, { ...verified, ...(initial?.controller.family && !verified.family ? { family: initial.controller.family } : {}) }, initial);
   const agent = await chooseAgent(io, services, initial);
   io.banner('MISSION 04 / LOADOUT');
-  await io.choose('Key profile', [{ label: 'Terminal basic / D-pad arrows, X Enter, O Escape, L1 Tab / R1 Shift+Tab', value: 'terminal-basic' }]);
+  await io.choose('Key profile', [{ label: 'Terminal basic / D-pad arrows, {confirm} Enter, {back} Escape, {l1} Tab / {r1} Shift+Tab', value: 'terminal-basic' }]);
   const voice = await chooseVoice(io, services.audio, signal, initial, undefined, services.whisper);
   const config: Config = { version: 2, controller, agent, profile: 'terminal-basic', voice };
   io.banner(services.audio ? 'MISSION 06 / SAVE POINT' : 'MISSION 05 / SAVE POINT');
@@ -395,13 +413,13 @@ async function hubStep(edit: boolean, menus: GamepadMenus, audio: AudioPort, not
     io.say(`LINK ${config.controller.transport.toUpperCase()} / ${config.controller.name ?? 'not selected'}`);
     io.say(`INPUT ${config.controller.inputVerified ? 'last setup check passed (not a live connection status)' : 'UNVERIFIED'}`);
     io.say(`AGENT ${config.agent?.command ?? 'not selected'}`);
-    io.say('AGENT CONTROLS / D-pad, X, O, L1, R1 / Options opens the controls menu (pause in transparent mode).');
-    io.say(`VOICE ${config.voice ? `${cleanName(config.voice.microphone.name)} / ${config.voice.transcriber ? describeTranscriber(config.voice.transcriber) : 'record only'} / hold L2` : 'off'}`);
+    io.say('AGENT CONTROLS / D-pad, {confirm}, {back}, {l1}, {r1}, sticks / {menu} opens the controls menu (pause in transparent mode).');
+    io.say(`VOICE ${config.voice ? `${cleanName(config.voice.microphone.name)} / ${config.voice.transcriber ? describeTranscriber(config.voice.transcriber) : 'record only'} / hold {l2}` : 'off'}`);
     const action = await io.choose('Ready when you are', [
       // Most used first; the cursor starts on Start agent session, whose confirmation defaults to Cancel.
       ...(config.agent ? [{ label: 'Start agent session', value: 'run' }] : []),
       { label: 'Voice / microphone settings', value: 'voice' },
-      { label: 'Controller lab / test live input (hold O to return)', value: 'controllers' },
+      { label: 'Controller lab / test live input (hold {back} to return)', value: 'controllers' },
       { label: 'Edit configuration', value: 'config' },
       { label: 'Preview arcade dashboard', value: 'demo' },
       { label: 'Exit', value: 'quit' },
@@ -425,7 +443,7 @@ async function hubStep(edit: boolean, menus: GamepadMenus, audio: AudioPort, not
         return { action: 'hub', notice: 'VOICE UNCHANGED / Back at Player Hub.' };
       }
       await saveConfig({ ...config, voice });
-      return { action: 'hub', notice: voice ? `VOICE ON / ${cleanName(voice.microphone.name)}, hold L2 in a session` : 'VOICE OFF' };
+      return { action: 'hub', notice: voice ? `VOICE ON / ${cleanName(voice.microphone.name)}, hold {l2} in a session` : 'VOICE OFF' };
     }
     if (action === 'controllers' || action === 'config') return { action };
     return { exit: 0 };

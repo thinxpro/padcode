@@ -1,6 +1,7 @@
 import { EventEmitter } from 'node:events';
 import { connect, createServer, type Socket } from 'node:net';
 import { randomBytes } from 'node:crypto';
+import { isFamily, type Family } from './glyphs.js';
 
 // Private, per-session protocol between the coordinator and its tmux panes.
 export type Role = 'agent' | 'panel' | 'menu';
@@ -8,8 +9,9 @@ export interface Launch { command: string; args: string[]; cwd: string; env: Rec
 export type ToAgent = { t: 'launch'; launch: Launch } | { t: 'keys'; data: string } | { t: 'cancel' } | { t: 'close' }
   | { t: 'paste-part'; text: string } | { t: 'paste-end' } | { t: 'undo'; count: number };
 export type FromAgent = { t: 'exit'; code: number } | { t: 'undo-result'; ok: boolean; reason: string };
-export type ToPanel = { t: 'status'; text: string } | { t: 'notice'; text: string };
-export type ToMenu = { t: 'menu'; title: string; items: string[]; selected: number; hint: string; body?: string; map?: { claude: boolean; voice: boolean } } | { t: 'close' };
+export type ToPanel = { t: 'status'; text: string } | { t: 'notice'; text: string } | { t: 'names'; family: Family; swap: boolean };
+export interface MapView { claude: boolean; voice: boolean; family?: Family; swap?: boolean }
+export type ToMenu = { t: 'menu'; title: string; items: string[]; selected: number; hint: string; body?: string; map?: MapView } | { t: 'close' };
 export type FromMenu = { t: 'action'; name: 'up' | 'down' | 'confirm' | 'back' } | { t: 'action'; name: 'pick'; index: number };
 export const maxLine = 4096;
 const maxKeys = 64;
@@ -66,6 +68,7 @@ export function parseToAgent(line: string): ToAgent {
 export function parseToPanel(line: string): ToPanel {
   const value = decode(line);
   if ((value.t === 'status' || value.t === 'notice') && exact(value, ['t', 'text']) && text(value.text, 256)) return { t: value.t, text: value.text };
+  if (value.t === 'names' && exact(value, ['t', 'family', 'swap']) && isFamily(value.family) && typeof value.swap === 'boolean') return { t: 'names', family: value.family, swap: value.swap };
   throw new Error('Invalid coordinator message for the status pane.');
 }
 
@@ -73,14 +76,15 @@ export function parseToMenu(line: string): ToMenu {
   const value = decode(line);
   if (value.t === 'close' && exact(value, ['t'])) return { t: 'close' };
   const body = value.body, map = value.map;
-  const validMap = plain(map) && exact(map, ['claude', 'voice']) && typeof map.claude === 'boolean' && typeof map.voice === 'boolean';
+  const validMap = plain(map) && (exact(map, ['claude', 'voice']) || (exact(map, ['claude', 'voice', 'family', 'swap']) && isFamily(map.family) && typeof map.swap === 'boolean'))
+    && typeof map.claude === 'boolean' && typeof map.voice === 'boolean';
   if (value.t === 'menu' && (exact(value, ['t', 'title', 'items', 'selected', 'hint']) || (exact(value, ['t', 'title', 'items', 'selected', 'hint', 'body']) && text(body, 3000) && !/[\x00-\x09\x0b-\x1f\x7f-\x9f]/.test(body as string))
       || (exact(value, ['t', 'title', 'items', 'selected', 'hint', 'map']) && validMap))
     && text(value.title, 64) && text(value.hint, 128)
     && Array.isArray(value.items) && value.items.length >= 1 && value.items.length <= 16 && value.items.every(item => text(item, 64))
     && Number.isInteger(value.selected) && (value.selected as number) >= 0 && (value.selected as number) < value.items.length) {
     return { t: 'menu', title: value.title, items: [...value.items] as string[], selected: value.selected as number, hint: value.hint, ...(typeof body === 'string' ? { body } : {}),
-      ...(validMap ? { map: { claude: (map as { claude: boolean }).claude, voice: (map as { voice: boolean }).voice } } : {}) };
+      ...(validMap ? { map: { ...(map as unknown as MapView) } } : {}) };
   }
   throw new Error('Invalid coordinator message for the menu popup.');
 }

@@ -99,7 +99,7 @@ export async function session(options: SessionOptions): Promise<number> {
       frame = setInterval(draw, 50); draw();
     }
     if (options.demo) {
-      reduce(state, { v: 1, seq: 0, time: 0, type: 'connected', device: 1, name: 'DUALSHOCK 4 / PREVIEW' });
+      reduce(state, { v: 1, seq: 0, time: 0, type: 'connected', device: 1, name: 'DUALSHOCK 4 / PREVIEW', family: 'playstation' });
       state.source = 'demo'; state.ready = true; dirty = true;
       let tick = 0;
       demoTimer = setInterval(() => {

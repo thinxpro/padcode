@@ -4,6 +4,7 @@ import type { MenuFeed } from './menu-controller.js';
 import type { Config } from './config.js';
 import type { Button, Event } from './protocol.js';
 import { agentOnly, editKeys, StickInput, type EditAction } from './stick-input.js';
+import { formatGlyphs, type Glyphs } from './glyphs.js';
 
 export const terminalKeys: Partial<Record<Button, string>> = {
   dpad_up: '\x1b[A', dpad_down: '\x1b[B', dpad_right: '\x1b[C', dpad_left: '\x1b[D',
@@ -52,7 +53,13 @@ export class AgentGamepad implements ControllerSource {
     this.now = settings.now ?? Date.now;
   }
   private trace(event: string, device?: number): void { this.settings.trace?.(event, this.generation, device); }
-  private status(text: string): void { this.lastStatus = text; this.events.emit('status', text); }
+  // Names for the controller in use: its reported family, else the saved one, else a standard gamepad.
+  glyphs(): Glyphs {
+    const device = this.selected === undefined ? undefined : this.devices.get(this.selected);
+    return { family: device?.family ?? this.target.family ?? 'standard', swap: this.target.confirm === 'east' };
+  }
+  private say(text: string): string { return formatGlyphs(text, this.glyphs()); }
+  private status(text: string): void { this.lastStatus = this.say(text); this.events.emit('status', this.lastStatus); }
   // Sticks drive the Agent's cursor; inside Padcode contexts they act as the D-pad and history paging.
   private edit(action: EditAction): void {
     if (this.capturing) {
@@ -78,8 +85,8 @@ export class AgentGamepad implements ControllerSource {
   get routing(): boolean { return this.active && !this.capturing && !this.failed; }
   // With an isolated controls surface, Options opens the session menu instead of toggling pause.
   enableMenu(): void { this.menu = true; }
-  private activeStatus(): string { return this.menu ? 'ACTIVE / Options menu' : 'ACTIVE / Options to pause'; }
-  suspend(status = 'PAUSED / Options to enable'): void {
+  private activeStatus(): string { return this.menu ? 'ACTIVE / {menu} menu' : 'ACTIVE / {menu} to pause'; }
+  suspend(status = 'PAUSED / {menu} to enable'): void {
     this.stick.stop();
     this.active = false; this.rearming = false; this.optionPresses.clear(); clearTimeout(this.armTimer); this.armTimer = undefined;
     this.events.emit('cancel'); this.status(status); this.trace('paused');
@@ -94,7 +101,7 @@ export class AgentGamepad implements ControllerSource {
       clearTimeout(this.armTimer); this.armTimer = undefined; this.optionPresses.clear();
       this.events.emit('cancel');
     }
-    this.capturing = handler; this.events.emit('status', status); this.trace('captured');
+    this.capturing = handler; this.events.emit('status', this.say(status)); this.trace('captured');
   }
   releaseCapture(resume = true): void {
     if (!this.capturing) return;
@@ -130,7 +137,7 @@ export class AgentGamepad implements ControllerSource {
     }
   }
   private connected(device: InputDevice): void {
-    if (this.selected === device.device) { this.selected = undefined; this.suspend('RECONNECTED / Options to enable'); }
+    if (this.selected === device.device) { this.selected = undefined; this.suspend('RECONNECTED / {menu} to enable'); }
     this.devices.set(device.device, device);
     this.held.set(device.device, new Set()); this.optionPresses.delete(device.device);
     this.settling.set(device.device, this.now() + 250);
@@ -163,7 +170,7 @@ export class AgentGamepad implements ControllerSource {
     if (event.type === 'connected') { this.connected(event); this.prepareAutomaticHandoff(); return; }
     if (event.type === 'disconnected') {
       this.devices.delete(event.device); this.held.delete(event.device); this.optionPresses.delete(event.device); this.settling.delete(event.device);
-      if (this.selected === event.device) { this.selected = undefined; this.automaticAvailable = false; this.rearming = false; this.resumeActive = false; this.suspend('DISCONNECTED / Reconnect then Options'); if (this.capturing) this.events.emit('control', 'lost'); }
+      if (this.selected === event.device) { this.selected = undefined; this.automaticAvailable = false; this.rearming = false; this.resumeActive = false; this.suspend('DISCONNECTED / Reconnect then {menu}'); if (this.capturing) this.events.emit('control', 'lost'); }
       return;
     }
     if (event.type === 'axis') {
@@ -174,6 +181,8 @@ export class AgentGamepad implements ControllerSource {
       return;
     }
     if (event.type !== 'button') return;
+    // Nintendo-style confirm: swap east and south once, here, so every later rule stays positional.
+    if (this.target.confirm === 'east' && (event.button === 'south' || event.button === 'east')) event = { ...event, button: event.button === 'south' ? 'east' : 'south' };
     const device = this.devices.get(event.device), held = this.held.get(event.device);
     if (!device || !held || identityMatch(device, this.target.transport, this.target.address) === 'mismatch') return;
     if (event.down === held.has(event.button)) return;

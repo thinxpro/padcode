@@ -246,7 +246,7 @@ def voice():
         time.sleep(.2); trigger(32767); s.until(lambda: 'REC 00:0' in s.panel())
         s.event(dict(type='disconnected', device=1)); s.until(lambda: 'DISCONNECTED' in s.panel())
         s.until(lambda: [f for f in os.listdir(directory) if f.endswith('.wav')] == [], message='disconnect kept a recording')
-        s.event(dict(type='connected', device=1, name='Fixture PS4', connection='wireless', serial='aa:bb:cc:dd:ee:ff')); time.sleep(.3)
+        s.event(dict(type='connected', device=1, name='Fixture PS4', connection='wireless', family='playstation', serial='aa:bb:cc:dd:ee:ff')); time.sleep(.3)
         s.press('start'); active()
         # Agent exit during a recording removes the session voice directory.
         time.sleep(.2); trigger(0); time.sleep(.2); trigger(32767); s.until(lambda: 'REC 00:0' in s.panel())
@@ -384,6 +384,23 @@ def sticks():
         no_popup(s); os.write(s.master, b'exit!'); finish(s, 23)
     finally: s.close()
 
+def xbox_names():
+    """An Xbox controller gets Xbox names in the status pane, its legend, the menu hints and the controller map."""
+    s = Session('lines', extra={'PADCODE_FIXTURE_FAMILY': 'xbox'})
+    try:
+        s.ready(); s.until(lambda: 'GAMEPAD ACTIVE' in s.panel(), message='xbox session not active')
+        s.until(lambda: 'MENU MENU' in s.panel() and 'A ENTER' in s.panel() and 'LB TAB' in s.panel(), message='status pane not using Xbox names')
+        assert 'OPTIONS' not in s.panel() and 'SQ ' not in s.panel()
+        mark = len(s.output); s.press('start'); s.until(lambda: b'PADCODE CONTROLS' in s.output[mark:])
+        s.until(lambda: 'A CONFIRM, B BACK' in s.panel(), message='menu status not using Xbox names')
+        for _ in range(5): s.press('dpad_down'); s.quiet(.05)
+        mark = len(s.output); s.press('south')
+        s.until(lambda: b'HOME' in s.output[mark:] and b'XBOX WIRELESS CONTROLLER' in s.output[mark:], message='controller map not the Xbox layout')
+        assert b'TOUCHPAD' not in s.output[mark:]
+        s.press('start'); s.until(lambda: 'GAMEPAD ACTIVE' in s.panel())
+        no_popup(s); os.write(s.master, b'exit!'); finish(s, 23)
+    finally: s.close()
+
 def short_map():
     """In a short terminal the controller map switches to its compact legend instead of cutting lines off."""
     s = Session('lines', rows=20)
@@ -445,7 +462,7 @@ def controls():
         assert s.received() == expected, 'history input reached the Agent'
         # C3-A6: a disconnect closes the menu and requires the C1 rearm.
         menu(); s.event(dict(type='disconnected', device=1)); s.until(lambda: 'DISCONNECTED' in s.panel())
-        s.event(dict(type='connected', device=1, name='Fixture PS4', connection='wireless', serial='aa:bb:cc:dd:ee:ff')); time.sleep(.3)
+        s.event(dict(type='connected', device=1, name='Fixture PS4', connection='wireless', family='playstation', serial='aa:bb:cc:dd:ee:ff')); time.sleep(.3)
         s.press('south'); s.quiet(.3); assert s.received() == expected
         s.press('start'); active()
         # C3-A4: End session needs the confirmation; the default keeps the session running.
@@ -461,5 +478,5 @@ def controls():
         assert s.received() == expected
     finally: s.close()
 
-for scenario in (normal, controls, sticks, short_map, voice, draft, insert, escape, terminate, crash, fallback): scenario()
+for scenario in (normal, controls, sticks, short_map, xbox_names, voice, draft, insert, escape, terminate, crash, fallback): scenario()
 print('Panel PTY passed: controls menu, sticks, voice capture, voice drafts, voice insertion, exact keys, CPR, isolation, resize, history hold, worker respawn, exits, crash cleanup and fallback.')

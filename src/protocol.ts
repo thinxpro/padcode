@@ -5,7 +5,7 @@ export type Axis = typeof axes[number];
 type Base = { v: 1; seq: number; time: number };
 export type Event = Base & (
   { type: 'ready'; source: 'hardware' | 'virtual'; sdl: string } |
-  { type: 'connected'; device: number; name: string; connection?: 'wired' | 'wireless' | 'unknown'; serial?: string } |
+  { type: 'connected'; device: number; name: string; connection?: 'wired' | 'wireless' | 'unknown'; serial?: string; family?: 'playstation' | 'xbox' | 'nintendo' | 'standard' } |
   { type: 'disconnected'; device: number } |
   { type: 'button'; device: number; button: Button; down: boolean } |
   { type: 'axis'; device: number; axis: Axis; value: number }
@@ -27,6 +27,8 @@ export function parseEvent(line: string): Event {
         if (typeof e.name !== 'string' || e.name.length > 512) return invalid();
         if (e.connection !== undefined && !['wired', 'wireless', 'unknown'].includes(String(e.connection))) return invalid();
         if (e.serial !== undefined && (typeof e.serial !== 'string' || e.serial.length > 512)) return invalid();
+        // Optional: older helpers do not report a family.
+        if (e.family !== undefined && !['playstation', 'xbox', 'nintendo', 'standard'].includes(String(e.family))) return invalid();
         break;
       case 'disconnected': break;
       case 'button': if (!buttons.includes(e.button as Button) || typeof e.down !== 'boolean') return invalid(); break;
