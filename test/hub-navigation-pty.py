@@ -62,7 +62,7 @@ class Hub:
         os.close(self.master); os.close(self.slave); self.dir.cleanup()
 
 def launch(h):
-    h.pick(5); h.expect(b'MISSION START'); h.expect(b'Select [2]')
+    h.pick(1); h.expect(b'MISSION START'); h.expect(b'Select [2]')
     h.press('dpad_up'); h.expect(b'Select [1]'); h.press('south')
 
 def journey(display):
@@ -70,7 +70,7 @@ def journey(display):
     try:
         h.hub()
         # N1: cancelling the launch confirmation returns to the Hub.
-        h.pick(5); h.expect(b'MISSION START'); h.expect(b'Select [2]'); time.sleep(.1)
+        h.pick(1); h.expect(b'MISSION START'); h.expect(b'Select [2]'); time.sleep(.1)
         h.press('east'); h.hub(); assert b'LAUNCH CANCELLED' in h.output
         # N2: an Agent exit returns to the Hub, and the next launch activates the controller again.
         launch(h); h.expect(b'ACTIVE'); time.sleep(.1)
@@ -80,16 +80,16 @@ def journey(display):
         os.write(h.master, b'\x1d'); h.hub(); assert b'SESSION OVER / Agent exited with status 130' in h.output
         if display == 'panel': return h
         # N4: Controller Lab needs O held for one second, then release.
-        h.pick(1); h.expect(b'HOLD O 1S / Q BACK'); time.sleep(.3)
+        h.pick(3); h.expect(b'HOLD O 1S / Q BACK'); time.sleep(.3)
         h.press('east'); h.absent(b'PLAYER HUB', .6)
         h.edge('east', True); h.expect(b'RELEASE O TO RETURN', 3); h.absent(b'PLAYER HUB', .3)
         h.edge('east', False); h.hub()
-        h.pick(1); h.expect(b'HOLD O 1S / Q BACK'); os.write(h.master, b'q'); h.hub()
+        h.pick(3); h.expect(b'HOLD O 1S / Q BACK'); os.write(h.master, b'q'); h.hub()
         # N5: the demo returns on O and on q.
-        h.pick(3); h.expect(b'O / Q BACK'); time.sleep(.3); h.press('east'); h.hub()
-        h.pick(3); h.expect(b'O / Q BACK'); os.write(h.master, b'q'); h.hub()
+        h.pick(5); h.expect(b'O / Q BACK'); time.sleep(.3); h.press('east'); h.hub()
+        h.pick(5); h.expect(b'O / Q BACK'); os.write(h.master, b'q'); h.hub()
         # Voice settings from the Hub: choose a microphone, change nothing on O, then turn voice off.
-        h.pick(6); h.expect(b'VOICE SETTINGS'); h.expect(b'Select [1]'); time.sleep(.3)
+        h.pick(2); h.expect(b'VOICE SETTINGS'); h.expect(b'Select [1]'); time.sleep(.3)
         h.press('dpad_down'); h.expect(b'Select [2]'); h.press('south')      # Choose a microphone.
         h.expect(b'Audio stays on this Mac'); h.expect(b'Choose a microphone'); h.expect(b'Select [1]'); h.press('south')
         h.expect(b'Microphone check'); h.expect(b'Select [1]'); h.press('dpad_down'); h.expect(b'Select [2]'); h.press('south')
@@ -100,15 +100,15 @@ def journey(display):
         saved = json.loads((h.root / 'padcode/config.json').read_text())
         assert saved['version'] == 2 and saved['voice'] == {'microphone': {'id': 'mic-1', 'name': 'Fixture Mic'}, 'transcriber': None, 'insert': 'auto'}, saved
         assert saved['agent'] == json.loads(h.config)['agent'] and saved['controller'] == json.loads(h.config)['controller']
-        h.pick(6); h.expect(b'Keep microphone Fixture Mic'); h.expect(b'Select [1]'); time.sleep(.3); h.press('east')
+        h.pick(2); h.expect(b'Keep microphone Fixture Mic'); h.expect(b'Select [1]'); time.sleep(.3); h.press('east')
         h.hub(); assert b'VOICE UNCHANGED' in h.output
         assert json.loads((h.root / 'padcode/config.json').read_text())['voice'] is not None
-        h.pick(6); h.expect(b'Turn voice off'); h.expect(b'Select [1]'); time.sleep(.3); h.press('dpad_down'); h.expect(b'Select [2]'); h.press('south')
+        h.pick(2); h.expect(b'Turn voice off'); h.expect(b'Select [1]'); time.sleep(.3); h.press('dpad_down'); h.expect(b'Select [2]'); h.press('south')
         h.hub(); assert b'VOICE OFF' in h.output
         assert json.loads((h.root / 'padcode/config.json').read_text())['voice'] is None
         h.config = (h.root / 'padcode/config.json').read_text()
         # N6: cancelling Edit configuration keeps the file and returns to the Hub.
-        h.pick(2); h.expect(b'Select ['); time.sleep(.3); h.press('east')
+        h.pick(4); h.expect(b'Select ['); time.sleep(.3); h.press('east')
         h.hub(); assert b'No configuration changes saved.' in h.output
         assert (h.root / 'padcode/config.json').read_text() == h.config
         return h

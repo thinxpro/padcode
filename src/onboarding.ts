@@ -398,12 +398,13 @@ async function hubStep(edit: boolean, menus: GamepadMenus, audio: AudioPort, not
     io.say('AGENT CONTROLS / D-pad, X, O, L1, R1 / Options opens the controls menu (pause in transparent mode).');
     io.say(`VOICE ${config.voice ? `${cleanName(config.voice.microphone.name)} / ${config.voice.transcriber ? describeTranscriber(config.voice.transcriber) : 'record only'} / hold L2` : 'off'}`);
     const action = await io.choose('Ready when you are', [
+      // Most used first; the cursor starts on Start agent session, whose confirmation defaults to Cancel.
+      ...(config.agent ? [{ label: 'Start agent session', value: 'run' }] : []),
+      { label: 'Voice / microphone settings', value: 'voice' },
       { label: 'Controller lab / test live input (hold O to return)', value: 'controllers' },
       { label: 'Edit configuration', value: 'config' },
       { label: 'Preview arcade dashboard', value: 'demo' },
       { label: 'Exit', value: 'quit' },
-      ...(config.agent ? [{ label: 'Start agent session', value: 'run' }] : []),
-      { label: 'Voice / microphone settings', value: 'voice' },
     ]);
     if (action === 'run' && config.agent) {
       const display = await chooseDisplay();

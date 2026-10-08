@@ -1,6 +1,6 @@
 # Player Hub: Start agent session first
 
-Status: planned. This plan is committed before runtime changes.
+Status: implemented; automated acceptance passes and physical acceptance is pending. This plan was committed before runtime changes.
 
 ## Change
 
@@ -14,4 +14,4 @@ Player Hub lists items by how often they are used, and the cursor starts on the 
 
 ## Validation record
 
-Pending.
+`npm run check` passed 133 tests with zero failures or skips on macOS 27.0.1 arm64. The onboarding, Agent, Hub Agent and Hub navigation PTY suites now select Hub items by their new positions (Start 1, Voice 2, Lab 3, Config 4, Demo 5, Exit 6). H1 is pending.
