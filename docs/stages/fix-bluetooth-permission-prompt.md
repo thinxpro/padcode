@@ -1,6 +1,6 @@
 # Fix: Bluetooth permission reported as "off or unavailable"
 
-Status: implemented; automated acceptance passes locally, physical acceptance H1-H4 pending. This plan, its acceptance criteria and test matrix were committed before implementation.
+Status: implemented; automated acceptance passes locally; maintainer reported H1 working, H2-H3 pending. This plan, its acceptance criteria and test matrix were committed before implementation.
 
 Independent of the UI overhaul stack (PRs #25-#27); branched from `main`.
 
@@ -59,4 +59,6 @@ Plan commit: `d93a4ea`. On macOS 27.0.1 arm64 with Node 24.21.0, `npm run check`
 - P2: existing usage, permission-ownership and `diagnose-permission` tests pass; the rebuilt helper's `diagnose-permission` returned `ok:true, selfResponsible:true, usageDescription:true`.
 - P3: `permission-pending` and `permission` messages reach setup verbatim as `LINK NOT READY`, followed by the Retry / USB / later recovery menu, and never as "off or unavailable".
 
-Physical acceptance H1-H4 is pending.
+### Maintainer physical report
+
+On 2026-10-08 the maintainer installed a local test build (0.1.0-rc.9 with UI-0 to UI-2 and this fix, packed fresh with `scripts/package.mjs --fresh`; not published) into the nvm Node 23.5 global prefix and reported that Bluetooth and the microphone both work after granting permission. This covers H1 (consent prompt, then device list) and the Bluetooth part of setup; the report did not cover H2 (deny or ignore the prompt) or H3 (Bluetooth actually off), which remain pending. The first microphone check after granting access failed once with "The microphone configuration changed during recording" and succeeded on Retry; that is a separate audio-helper issue, tracked in [fix-microphone-config-change](fix-microphone-config-change.md).
