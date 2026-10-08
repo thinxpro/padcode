@@ -1,6 +1,6 @@
 # Fix: microphone check fails once with "configuration changed"
 
-Status: planned. This plan, its acceptance criteria and test matrix are committed before implementation.
+Status: implemented; automated acceptance passes locally, physical acceptance H1-H3 pending. This plan, its acceptance criteria and test matrix were committed before implementation.
 
 Independent of the UI overhaul stack and of the Bluetooth permission fix (PR #28); branched from `main`.
 
@@ -31,6 +31,18 @@ Automated tests cannot open a real microphone (no permission in the test environ
 - H2: the same with a Bluetooth headset microphone that switches profiles works on the first try (the start may take about a second).
 - H3: hold-to-record in an Agent session still works with both microphones, and unplugging or disconnecting the microphone during a recording still reports a disconnection.
 
+## Implementation notes
+
+- `attach` (in `record`) selects the device, reads the input format, builds the converter and tap, prepares and starts the engine, and returns an error message or nil. The first call keeps the previous failure codes (`no-device` for device and format problems, `io` for tap and start problems).
+- The configuration-change observer hops to the recorder queue, where `live` is read and written, so the decision and the restart never race the audio appends.
+- A restart stops the engine and removes the tap before attaching again with the new format; a failed restart reports its own message as `device-lost`.
+- The first combined run of the native and voice suites was started in parallel by mistake and failed once in the native audio test; the repository runs suites serially (`--test-concurrency=1`), and three serial runs plus the full gate passed.
+
 ## Validation record
 
-Pending.
+Plan commit: `9198f73`. On macOS 27.0.1 arm64 with Node 24.21.0, `npm run check` passed 156 tests with zero failures or skips. CI is disabled by the maintainer's decision, so Linux was not exercised.
+
+- M1: `test/native.test.mjs` compiles `test/fixtures/recording-harness.c` and checks the ten states.
+- M2: native audio tests (synthetic WAV, stop, cancel, EOF, SIGTERM, cap, diagnose) and voice suites pass; a synthetic 1-second recording still produces 32,044 bytes.
+
+Physical acceptance H1-H3 is pending.
