@@ -1,5 +1,6 @@
 import fcntl
 import json
+import re
 import os
 import pty
 import select
@@ -68,7 +69,8 @@ class Terminal:
         assert self.proc.returncode == status, (self.proc.returncode, self.output)
         assert termios.tcgetattr(self.slave) == self.before, 'terminal flags not restored'
         if self.plain: assert b'\x1b' not in self.output, 'TERM=dumb received ANSI'
-        else: assert b'\x1b[1;96m' in self.output, 'arcade color missing'
+        # Theme colours are 256-colour or truecolor sequences since UI-0; the old 16-colour code is retired.
+        else: assert re.search(rb'\x1b\[[0-9;]*38;[25];', self.output), 'theme colour missing'
     def close(self):
         if self.proc.poll() is None: self.proc.kill(); self.proc.wait()
         os.close(self.master); os.close(self.slave)

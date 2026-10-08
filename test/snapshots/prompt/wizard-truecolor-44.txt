@@ -1,0 +1,38 @@
+
+\e[38;2;128;134;150m╭─\e[0m \e[1;38;2;0;215;255mPADCODE\e[0m \e[38;2;128;134;150m────────────────────────────────╮\e[0m
+\e[38;2;128;134;150m│\e[0m  \e[1;38;2;0;215;255mMISSION 01 / LINK CONTROLLER\e[0m            \e[38;2;128;134;150m│\e[0m
+\e[38;2;128;134;150m│\e[0m  \e[1;38;2;0;215;255m●\e[0m\e[38;2;128;134;150m○○○○○\e[0m \e[38;2;128;134;150m1/6\e[0m                              \e[38;2;128;134;150m│\e[0m
+\e[38;2;128;134;150m╰──────────────────────────────────────────╯\e[0m
+  \e[38;2;220;224;232mChecking Bluetooth. macOS may ask for\e[0m
+  \e[38;2;220;224;232mBluetooth permission for\e[0m
+  \e[38;2;220;224;232mpadcode-bluetooth.\e[0m
+  \e[1;38;2;0;215;255mPAIRING  \e[0m\e[38;2;220;224;232mPS4: hold SHARE + PS. PS5: hold\e[0m
+           \e[38;2;220;224;232mCREATE + PS. Wait for the light\e[0m
+           \e[38;2;220;224;232mto flash quickly.\e[0m
+  \e[1;38;2;255;95;215m◆\e[0m \e[38;2;255;95;215mSCANNING... keep pairing mode active\e[0m
+    \e[38;2;255;95;215m(20-second scan).\e[0m
+  \e[1;38;2;255;95;215m◆\e[0m \e[1;38;2;220;224;232mSelect a device, or discover a new\e[0m
+    \e[1;38;2;220;224;232mcontroller\e[0m
+    \e[38;2;128;134;150m1\e[0m  \e[38;2;220;224;232mScan nearby\e[0m\e[38;2;128;134;150m / put the controller in\e[0m
+       \e[38;2;128;134;150mpairing mode first\e[0m
+  \e[1;38;2;255;95;215m▶\e[0m \e[38;2;128;134;150m2\e[0m  \e[1;38;2;0;215;255mWireless Controller\e[0m\e[38;2;128;134;150m /\e[0m
+       \e[38;2;128;134;150maa:bb:cc:dd:ee:ff / connected\e[0m
+    \e[38;2;128;134;150m3\e[0m  \e[38;2;220;224;232mUse USB instead\e[0m
+  \e[1;38;2;95;215;135m●\e[0m \e[38;2;128;134;150mGAMEPAD READY / D-pad up/down, X\e[0m
+    \e[38;2;128;134;150mconfirm, O back/cancel.\e[0m
+  \e[38;2;128;134;150m> Select [2] (q to cancel):\e[0m
+  \e[1;38;2;95;215;135m●\e[0m \e[1;38;2;95;215;135mINPUT CHECK PASSED / south\e[0m
+  \e[1;38;2;255;85;85m✕\e[0m \e[1;38;2;255;85;85mINPUT NOT VERIFIED: No input device\e[0m
+    \e[1;38;2;255;85;85mmatches the selected transport/device.\e[0m
+  \e[1;38;2;255;200;70m▲\e[0m \e[38;2;255;200;70mInput remains UNVERIFIED.\e[0m
+  \e[1;38;2;255;95;215m◆\e[0m \e[38;2;255;95;215mDOWNLOAD 40%  (Ctrl+C cancels)\e[0m  \e[38;2;255;95;215m███▎\e[0m\e[38;2;128;134;150m░░░░\e[0m
+  \e[1;7;38;2;120;170;255m KEYBOARD \e[0m \e[38;2;128;134;150mType text here; gamepad buttons\e[0m
+             \e[38;2;128;134;150mdo not enter text.\e[0m
+  \e[1;38;2;255;95;215m> Executable path or command (no arguments):\e[0m 
+
+\e[38;2;128;134;150m╭─\e[0m \e[1;38;2;0;215;255mPADCODE\e[0m \e[38;2;128;134;150m────────────────────────────────╮\e[0m
+\e[38;2;128;134;150m│\e[0m  \e[1;38;2;0;215;255mMISSION 06 / SAVE POINT\e[0m     \e[1;38;2;0;215;255m●●●●●●\e[0m \e[38;2;128;134;150m6/6\e[0m  \e[38;2;128;134;150m│\e[0m
+\e[38;2;128;134;150m╰──────────────────────────────────────────╯\e[0m
+  \e[1;38;2;0;215;255mLINK    \e[0m\e[38;2;220;224;232mBLUETOOTH / Wireless Controller\e[0m
+  \e[1;38;2;0;215;255mVOICE   \e[0m\e[38;2;220;224;232moff\e[0m
+  \e[1;38;2;95;215;135m●\e[0m \e[1;38;2;95;215;135mSAVE COMPLETE\e[0m

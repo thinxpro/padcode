@@ -130,3 +130,17 @@ test('cached known controller selection checks its connection instead of trustin
   assert.equal((await setup(h.io, h.services, signal)).controller.address, pad.address);
   assert.equal(connects, 1); assert.match(h.output.join('\n'), /status unknown \/ cached/);
 });
+test('UI-2 C4 setup banners carry mission progress matching their titles', async () => {
+  for (const [audio, total] of [[undefined, 5], [{ supported: false }, 6]]) {
+    const h = harness(['usb', 'skip', 'later', 'terminal-basic', 'save'], [], audio ? { audio } : {});
+    const banners = [];
+    h.io.banner = (title, progress) => banners.push([title, progress]);
+    await setup(h.io, h.services, signal);
+    const missions = banners.filter(([title]) => title.startsWith('MISSION'));
+    assert.equal(missions.length, total, JSON.stringify(banners));
+    missions.forEach(([title, progress], i) => {
+      assert.deepEqual(progress, [i + 1, total], title);
+      assert.equal(Number(title.slice(8, 10)), i + 1, title);
+    });
+  }
+});

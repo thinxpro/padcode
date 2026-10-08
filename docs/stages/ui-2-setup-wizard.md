@@ -1,6 +1,6 @@
 # UI-2: Setup wizard and inline prompts
 
-Status: planned. This plan, its acceptance criteria and test matrix are committed before implementation.
+Status: implemented; automated acceptance passes locally, manual display review pending. This plan, its acceptance criteria and test matrix were committed before implementation.
 
 Stacked on [UI-1](ui-1-welcome-hub.md) (`feature/welcome-hub`, PR #26), which is stacked on UI-0 (PR #25); neither is merged yet. This PR targets `feature/welcome-hub` and is retargeted after its prerequisites merge.
 
@@ -46,6 +46,21 @@ Out of scope: wording and order of setup steps, Controller Lab (UI-3), the sessi
 
 Display review, not hardware: run `padcode config` through every step (Bluetooth scan can be skipped with USB or "later"), the launch confirmation and Hub voice settings in a colour terminal, with `NO_COLOR=1` and with `PADCODE_ASCII=1`, at full width and about 50 columns. The physical controller flow itself is unchanged and needs no new hardware evidence beyond the existing setup acceptance.
 
+## Implementation notes
+
+- Rendering lives in `src/prompt-view.ts` as pure functions (`renderBanner`, `renderMessage`, `renderMenu`, `selectLine`, `askHint`, `askPrompt`); `TerminalPrompt` only picks capabilities and writes. The old `wrapText`/`colorEnabled` path in the prompt is gone.
+- When the title and the stepper do not fit on one row (about 50 columns and below), the stepper moves to a second row instead of truncating the title, so `MISSION nn / ...` stays searchable.
+- Messages and menus wrap on words (`wrapAnsi`) with hanging indents; the inline menu still counts its physical rows for redraw, and every rendered line stays within the prompt width (tested down to 12 columns).
+- `TAG / text` lines (`DISPLAY / Controls pane ...`) are rendered as one span, so the phrase stays contiguous; only `TAG  value` lines (two or more spaces) get a separate tag colour.
+- The download meter appears only when at least four columns are free after the text.
+- `onboarding_pty.py`'s colour check now looks for a 256-colour or truecolor sequence; the reason (palette moved to theme tokens in UI-0) is recorded in the test.
+
 ## Validation record
 
-Pending.
+Plan commit: `38c32f7`. On macOS 27.0.1 arm64 with Node 24.21.0, `npm run check` passed 186 tests with zero failures or skips; `src/prompt-view.ts` has 100% line and branch coverage. CI is disabled by the maintainer's decision, so Linux was not exercised.
+
+- C1-C3: `test/prompt-view.test.mjs`, with snapshots `test/snapshots/prompt/wizard-{truecolor,mono,ascii}-{44,72}.txt`.
+- C4: `test/onboarding.test.mjs` checks progress `[n, 5]` without voice support and `[n, 6]` with it, matching each mission number.
+- C5: onboarding, Hub navigation, Hub agent, agent session (including `agent_pty.py`), voice, draft and panel suites pass; `TERM=dumb` still produces no escape bytes.
+
+Manual display review is pending.
