@@ -1,6 +1,6 @@
 # Sticks and face buttons for text editing
 
-Status: planned. This plan is committed before runtime changes. Stacked on PR #20 (`feature/hub-start-first`); retarget after it merges.
+Status: implemented in 0.1.0-rc.5; automated acceptance passes and physical acceptance is pending. This plan was committed before runtime changes. Stacked on PR #20 (`feature/hub-start-first`); retarget after it merges.
 
 ## Request
 
@@ -53,6 +53,17 @@ In Padcode contexts the left stick acts as the D-pad (menus, draft popup, histor
 - H2: delete with Square (hold), Triangle and L3; insert a newline with R2; undo with R3.
 - H3: report whether repeat speeds, thresholds and button choices feel right.
 
+## Implementation notes
+
+- When one stick direction releases while the stick is already pushed along the other axis (rotating right to up), the new direction starts once; while a direction is held the other axis is ignored, so small diagonal movement never jumps a line.
+- Square and Triangle stay raw buttons inside Padcode contexts (menus ignore them).
+
 ## Validation record
 
-Pending.
+Plan commit: `79b0565`. `npm run check` passed 138 tests with zero failures or skips on macOS 27.0.1 arm64.
+
+- A1-A3: `test/stick-input.test.mjs` with a deterministic clock covers thresholds, hysteresis, the dominant-axis lock, diagonal jitter, rotation, repeat delays and tilt-dependent speed, release and `stop()` cancellation (a held stick and a held R2 must return to centre first), exact bytes per control through a real `AgentGamepad`, Claude Code-only newline/undo, other controllers and a paused controller sending nothing, and that no control sends CR (only R2 sends LF, Claude Code profile).
+- A4: in a captured context the left stick produces D-pad presses and the right stick produces page presses, with no Agent bytes.
+- A5: `test/panel_pty.py` `sticks()` in real tmux: every stick direction and editing button reaches the Agent as its exact key, a held stick repeats only Right and stops on release, and in the controls menu the stick moves the selection without reaching the Agent. The status legend lists STICKS CURSOR and SQ BKSP; `--help` lists the controls.
+
+Artifact `padcode-0.1.0-rc.5.tgz`, npm SHA-1 `c251906b5ce14725924bffad4d567fbcd0a44509` (includes the Player Hub order change from PR #20). Native helpers unchanged. H1-H3 are pending.

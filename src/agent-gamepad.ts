@@ -3,6 +3,7 @@ import { ControllerProbe, identityMatch, type InputDevice } from './probe.js';
 import type { MenuFeed } from './menu-controller.js';
 import type { Config } from './config.js';
 import type { Button, Event } from './protocol.js';
+import { agentOnly, editKeys, StickInput, type EditAction } from './stick-input.js';
 
 export const terminalKeys: Partial<Record<Button, string>> = {
   dpad_up: '\x1b[A', dpad_down: '\x1b[B', dpad_right: '\x1b[C', dpad_left: '\x1b[D',
@@ -14,6 +15,8 @@ export interface AgentGamepadOptions {
   feedStarted?: boolean;
   automaticHandoff?: boolean;
   trace?: (event: string, generation: number, device?: number) => void;
+  // 'claude' adds Claude Code's newline (R2) and undo (R3); other Agents keep them unbound.
+  editing?: 'basic' | 'claude';
 }
 export type ControlEvent = 'menu' | 'lost';
 export interface ControllerSource {
@@ -43,12 +46,24 @@ export class AgentGamepad implements ControllerSource {
   private armTimer: NodeJS.Timeout | undefined;
   private factory: () => MenuFeed;
   private now: () => number;
+  private stick = new StickInput(action => this.edit(action));
   constructor(private target: Config['controller'], private settings: AgentGamepadOptions = {}) {
     this.factory = settings.factory ?? (() => new ControllerProbe());
     this.now = settings.now ?? Date.now;
   }
   private trace(event: string, device?: number): void { this.settings.trace?.(event, this.generation, device); }
   private status(text: string): void { this.lastStatus = text; this.events.emit('status', text); }
+  // Sticks drive the Agent's cursor; inside Padcode contexts they act as the D-pad and history paging.
+  private edit(action: EditAction): void {
+    if (this.capturing) {
+      const synthetic = ({ up: 'dpad_up', down: 'dpad_down', left: 'dpad_left', right: 'dpad_right', home: 'left_shoulder', end: 'right_shoulder' } as Partial<Record<EditAction, Button>>)[action];
+      if (synthetic) this.capturing(synthetic);
+      return;
+    }
+    if (!this.active || this.failed) return;
+    if (agentOnly.includes(action) && this.settings.editing !== 'claude') return;
+    this.events.emit('keys', Buffer.from(editKeys[action]));
+  }
   subscribe(keys: (bytes: Buffer) => void, status: (text: string) => void, cancel: () => void): () => void {
     this.events.on('keys', keys); this.events.on('status', status); this.events.on('cancel', cancel);
     return () => { this.events.removeListener('keys', keys); this.events.removeListener('status', status); this.events.removeListener('cancel', cancel); };
@@ -65,6 +80,7 @@ export class AgentGamepad implements ControllerSource {
   enableMenu(): void { this.menu = true; }
   private activeStatus(): string { return this.menu ? 'ACTIVE / Options menu' : 'ACTIVE / Options to pause'; }
   suspend(status = 'PAUSED / Options to enable'): void {
+    this.stick.stop();
     this.active = false; this.rearming = false; this.optionPresses.clear(); clearTimeout(this.armTimer); this.armTimer = undefined;
     this.events.emit('cancel'); this.status(status); this.trace('paused');
   }
@@ -72,6 +88,7 @@ export class AgentGamepad implements ControllerSource {
   capture(handler: (button: Button) => void, status: string): void {
     if (this.failed) return;
     if (!this.capturing) {
+      this.stick.stop();
       this.resumeActive = this.active || this.rearming || (this.automaticAvailable && this.selected !== undefined);
       this.active = false; this.rearming = false;
       clearTimeout(this.armTimer); this.armTimer = undefined; this.optionPresses.clear();
@@ -81,7 +98,7 @@ export class AgentGamepad implements ControllerSource {
   }
   releaseCapture(resume = true): void {
     if (!this.capturing) return;
-    this.capturing = undefined;
+    this.capturing = undefined; this.stick.stop();
     const device = this.selected;
     if (!resume) { this.resumeActive = false; this.suspend(); return; }
     if (this.failed || !this.resumeActive || device === undefined) { this.resumeActive = false; this.events.emit('status', this.lastStatus); return; }
@@ -151,7 +168,9 @@ export class AgentGamepad implements ControllerSource {
     }
     if (event.type === 'axis') {
       // L2 drives push-to-talk; only the selected controller's trigger is reported, as a 0..1 value.
-      if (event.axis === 'left_trigger' && event.device === this.selected) this.events.emit('trigger', Math.max(0, event.value) / 32767);
+      if (event.device !== this.selected || this.failed) return;
+      if (event.axis === 'left_trigger') this.events.emit('trigger', Math.max(0, event.value) / 32767);
+      else this.stick.axis(event.axis, event.value);
       return;
     }
     if (event.type !== 'button') return;
@@ -179,10 +198,12 @@ export class AgentGamepad implements ControllerSource {
       }
       return;
     }
+    if (this.active && this.stick.button(event.button, event.down)) return;
     const key = terminalKeys[event.button];
     if (this.active && event.down && key) this.events.emit('keys', Buffer.from(key));
   }
   async stop(): Promise<void> {
+    this.stick.stop();
     this.generation++; this.failed = true; this.active = false; clearTimeout(this.armTimer); this.armTimer = undefined; this.events.emit('cancel');
     this.release?.(); this.release = undefined;
     const feed = this.feed; this.feed = undefined;

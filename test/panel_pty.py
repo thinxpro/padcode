@@ -356,6 +356,34 @@ def insert():
         no_popup(s); os.write(s.master, b'exit!'); finish(s, 23)
     finally: s.close()
 
+def sticks():
+    """Sticks and editing buttons reach the Agent as exact keys; inside the menu the stick navigates instead."""
+    s = Session('lines', extra={'PADCODE_EDITING': 'claude'})
+    try:
+        s.ready(); s.until(lambda: 'GAMEPAD ACTIVE' in s.panel())
+        s.until(lambda: 'HISTORY LINE 199' in s.agent())
+        def axis(name, value): s.event(dict(type='axis', device=1, axis=name, value=value))
+        expected = b''
+        for name, value, key in [('leftx', -32767, b'\x1b[D'), ('lefty', 32767, b'\x1b[B'), ('rightx', 32767, b'\x1b[1;5C'), ('righty', -32767, b'\x1b[H'), ('righty', 32767, b'\x1b[F')]:
+            axis(name, value); expected += key; s.until(lambda: s.received() == expected, message=f'{name} did not send its key')
+            axis(name, 0); s.quiet(.1)
+        for button, key in [('west', b'\x7f'), ('north', b'\x17'), ('left_stick', b'\x1b[3~'), ('right_stick', b'\x1f')]:
+            s.press(button); expected += key; s.until(lambda: s.received() == expected, message=f'{button} did not send its key')
+        axis('right_trigger', 32767); expected += b'\n'; s.until(lambda: s.received() == expected, message='R2 newline missing'); axis('right_trigger', 0)
+        # Holding the stick repeats; releasing stops.
+        axis('leftx', 32767); s.quiet(.9); axis('leftx', 0); s.quiet(.3)
+        moved = s.received()[len(expected):]
+        assert moved.count(b'\x1b[C') >= 5 and moved.replace(b'\x1b[C', b'') == b'', moved
+        expected = s.received(); s.quiet(.4); assert s.received() == expected, 'repeat continued after release'
+        # In the controls menu the left stick moves the selection and nothing reaches the Agent.
+        mark = len(s.output); s.press('start'); s.until(lambda: b'PADCODE CONTROLS' in s.output[mark:])
+        axis('lefty', 32767); s.quiet(.1); axis('lefty', 0); s.quiet(.2)
+        s.until(lambda: b'> [2] Pause gamepad mapping' in s.output[mark:], message='stick did not move the menu selection')
+        s.press('start'); s.until(lambda: 'GAMEPAD ACTIVE' in s.panel())
+        assert s.received() == expected, 'menu stick input reached the Agent'
+        no_popup(s); os.write(s.master, b'exit!'); finish(s, 23)
+    finally: s.close()
+
 def controls():
     """C3: the Options menu, pause, interrupt, history, popup keyboard and confirmed end session."""
     s = Session('lines')
@@ -416,5 +444,5 @@ def controls():
         assert s.received() == expected
     finally: s.close()
 
-for scenario in (normal, controls, voice, draft, insert, escape, terminate, crash, fallback): scenario()
-print('Panel PTY passed: controls menu, voice capture, voice drafts, voice insertion, exact keys, CPR, isolation, resize, history hold, worker respawn, exits, crash cleanup and fallback.')
+for scenario in (normal, controls, sticks, voice, draft, insert, escape, terminate, crash, fallback): scenario()
+print('Panel PTY passed: controls menu, sticks, voice capture, voice drafts, voice insertion, exact keys, CPR, isolation, resize, history hold, worker respawn, exits, crash cleanup and fallback.')

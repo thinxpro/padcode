@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { hostChannel } from './host-channel.js';
 import { createRequire } from 'node:module';
 import { readFileSync } from 'node:fs';
+import { basename } from 'node:path';
 import type { Readable, Writable } from 'node:stream';
 import type { IPty } from 'node-pty';
 import { loadConfig, resolveExecutable, type Config } from './config.js';
@@ -190,9 +191,11 @@ export async function launchConfigured(agent: Agent, controller: Config['control
   const trace = process.env.PADCODE_INPUT_TRACE === '1'
     ? (event: string, generation: number, device?: number) => { process.stderr.write(`PADCODE INPUT event=${event} generation=${generation}${device === undefined ? '' : ` device=${device}`}\n`); }
     : undefined;
+  // Claude Code gets its newline and undo keys on R2/R3; other Agents keep only universal editing keys.
+  const editing = basename(agent.command) === 'claude' ? 'claude' as const : 'basic' as const;
   const gamepad = handedOff ? new AgentGamepad(controller, {
-    factory: () => handedOff, feedStarted: true, automaticHandoff: true, ...(trace ? { trace } : {}),
-  }) : new AgentGamepad(controller, trace ? { trace } : {});
+    factory: () => handedOff, feedStarted: true, automaticHandoff: true, editing, ...(trace ? { trace } : {}),
+  }) : new AgentGamepad(controller, { editing, ...(trace ? { trace } : {}) });
   if (display.kind === 'panel') {
     try { return await runPanelAgent(agent, { tmux: display.tmux, gamepad, voice, audio: new NativeAudio() }); }
     catch (error) {
