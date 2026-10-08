@@ -1,6 +1,6 @@
 # Prebuilt packages: install on macOS without build tools
 
-Status: implemented in 0.1.0-rc.9; automated acceptance passes locally; manual acceptance M1–M2 pending with the maintainer, M3 needs hardware not available. This plan was committed before implementation.
+Status: implemented in 0.1.0-rc.9; automated acceptance passes locally; M1 passed (user-reported); M2 pending; M3 needs hardware not available. This plan was committed before implementation.
 
 ## Request
 
@@ -125,3 +125,9 @@ Plan commit: `31c27ac`. Environment: macOS 27.0.1, M4 Pro arm64, Xcode 27.0, CMa
 - P4: the install runs offline with install scripts enabled. `PATH` contains only `node` and `/bin`, and the test asserts that `cmake`, `cc`, `clang`, `xcrun`, `make` and `python3` are unreachable. From the installed copy, `--help`, `--version`, the virtual helper, both diagnostics, and the onboarding, Agent PTY and gamepad Agent PTY scenarios pass. The mismatch and missing-package messages print no stack trace.
 - P6 (added with the scope change): passes. A manual run with the Apple Development identity rebuilt helpers when the previous package was ad-hoc ("was signed by adhoc, now P7WKBU5DDV"). A second run reused the signed helpers ("reused P7WKBU5DDV signature").
 - Not run: x86_64 slices (no Rosetta or Intel Mac), macOS 13–26, a full Apple Development signed package (only the trial signing in the notes above).
+
+## Physical acceptance record
+
+- M1, user-reported on 2026-10-08: the maintainer installed the two local rc.9 tarballs globally and reported that testing passed with the DualShock 4 ("测试没问题"). The exact scenarios exercised were not itemised in the report.
+- M2: not yet run. Optional, before relying on certificate signing.
+- M3: not run (no Intel Mac, no macOS 13–15 machine).
