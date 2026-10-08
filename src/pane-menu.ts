@@ -2,6 +2,7 @@
 import { joinSession, type ToMenu } from './session-ipc.js';
 import { colorEnabled, safeLabel } from './ui.js';
 import { wrapText } from './text-width.js';
+import { renderControllerMap } from './controller-map.js';
 
 const path = process.env.PADCODE_IPC, session = process.env.PADCODE_SESSION;
 if (!path || !session) throw new Error('Controls popup requires its private session channel.');
@@ -16,7 +17,8 @@ const draw = () => {
   const rows = output.rows || 12;
   const bodyRoom = Math.max(1, rows - view.items.length - 6);
   // Draft text keeps its Unicode; only the menu chrome is ASCII.
-  const wrapped = view.body === undefined ? [] : wrapText(view.body, width);
+  // The controller map is drawn here from the profile; only two flags cross IPC.
+  const wrapped = view.map ? renderControllerMap(view.map, width, color) : view.body === undefined ? [] : wrapText(view.body, width);
   const body = wrapped.length > bodyRoom ? [...wrapped.slice(0, bodyRoom - 1), paint('\x1b[2;37m', fit(`... ${wrapped.length - bodyRoom + 1} more lines`))] : wrapped;
   const lines = [paint('\x1b[1;96m', fit(view.title)), '', ...body, ...(body.length ? [''] : []),
     ...view.items.map((item, index) => index === view!.selected ? paint('\x1b[1;95m', fit(`> [${index + 1}] ${item}`)) : fit(`  [${index + 1}] ${item}`)),

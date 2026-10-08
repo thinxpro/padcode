@@ -1,10 +1,10 @@
 import type { Button } from './protocol.js';
 
 // Routes captured controller presses and popup keys through the Padcode session contexts.
-export type Context = 'agent' | 'menu' | 'confirm' | 'history' | 'draft';
+export type Context = 'agent' | 'menu' | 'confirm' | 'history' | 'draft' | 'map';
 export type HistoryCommand = 'enter' | 'up' | 'down' | 'page-up' | 'page-down' | 'exit';
 export type MenuKey = 'up' | 'down' | 'confirm' | 'back';
-export interface MenuView { title: string; items: string[]; selected: number; hint: string; body?: string }
+export interface MenuView { title: string; items: string[]; selected: number; hint: string; body?: string; map?: { claude: boolean; voice: boolean } }
 export interface ControlEffects {
   capture(handler: (button: Button) => void, status: string): void;
   release(resume: boolean): void;
@@ -19,9 +19,10 @@ export interface ControlEffects {
   insert?(text: string): void;
   canUndo?(): boolean;
   undo?(rerecord: boolean): void;
+  mapProfile?(): { claude: boolean; voice: boolean };
 }
-export const menuItems = ['Resume Agent controls', 'Pause gamepad mapping', 'Browse history', 'Send interrupt (Esc)', 'Clear input', 'End session...'];
-const menuIds = ['resume', 'pause', 'history', 'interrupt', 'clear', 'end'] as const;
+export const menuItems = ['Resume Agent controls', 'Pause gamepad mapping', 'Browse history', 'Send interrupt (Esc)', 'Clear input', 'Controller map', 'End session...'];
+const menuIds = ['resume', 'pause', 'history', 'interrupt', 'clear', 'map', 'end'] as const;
 type MenuId = typeof menuIds[number] | 'play' | 'draft' | 'undo' | 'rerecord';
 export const draftItems = ['Insert into Agent', 'Keep draft', 'Rerecord', 'Discard'];
 export const confirmItems = ['Keep the session running', 'End the Agent session'];
@@ -30,6 +31,7 @@ const statuses = {
   confirm: 'END SESSION? / X confirm, O back',
   history: 'HISTORY / D-pad scroll, L1/R1 page, O exit',
   draft: 'VOICE DRAFT / X choose, O keep',
+  map: 'CONTROLLER MAP / O back, X or Options close',
 };
 const keyFor: Partial<Record<Button, MenuKey>> = { dpad_up: 'up', dpad_down: 'down', south: 'confirm', east: 'back' };
 
@@ -51,12 +53,13 @@ export class SessionControls {
   }
   private endIndex(): number { return this.entries().findIndex(entry => entry.id === 'end'); }
   private view(): MenuView {
+    if (this.context === 'map') return { title: 'CONTROLLER MAP / DUALSHOCK 4', items: ['Back to menu'], selected: 0, hint: 'O / Esc back   X / Options close', map: this.fx.mapProfile?.() ?? { claude: false, voice: false } };
     if (this.context === 'draft') return { title: 'VOICE DRAFT', items: draftItems, selected: this.selected, hint: 'X / Enter choose   O / Esc keep draft', body: this.draftText ?? '' };
     return this.context === 'confirm'
       ? { title: 'END SESSION?', items: confirmItems, selected: this.selected, hint: 'X / Enter confirm   O / Esc back' }
       : { title: 'PADCODE CONTROLS', items: this.entries().map(entry => entry.label), selected: this.selected, hint: 'X / Enter confirm   O / Esc close' };
   }
-  private enter(context: 'menu' | 'confirm' | 'history' | 'draft', selected = 0): void {
+  private enter(context: 'menu' | 'confirm' | 'history' | 'draft' | 'map', selected = 0): void {
     this.context = context; this.selected = selected;
     this.fx.capture(button => this.button(button), statuses[context]);
     this.fx.showMenu(context === 'history' ? null : this.view());
@@ -83,6 +86,8 @@ export class SessionControls {
     if (key) this.key(key);
   }
   key(key: MenuKey, index?: number): void {
+    // The map has one row: O returns to the menu on the map item, X closes everything.
+    if (this.context === 'map') { if (key === 'back') this.enter('menu', this.entries().findIndex(entry => entry.id === 'map')); else if (key === 'confirm') this.close(); return; }
     if (this.context !== 'menu' && this.context !== 'confirm' && this.context !== 'draft') return;
     const items = this.context === 'menu' ? this.entries() : this.context === 'draft' ? draftItems : confirmItems;
     if (index !== undefined) { if (index < 0 || index >= items.length) return; this.selected = index; key = 'confirm'; }
@@ -109,6 +114,7 @@ export class SessionControls {
     else if (id === 'history') { this.enter('history'); this.fx.history('enter'); }
     else if (id === 'interrupt') { this.fx.interrupt(); this.close(); }
     else if (id === 'clear') { this.fx.clear?.(); this.close(); }
+    else if (id === 'map') this.enter('map');
     else if (id === 'play') { this.close(); this.fx.play?.(); }
     else if (id === 'draft') this.enter('draft');
     else if (id === 'undo' || id === 'rerecord') { this.close(); this.fx.undo?.(id === 'rerecord'); }

@@ -9,7 +9,7 @@ export type ToAgent = { t: 'launch'; launch: Launch } | { t: 'keys'; data: strin
   | { t: 'paste-part'; text: string } | { t: 'paste-end' } | { t: 'undo'; count: number };
 export type FromAgent = { t: 'exit'; code: number } | { t: 'undo-result'; ok: boolean; reason: string };
 export type ToPanel = { t: 'status'; text: string } | { t: 'notice'; text: string };
-export type ToMenu = { t: 'menu'; title: string; items: string[]; selected: number; hint: string; body?: string } | { t: 'close' };
+export type ToMenu = { t: 'menu'; title: string; items: string[]; selected: number; hint: string; body?: string; map?: { claude: boolean; voice: boolean } } | { t: 'close' };
 export type FromMenu = { t: 'action'; name: 'up' | 'down' | 'confirm' | 'back' } | { t: 'action'; name: 'pick'; index: number };
 export const maxLine = 4096;
 const maxKeys = 64;
@@ -72,19 +72,22 @@ export function parseToPanel(line: string): ToPanel {
 export function parseToMenu(line: string): ToMenu {
   const value = decode(line);
   if (value.t === 'close' && exact(value, ['t'])) return { t: 'close' };
-  const body = value.body;
-  if (value.t === 'menu' && (exact(value, ['t', 'title', 'items', 'selected', 'hint']) || (exact(value, ['t', 'title', 'items', 'selected', 'hint', 'body']) && text(body, 3000) && !/[\x00-\x09\x0b-\x1f\x7f-\x9f]/.test(body as string)))
+  const body = value.body, map = value.map;
+  const validMap = plain(map) && exact(map, ['claude', 'voice']) && typeof map.claude === 'boolean' && typeof map.voice === 'boolean';
+  if (value.t === 'menu' && (exact(value, ['t', 'title', 'items', 'selected', 'hint']) || (exact(value, ['t', 'title', 'items', 'selected', 'hint', 'body']) && text(body, 3000) && !/[\x00-\x09\x0b-\x1f\x7f-\x9f]/.test(body as string))
+      || (exact(value, ['t', 'title', 'items', 'selected', 'hint', 'map']) && validMap))
     && text(value.title, 64) && text(value.hint, 128)
-    && Array.isArray(value.items) && value.items.length >= 1 && value.items.length <= 9 && value.items.every(item => text(item, 64))
+    && Array.isArray(value.items) && value.items.length >= 1 && value.items.length <= 16 && value.items.every(item => text(item, 64))
     && Number.isInteger(value.selected) && (value.selected as number) >= 0 && (value.selected as number) < value.items.length) {
-    return { t: 'menu', title: value.title, items: [...value.items] as string[], selected: value.selected as number, hint: value.hint, ...(typeof body === 'string' ? { body } : {}) };
+    return { t: 'menu', title: value.title, items: [...value.items] as string[], selected: value.selected as number, hint: value.hint, ...(typeof body === 'string' ? { body } : {}),
+      ...(validMap ? { map: { claude: (map as { claude: boolean }).claude, voice: (map as { voice: boolean }).voice } } : {}) };
   }
   throw new Error('Invalid coordinator message for the menu popup.');
 }
 export function parseFromMenu(line: string): FromMenu {
   const value = decode(line);
   if (value.t === 'action' && exact(value, ['t', 'name']) && ['up', 'down', 'confirm', 'back'].includes(value.name as string)) return { t: 'action', name: value.name as 'up' };
-  if (value.t === 'action' && exact(value, ['t', 'name', 'index']) && value.name === 'pick' && Number.isInteger(value.index) && (value.index as number) >= 0 && (value.index as number) < 9) return { t: 'action', name: 'pick', index: value.index as number };
+  if (value.t === 'action' && exact(value, ['t', 'name', 'index']) && value.name === 'pick' && Number.isInteger(value.index) && (value.index as number) >= 0 && (value.index as number) < 16) return { t: 'action', name: 'pick', index: value.index as number };
   throw new Error('Invalid menu popup message.');
 }
 
