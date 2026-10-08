@@ -1,6 +1,6 @@
 # Fix: Bluetooth permission reported as "off or unavailable"
 
-Status: planned. This plan, its acceptance criteria and test matrix are committed before implementation.
+Status: implemented; automated acceptance passes locally, physical acceptance H1-H4 pending. This plan, its acceptance criteria and test matrix were committed before implementation.
 
 Independent of the UI overhaul stack (PRs #25-#27); branched from `main`.
 
@@ -44,6 +44,19 @@ Automated tests cannot show a real macOS consent prompt; they do not count as pe
 
 The PR stays draft until the maintainer reports H1-H4.
 
+## Implementation notes
+
+- `native/authorization.h` holds the decision (`padcodeAuthorizationOutcome`) as a header-only C function with Padcode's own enum, so `test/fixtures/authorization-harness.c` compiles with plain `cc` and needs no CoreBluetooth, radio or prompt.
+- The request uses a `CBCentralManager` with `CBCentralManagerOptionShowPowerAlertKey: NO` and polls `CBManager.authorization` every 100 ms for up to 20 seconds; SIGINT/SIGTERM or the parent exiting ends the wait as `cancelled`.
+- The consent check runs after `diagnose-permission` returns, so the diagnostic still never touches Bluetooth or shows a prompt.
+- The automated suite did not run `status` on the new helper: that would show a real consent prompt on the maintainer's screen. That is H1, left to the maintainer.
+
 ## Validation record
 
-Pending.
+Plan commit: `d93a4ea`. On macOS 27.0.1 arm64 with Node 24.21.0, `npm run check` passed 157 tests with zero failures or skips (the native helpers were rebuilt as part of the gate). CI is disabled by the maintainer's decision, so Linux was not exercised.
+
+- P1: `test/bluetooth.test.mjs` compiles the decision harness and checks all 16 combinations.
+- P2: existing usage, permission-ownership and `diagnose-permission` tests pass; the rebuilt helper's `diagnose-permission` returned `ok:true, selfResponsible:true, usageDescription:true`.
+- P3: `permission-pending` and `permission` messages reach setup verbatim as `LINK NOT READY`, followed by the Retry / USB / later recovery menu, and never as "off or unavailable".
+
+Physical acceptance H1-H4 is pending.
