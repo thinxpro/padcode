@@ -4,7 +4,7 @@ Control your own AI coding agent with a gamepad.
 
 Padcode is a local developer tool designed for terminal installation. You choose your terminal, project, agent and accounts. Padcode provides controller input, key mapping, terminal session bridging and optional agent integrations.
 
-**Current status: private release candidate `0.1.0-rc.6` for macOS.** The full controller flow works end to end with a user-provided Agent (tested with Claude Code): Bluetooth setup, controller-operated menus, launching the Agent with automatic controller handoff, a tmux controls pane with an Options menu, and opt-in voice dictation that types into the Agent's input. Each stage's automated tests pass; physical acceptance so far rests on the maintainer's reports recorded in [`docs/stages`](docs/stages). npm publication, Developer ID signing and Linux/Windows controller support are not done. Padcode is a provisional name.
+**Current status: private release candidate `0.1.0-rc.7` for macOS.** The full controller flow works end to end with a user-provided Agent (tested with Claude Code): Bluetooth setup, controller-operated menus, launching the Agent with automatic controller handoff, a tmux controls pane with an Options menu, and opt-in voice dictation that types into the Agent's input. Each stage's automated tests pass; physical acceptance so far rests on the maintainer's reports recorded in [`docs/stages`](docs/stages). npm publication, Developer ID signing and Linux/Windows controller support are not done. Padcode is a provisional name.
 
 ## What you can do with a controller
 
@@ -45,7 +45,7 @@ After building and testing locally, create a package for the current platform. N
 ```sh
 mkdir -p artifacts
 npm pack --ignore-scripts --pack-destination artifacts
-npm install -g ./artifacts/padcode-0.1.0-rc.6.tgz
+npm install -g ./artifacts/padcode-0.1.0-rc.7.tgz
 padcode
 ```
 

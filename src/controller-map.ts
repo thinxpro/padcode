@@ -30,9 +30,6 @@ const frame = [
 ];
 const labels = /\(TRI\)|\(SQ\)|\(O\)|\(X\)|\( L3 \)|\( R3 \)|SHARE|OPTIONS|TOUCHPAD|D-PAD|L STICK|R STICK/g;
 function wide(profile: MapProfile): Segment[][] {
-  const a = actions(profile);
-  const top = (left: string, leftText: string, right: string, rightText: string): Segment[] =>
-    [['label', ` ${left} `], ['text', pad(leftText, 34)], ['label', ` ${right} `], ['text', rightText]];
   const art = frame.map(line => {
     const segments: Segment[] = []; let at = 0;
     for (const match of line.matchAll(labels)) {
@@ -42,7 +39,13 @@ function wide(profile: MapProfile): Segment[][] {
     if (at < line.length) segments.push(['art', line.slice(at)]);
     return segments;
   });
-  return [top('[L2]', a.l2, '[R2]', a.r2), top('[L1]', 'Tab', '[R1]', 'Shift+Tab (mode)'), ...art, [], ...legend(profile, 40)];
+  return [...shoulders(profile), ...art, ...legend(profile, 40)];
+}
+function shoulders(profile: MapProfile): Segment[][] {
+  const a = actions(profile);
+  const top = (left: string, leftText: string, right: string, rightText: string): Segment[] =>
+    [['label', ` ${left} `], ['text', pad(leftText, 34)], ['label', ` ${right} `], ['text', rightText]];
+  return [top('[L2]', a.l2, '[R2]', a.r2), top('[L1]', 'Tab', '[R1]', 'Shift+Tab (mode)')];
 }
 function legend(profile: MapProfile, column: number): Segment[][] {
   const a = actions(profile);
@@ -77,9 +80,10 @@ function narrow(profile: MapProfile): Segment[][] {
   ];
   return rows.map(([key, action]) => [['label', ` ${pad(key, 8)}`], ['text', action]]);
 }
-export const mapWidth = 78;
-export function renderControllerMap(profile: MapProfile, width: number, color: boolean): string[] {
-  const rows = width >= mapWidth ? wide(profile) : narrow(profile);
+export const mapWidth = 78, drawingHeight = 15, compactHeight = 8;
+// Picks the richest layout that fits: the drawing, then a two-column legend, then a single list.
+export function renderControllerMap(profile: MapProfile, width: number, color: boolean, height = Infinity): string[] {
+  const rows = width < mapWidth ? narrow(profile) : height >= drawingHeight ? wide(profile) : [...shoulders(profile), ...legend(profile, 40)];
   return rows.map(segments => {
     let used = 0, line = '';
     for (const [kind, text] of segments) {

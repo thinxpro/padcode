@@ -22,6 +22,23 @@ test('A1 controller map: every control, both profiles, voice states, widths and 
   assert.equal(new Set(frame.map(line => line.length)).size, 1, frame.join('\n'));
 });
 
+test('the map picks the layout that fits the popup height, so nothing is cut off', () => {
+  const profile = { claude: true, voice: true };
+  assert.equal(renderControllerMap(profile, mapWidth, false).length, 15);
+  assert.equal(renderControllerMap(profile, mapWidth, false, 15).length, 15);
+  const compact = renderControllerMap(profile, mapWidth, false, 14);
+  assert.equal(compact.length, 8); assert.ok(!compact.join('\n').includes('TOUCHPAD')); assert.ok(compact.join('\n').includes('Backspace'));
+  assert.equal(renderControllerMap(profile, 60, false, 30).length, 14);
+  // Coordinator sizing (map lines + 5) gives the popup exactly the rows its layout needs, for any terminal height.
+  // From 15 terminal rows the compact legend fits; smaller terminals show a "more lines" indicator instead.
+  for (let rows = 15; rows <= 40; rows++) {
+    const most = Math.max(8, rows - 2), lines = renderControllerMap(profile, mapWidth, false, most - 5).length;
+    const height = Math.min(most, lines + 5), available = height - 2 - 3;
+    assert.equal(renderControllerMap(profile, mapWidth, false, available).length, lines, `rows ${rows}`);
+    assert.ok(lines <= available, `rows ${rows}: ${lines} lines in ${available}`);
+  }
+});
+
 test('A2 map context: open from the menu, O back to the map item, X/Options close, keyboard picks', () => {
   const calls = []; let handler;
   const controls = new SessionControls({

@@ -151,8 +151,12 @@ export async function runPanelAgent(agent: Agent, options: PanelOptions): Promis
       const shell = (text: string) => `'${text.replace(/'/g, `'\\''`)}'`;
       popupKind = kindOf(view);
       const width = popupKind === 'map' ? Math.min(mapWidth + 4, Math.max(30, cols - 2)) : popupKind === 'body' ? Math.min(72, Math.max(30, cols - 4)) : 46;
-      const bodyLines = popupKind === 'map' ? renderControllerMap(view.map!, width - 4, false).length + 1 : popupKind === 'body' ? wrapText(view.body!, width - 4).length + 1 : 0;
-      const height = Math.min(Math.max(8, rows - 2), view.items.length + 6 + bodyLines);
+      // Height mirrors the popup's own layout: 2 border rows, plus title/map/blank/hint for the map,
+      // or title/blank/body/blank/items/blank/hint for menus and drafts.
+      const most = Math.max(8, rows - 2);
+      const height = popupKind === 'map'
+        ? Math.min(most, renderControllerMap(view.map!, width - 4, false, most - 5).length + 5)
+        : Math.min(most, view.items.length + 6 + (popupKind === 'body' ? wrapText(view.body!, width - 4).length + 1 : 0));
       popup = spawn(tmux.binary, tmux.args(['display-popup', '-c', name, '-E', '-w', String(width), '-h', String(height), '-x', 'C', '-y', 'C', `${shell(node)} ${shell(paneMenu)}`]), { stdio: 'ignore', env: clientEnv(env) });
       popup.on('error', () => {});
       popup.on('close', () => {

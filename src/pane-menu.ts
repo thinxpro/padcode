@@ -15,10 +15,18 @@ const draw = () => {
   const width = Math.max(10, (output.columns || 40) - 2);
   const fit = (text: string) => safeLabel(text).slice(0, width);
   const rows = output.rows || 12;
-  const bodyRoom = Math.max(1, rows - view.items.length - 6);
+  // The controller map shows no item list (its hint says how to leave): title, map, blank, hint.
+  if (view.map) {
+    const map = renderControllerMap(view.map, width, color, Math.max(1, rows - 3));
+    const shown = map.length > rows - 3 ? [...map.slice(0, Math.max(0, rows - 4)), paint('\x1b[2;37m', fit(`... ${map.length - rows + 4} more lines`))] : map;
+    const lines = [paint('\x1b[1;96m', fit(view.title)), ...shown, '', paint('\x1b[2;37m', fit(view.hint))];
+    output.write(`\x1b[?25l\x1b[H${lines.map(line => ` ${line}\x1b[K`).join('\r\n')}\x1b[J`);
+    return;
+  }
+  // Title, blank, body, blank, items, blank, hint: five rows besides the body and items.
+  const bodyRoom = Math.max(1, rows - view.items.length - 5);
   // Draft text keeps its Unicode; only the menu chrome is ASCII.
-  // The controller map is drawn here from the profile; only two flags cross IPC.
-  const wrapped = view.map ? renderControllerMap(view.map, width, color) : view.body === undefined ? [] : wrapText(view.body, width);
+  const wrapped = view.body === undefined ? [] : wrapText(view.body, width);
   const body = wrapped.length > bodyRoom ? [...wrapped.slice(0, bodyRoom - 1), paint('\x1b[2;37m', fit(`... ${wrapped.length - bodyRoom + 1} more lines`))] : wrapped;
   const lines = [paint('\x1b[1;96m', fit(view.title)), '', ...body, ...(body.length ? [''] : []),
     ...view.items.map((item, index) => index === view!.selected ? paint('\x1b[1;95m', fit(`> [${index + 1}] ${item}`)) : fit(`  [${index + 1}] ${item}`)),

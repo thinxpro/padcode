@@ -36,3 +36,11 @@ Plan commit: `8983c36`. `npm run check` passed 142 tests with zero failures or s
 - A3: `test/panel_pty.py` `controls()` opens Controller map in real tmux, sees the drawing (TOUCHPAD, L STICK), returns with O and confirms nothing reached the Agent.
 
 Artifact `padcode-0.1.0-rc.6.tgz`, npm SHA-1 `1269ec2eea6d0b0b920b5a1307bcc5ae56ad1eec`. H1 is pending.
+
+### Map cut off ("2 more lines"), 0.1.0-rc.7
+
+User report (2026-10-08): the Controller map popup showed "... 2 more lines" and the end of the map was not visible. Causes: (1) the popup worker reserved one row more for its chrome than the coordinator used when sizing the popup, so any body lost one line (drafts too); (2) the full drawing with its item list needs about 22 rows, more than the user's terminal offered. Fix: the map view drops the redundant "Back to menu" item (the hint says O goes back), worker and coordinator now use the same layout arithmetic, and the map picks the richest layout that fits: the drawing (15 lines) when there is room, otherwise the two-column legend (8 lines), and a single list in narrow popups. Tests: a renderer test proves that for every terminal height from 15 to 40 rows the coordinator's popup leaves exactly the rows the chosen layout needs; `panel_pty.py` `short_map()` opens the map in a 20-row terminal and sees the complete compact legend with no "more lines".
+
+Test infrastructure: `npm test` and `npm run test:coverage` now load `test/no-child-coverage.mjs` with `--import`, so child processes started by the code under test (fake helpers and transcribers that tests kill on purpose) no longer inherit `NODE_V8_COVERAGE` and cannot leave truncated coverage files, which had failed the gate once more after all tests passed. Consequence: line coverage reported for `dist/**` falls from about 97% to about 76%, because code that only runs in those child processes (the tmux pane bridge and workers) is no longer counted; the tests themselves are unchanged and there is no coverage threshold.
+
+`npm run check` passed 143 tests with zero failures or skips. Artifact `padcode-0.1.0-rc.7.tgz`, npm SHA-1 `e4dec1fd260956811fb63caaa4b61d12a52124d6`.

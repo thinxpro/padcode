@@ -384,6 +384,20 @@ def sticks():
         no_popup(s); os.write(s.master, b'exit!'); finish(s, 23)
     finally: s.close()
 
+def short_map():
+    """In a short terminal the controller map switches to its compact legend instead of cutting lines off."""
+    s = Session('lines', rows=20)
+    try:
+        s.ready(); s.until(lambda: 'GAMEPAD ACTIVE' in s.panel())
+        mark = len(s.output); s.press('start'); s.until(lambda: b'PADCODE CONTROLS' in s.output[mark:])
+        for _ in range(5): s.press('dpad_down'); s.quiet(.05)
+        mark = len(s.output); s.press('south'); s.until(lambda: 'CONTROLLER MAP' in s.panel())
+        s.until(lambda: b'Delete word, hold' in s.output[mark:] and b'Ends the session' in s.output[mark:], message='compact map incomplete')
+        s.quiet(.3); assert b'more lines' not in s.output[mark:], 'map cut off in a short terminal'
+        s.press('start'); s.until(lambda: 'GAMEPAD ACTIVE' in s.panel())
+        no_popup(s); os.write(s.master, b'exit!'); finish(s, 23)
+    finally: s.close()
+
 def controls():
     """C3: the Options menu, pause, interrupt, history, popup keyboard and confirmed end session."""
     s = Session('lines')
@@ -447,5 +461,5 @@ def controls():
         assert s.received() == expected
     finally: s.close()
 
-for scenario in (normal, controls, sticks, voice, draft, insert, escape, terminate, crash, fallback): scenario()
+for scenario in (normal, controls, sticks, short_map, voice, draft, insert, escape, terminate, crash, fallback): scenario()
 print('Panel PTY passed: controls menu, sticks, voice capture, voice drafts, voice insertion, exact keys, CPR, isolation, resize, history hold, worker respawn, exits, crash cleanup and fallback.')
