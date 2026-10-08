@@ -13,6 +13,8 @@ import { SessionControls, type HistoryCommand, type MenuView } from './session-c
 import { removeStaleVoice, voiceDirectory, VoiceCapture } from './voice-session.js';
 import type { AudioPort } from './audio.js';
 import { previewText, wrapText } from './text-width.js';
+import { basename } from 'node:path';
+import { mapWidth, renderControllerMap } from './controller-map.js';
 import { clientEnv, ControlClient, PrivateTmux } from './tmux.js';
 
 type Agent = NonNullable<Config['agent']>;
@@ -123,7 +125,8 @@ export async function runPanelAgent(agent: Agent, options: PanelOptions): Promis
     let signalled: number | undefined;
     const terminate = (code: number) => { signalled ??= code; try { process.kill(Number(agentPid), 'SIGTERM'); } catch { /* Already gone. */ } };
     // The controls popup is drawn over the Agent pane, so the Agent is neither resized nor overwritten.
-    let popup: ChildProcess | undefined, menuView: MenuView | null = null, closingPopup = false, popupBody = false;
+    let popup: ChildProcess | undefined, menuView: MenuView | null = null, closingPopup = false, popupKind = 'menu';
+    const kindOf = (view: MenuView) => view.map ? 'map' : view.body !== undefined ? 'body' : 'menu';
     // Draft previews are bounded so every popup message fits one IPC line; the full draft stays here.
     const sendView = (view: MenuView) => ({ ...view, ...(view.body === undefined ? {} : { body: previewText(view.body) }) });
     // The menu can close or change while tmux is queried, so the view is read again after every await,
@@ -146,10 +149,14 @@ export async function runPanelAgent(agent: Agent, options: PanelOptions): Promis
     };
     const spawnPopup = (name: string, view: MenuView, cols: number, rows: number) => {
       const shell = (text: string) => `'${text.replace(/'/g, `'\\''`)}'`;
-      popupBody = view.body !== undefined;
-      const width = popupBody ? Math.min(72, Math.max(30, cols - 4)) : 46;
-      const bodyLines = popupBody ? wrapText(view.body!, width - 4).length + 1 : 0;
-      const height = Math.min(Math.max(8, rows - 2), view.items.length + 6 + bodyLines);
+      popupKind = kindOf(view);
+      const width = popupKind === 'map' ? Math.min(mapWidth + 4, Math.max(30, cols - 2)) : popupKind === 'body' ? Math.min(72, Math.max(30, cols - 4)) : 46;
+      // Height mirrors the popup's own layout: 2 border rows, plus title/map/blank/hint for the map,
+      // or title/blank/body/blank/items/blank/hint for menus and drafts.
+      const most = Math.max(8, rows - 2);
+      const height = popupKind === 'map'
+        ? Math.min(most, renderControllerMap(view.map!, width - 4, false, most - 5).length + 5)
+        : Math.min(most, view.items.length + 6 + (popupKind === 'body' ? wrapText(view.body!, width - 4).length + 1 : 0));
       popup = spawn(tmux.binary, tmux.args(['display-popup', '-c', name, '-E', '-w', String(width), '-h', String(height), '-x', 'C', '-y', 'C', `${shell(node)} ${shell(paneMenu)}`]), { stdio: 'ignore', env: clientEnv(env) });
       popup.on('error', () => {});
       popup.on('close', () => {
@@ -162,7 +169,7 @@ export async function runPanelAgent(agent: Agent, options: PanelOptions): Promis
     const showMenu = (view: MenuView | null) => {
       menuView = view;
       if (!view) { if (popup) { closingPopup = true; ipc.send('menu', { t: 'close' }); } return; }
-      if (popup && !closingPopup && (view.body !== undefined) !== popupBody) { closingPopup = true; ipc.send('menu', { t: 'close' }); return; }
+      if (popup && !closingPopup && kindOf(view) !== popupKind) { closingPopup = true; ipc.send('menu', { t: 'close' }); return; }
       if (popup && !closingPopup) ipc.send('menu', { t: 'menu', ...sendView(view) }); else openPopup();
     };
     ipc.on('connect', role => { if (role === 'menu') ipc.send('menu', menuView && !closingPopup ? { t: 'menu', ...sendView(menuView) } : { t: 'close' }); });
@@ -211,6 +218,7 @@ export async function runPanelAgent(agent: Agent, options: PanelOptions): Promis
       undo: rerecord => { if (inserted === undefined) return; undoRerecord = rerecord; ipc.send('agent', { t: 'undo', count: inserted }); },
       hasRecording: () => Boolean(voice?.last),
       notice: text => ipc.send('panel', { t: 'notice', text }),
+      mapProfile: () => ({ claude: basename(agent.command) === 'claude', voice: Boolean(voice) }),
       play: () => voice?.play(),
       capture: (handler, status) => gamepad?.capture(handler, status),
       release: resume => gamepad?.releaseCapture(resume),

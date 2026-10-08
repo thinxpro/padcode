@@ -148,6 +148,7 @@ In the controls pane (tmux) mode, **Options** opens the Padcode controls menu ov
 | Pause gamepad mapping | Stop sending controller keys; press Options to resume |
 | Browse history | D-pad scrolls one line, L1/R1 page up/down, O or Options leaves |
 | Send interrupt (Esc) | Send one Esc to the Agent, which stops the running task in Claude Code |
+| Controller map | Show a drawing of the controller with what every button does in this session (O returns, X or Options closes) |
 | Clear input | Send Ctrl+E Ctrl+U, which empties a one-line input in Claude Code and other readline-style prompts; other lines of a multi-line input may remain |
 | End session... | Asks again; "End the Agent session" ends it and returns to Player Hub |
 

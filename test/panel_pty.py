@@ -235,7 +235,7 @@ def voice():
         # Options > Play last recording (inserted before End session).
         mark = len(s.output); s.press('start')
         s.until(lambda: b'Play last recording' in s.output[mark:], message='play item missing')
-        for _ in range(5): s.press('dpad_down'); s.quiet(.05)
+        for _ in range(6): s.press('dpad_down'); s.quiet(.05)
         s.press('south'); s.until(lambda: 'PLAYING' in s.panel()); active()
         s.until(lambda: os.path.exists(play_log) and open(play_log).read().strip().endswith(recordings[0]))
         # A new recording replaces the previous file; O cancels and keeps none.
@@ -273,7 +273,7 @@ def draft():
         assert s.received() == b'', 'draft review wrote to the Agent'
         mark = len(s.output); s.press('start')
         s.until(lambda: b'Review voice draft' in s.output[mark:], message='menu lacks Review voice draft')
-        for _ in range(5): s.press('dpad_down'); s.quiet(.05)
+        for _ in range(6): s.press('dpad_down'); s.quiet(.05)
         mark = len(s.output); s.press('south')
         s.until(lambda: 'VOICE DRAFT' in s.panel() and '帮我修复'.encode() in s.output[mark:])
         os.write(s.master, b'3'); s.until(lambda: 'DRAFT DISCARDED' in s.panel()); active()   # Popup keyboard: 3 = Discard.
@@ -384,6 +384,20 @@ def sticks():
         no_popup(s); os.write(s.master, b'exit!'); finish(s, 23)
     finally: s.close()
 
+def short_map():
+    """In a short terminal the controller map switches to its compact legend instead of cutting lines off."""
+    s = Session('lines', rows=20)
+    try:
+        s.ready(); s.until(lambda: 'GAMEPAD ACTIVE' in s.panel())
+        mark = len(s.output); s.press('start'); s.until(lambda: b'PADCODE CONTROLS' in s.output[mark:])
+        for _ in range(5): s.press('dpad_down'); s.quiet(.05)
+        mark = len(s.output); s.press('south'); s.until(lambda: 'CONTROLLER MAP' in s.panel())
+        s.until(lambda: b'Delete word, hold' in s.output[mark:] and b'Ends the session' in s.output[mark:], message='compact map incomplete')
+        s.quiet(.3); assert b'more lines' not in s.output[mark:], 'map cut off in a short terminal'
+        s.press('start'); s.until(lambda: 'GAMEPAD ACTIVE' in s.panel())
+        no_popup(s); os.write(s.master, b'exit!'); finish(s, 23)
+    finally: s.close()
+
 def controls():
     """C3: the Options menu, pause, interrupt, history, popup keyboard and confirmed end session."""
     s = Session('lines')
@@ -435,14 +449,17 @@ def controls():
         s.press('south'); s.quiet(.3); assert s.received() == expected
         s.press('start'); active()
         # C3-A4: End session needs the confirmation; the default keeps the session running.
-        choose(5); s.until(lambda: 'END SESSION?' in s.panel()); s.press('south'); s.until(lambda: 'MENU' in s.panel())
+        choose(6); s.until(lambda: 'END SESSION?' in s.panel()); s.press('south'); s.until(lambda: 'MENU' in s.panel())
         s.press('east'); active(); assert s.proc.poll() is None
         # Clear input sends exactly Ctrl+E Ctrl+U.
         choose(4); expected += b'\x05\x15'; s.until(lambda: s.received() == expected); active()
-        choose(5); s.until(lambda: 'END SESSION?' in s.panel()); s.press('dpad_down'); s.quiet(.05); s.press('south')
+        # Controller map: the drawing appears, O returns to the menu, nothing reaches the Agent.
+        mark = len(s.output); choose(5); s.until(lambda: 'CONTROLLER MAP' in s.panel()); s.until(lambda: b'TOUCHPAD' in s.output[mark:] and b'L STICK' in s.output[mark:], message='controller map not drawn')
+        s.press('east'); s.until(lambda: 'GAMEPAD MENU' in s.panel()); s.press('start'); active(); assert s.received() == expected
+        choose(6); s.until(lambda: 'END SESSION?' in s.panel()); s.press('dpad_down'); s.quiet(.05); s.press('south')
         finish(s, 130)
         assert s.received() == expected
     finally: s.close()
 
-for scenario in (normal, controls, sticks, voice, draft, insert, escape, terminate, crash, fallback): scenario()
+for scenario in (normal, controls, sticks, short_map, voice, draft, insert, escape, terminate, crash, fallback): scenario()
 print('Panel PTY passed: controls menu, sticks, voice capture, voice drafts, voice insertion, exact keys, CPR, isolation, resize, history hold, worker respawn, exits, crash cleanup and fallback.')
