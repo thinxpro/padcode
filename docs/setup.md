@@ -1,6 +1,6 @@
 # Terminal setup guide
 
-The intended flow is npm installation → `padcode` → terminal configuration. Local development tarballs are installable; npm registry publication has not started.
+The intended flow is npm installation → `padcode` → terminal configuration. Local prebuilt tarballs (`npm run package`) install without build tools; npm registry publication has not started.
 
 ## First launch
 
@@ -47,7 +47,7 @@ If discovery finds no device, re-enter Share + PS pairing mode and scan again. I
 
 `dev.1` may show `Helper stopped (SIGABRT)` under Warp: macOS attributes privacy access to a host terminal without a Bluetooth usage declaration. Before Bluetooth access, `dev.2` establishes the helper's own permission identity and checks its usage metadata. Normal user consent remains required; the tool does not modify Warp, the permission database or radio settings.
 
-This compatibility layer resolves private macOS responsibility APIs at runtime. Future OS versions may not support them. Missing APIs or failed ownership checks return a terminal error before Bluetooth access. The helper keeps the same PID, preserving timeout and Ctrl+C handling. Run `build/native/padcode-bluetooth diagnose-permission` from the installed package directory for a no-radio ownership diagnostic; it is not a physical pairing test.
+This compatibility layer resolves private macOS responsibility APIs at runtime. Future OS versions may not support them. Missing APIs or failed ownership checks return a terminal error before Bluetooth access. The helper keeps the same PID, preserving timeout and Ctrl+C handling. Run `padcode-darwin/bin/padcode-bluetooth diagnose-permission` from the installed `node_modules` directory (`build/native/` in a development checkout) for a no-radio ownership diagnostic; it is not a physical pairing test.
 
 ### Incomplete Bluetooth scans (dev.3)
 
@@ -55,7 +55,7 @@ Scanning now disables remote name updates and lists only devices returned by the
 
 macOS can delay, fail or omit the inquiry-completion callback. After a 20-second inquiry deadline, devices already found remain selectable with a SCAN INCOMPLETE warning; partial results are also preserved when macOS reports a native completion error. Neither case is labeled a complete scan or verified input. Cancellation and OS aborts remain failures. If no devices were found, the error distinguishes a missing start callback, active timeout or native error.
 
-The process allows up to 35 seconds including macOS initialization, then is terminated if necessary. Before retrying, close other discovery windows, wait 15 seconds and re-enter SHARE + PS pairing mode. For direct native diagnostics, run `PADCODE_BLUETOOTH_DEBUG=1 build/native/padcode-bluetooth scan` from the installed package directory. Phase diagnostics on stderr contain no device identifiers; the normal JSON device list on stdout does contain identifiers, so inspect it before sharing. The terminal wizard captures native stderr internally rather than displaying debug traces.
+The process allows up to 35 seconds including macOS initialization, then is terminated if necessary. Before retrying, close other discovery windows, wait 15 seconds and re-enter SHARE + PS pairing mode. For direct native diagnostics, run `PADCODE_BLUETOOTH_DEBUG=1 padcode-darwin/bin/padcode-bluetooth scan` from the installed `node_modules` directory. Phase diagnostics on stderr contain no device identifiers; the normal JSON device list on stdout does contain identifiers, so inspect it before sharing. The terminal wizard captures native stderr internally rather than displaying debug traces.
 
 ## Controller-operated menus (dev.4)
 
@@ -86,7 +86,7 @@ If the known-device status refresh also fails, previously known entries remain l
 
 ## Agent sessions (dev.6)
 
-Install the current-platform dev.8 package, change into a project, then run `padcode run`. An existing configured Agent is required; use `padcode config` to choose another. The confirmation defaults to Cancel. A uniquely matched saved controller transfers from the menu and activates after its buttons are released; unidentified controllers still use Options to enable mapping.
+Install the local packages, change into a project, then run `padcode run`. An existing configured Agent is required; use `padcode config` to choose another. The confirmation defaults to Cancel. A uniquely matched saved controller transfers from the menu and activates after its buttons are released; unidentified controllers still use Options to enable mapping.
 
 - The Agent receives the current directory, inherited environment and literal configured arguments. No shell command string or Agent API proxy is used.
 - Ctrl+C goes to the Agent, preserving its interrupt/approval behavior. Ctrl+] is reserved for ending the session and cannot be sent as literal input.

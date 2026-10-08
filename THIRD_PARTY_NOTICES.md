@@ -1,6 +1,6 @@
 # Third-party notices
 
-Padcode is MIT licensed. The native developer build links SDL 3.4.16 statically; SDL's license remains separate. SDL source is downloaded unchanged with a pinned SHA-256 during the developer build. Its source archive also includes applicable component-specific notices, which must be reviewed and preserved when packaging consumer binaries in P1.
+Padcode is MIT licensed. The native helpers link SDL 3.4.16 statically; SDL's license remains separate. SDL source is downloaded unchanged with a pinned SHA-256 during the build. The prebuilt `padcode-darwin` package ships these helpers and includes this file. SDL's source archive also includes component-specific notices; reviewing which apply to the shipped binary remains a release task before npm publication.
 
 ## SDL 3.4.16 (zlib license)
 
@@ -32,4 +32,4 @@ Other build-only npm dependencies and their licenses are captured in `package-lo
 
 Source: https://github.com/microsoft/node-pty/tree/1.1.0
 
-The current-platform npm artifact includes node-pty's Unix JavaScript runtime and native binary in `build/pty`. Its complete upstream license, including component copyright notices, is included at `build/pty/LICENSE`. The development build normalizes the macOS spawn-helper executable permission; the upstream runtime is otherwise unmodified. Padcode's own Node session host retains the PTY until output drain is acknowledged over a private lifecycle socket. node-addon-api 7.1.1 is a header dependency used in the native binary; its full MIT license is included at `build/pty/LICENSE-node-addon-api.md`.
+The `padcode-darwin` package includes node-pty's Unix JavaScript runtime and its upstream darwin-arm64 and darwin-x64 prebuilt binaries in `pty/` (`build/pty` in a development checkout). Its complete upstream license, including component copyright notices, is included at `pty/LICENSE`. The development build normalizes the macOS spawn-helper executable permission; the upstream runtime is otherwise unmodified. Padcode's own Node session host retains the PTY until output drain is acknowledged over a private lifecycle socket. node-addon-api 7.1.1 is a header dependency used in the native binary; its full MIT license is included at `pty/LICENSE-node-addon-api.md`.

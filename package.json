@@ -1,22 +1,17 @@
 {
   "name": "padcode",
-  "version": "0.1.0-rc.8",
+  "version": "0.1.0-rc.9",
   "private": true,
   "license": "MIT",
-  "description": "Gamepad controls for your own coding agent \u2014 terminal development build",
+  "description": "Gamepad controls for your own coding agent — terminal development build",
   "type": "module",
   "bin": {
     "padcode": "dist/cli.js"
   },
   "files": [
     "dist/",
-    "build/native/padcode-controller",
-    "build/native/padcode-bluetooth",
-    "build/native/padcode-audio",
-    "build/native/platform.json",
     "LICENSE",
-    "THIRD_PARTY_NOTICES.md",
-    "build/pty/"
+    "THIRD_PARTY_NOTICES.md"
   ],
   "engines": {
     "node": ">=22.14.0"
@@ -29,7 +24,8 @@
     "test:coverage": "node --test --experimental-test-coverage --test-coverage-include='dist/**' --import ./test/no-child-coverage.mjs --test-concurrency=1 test/*.test.mjs",
     "check": "npm run typecheck && npm run build && npm run build:native && npm run build:pty && npm run test:coverage",
     "dev": "npm run build && node dist/cli.js",
-    "build:pty": "node scripts/build-pty.mjs"
+    "build:pty": "node scripts/build-pty.mjs",
+    "package": "node scripts/package.mjs"
   },
   "devDependencies": {
     "@types/node": "22.20.3",

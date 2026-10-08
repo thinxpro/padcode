@@ -2,7 +2,6 @@ import { AgentGamepad, type ControllerSource } from './agent-gamepad.js';
 import { fileURLToPath } from 'node:url';
 import { hostChannel } from './host-channel.js';
 import { createRequire } from 'node:module';
-import { readFileSync } from 'node:fs';
 import { basename } from 'node:path';
 import type { Readable, Writable } from 'node:stream';
 import type { IPty } from 'node-pty';
@@ -14,6 +13,7 @@ import { PtyWriter } from './pty-writer.js';
 import { chooseDisplay, type Display } from './tmux.js';
 import { PanelFallback, runPanelAgent } from './panel-session.js';
 import { NativeAudio } from './audio.js';
+import { locateRuntime } from './runtime.js';
 
 type Agent = NonNullable<Config['agent']>;
 type Input = Readable & { isTTY?: boolean; isRaw?: boolean; setRawMode?: (raw: boolean) => unknown };
@@ -47,9 +47,7 @@ export async function runAgent(agent: Agent, options: { cwd?: string; input?: In
   if (!input.isTTY || !output.isTTY) throw new Error('Agent sessions require an interactive terminal.');
   if (!['darwin', 'linux'].includes(process.platform)) throw new Error('Agent sessions currently support macOS and Linux only.');
   if (!await resolveExecutable(agent.command)) throw new Error('Configured Agent executable is unavailable. Run padcode config.');
-  const built = JSON.parse(readFileSync(new URL('../build/pty/platform.json', import.meta.url), 'utf8')) as { platform: string; arch: string };
-  if (built.platform !== process.platform || built.arch !== process.arch) throw new Error(`PTY runtime was built for ${built.platform}/${built.arch}. Use a package built for this computer.`);
-  const runtime = createRequire(import.meta.url)('../build/pty') as typeof import('node-pty');
+  const runtime = createRequire(import.meta.url)(locateRuntime('pty')) as typeof import('node-pty');
   const size = () => ({ cols: Math.max(1, output.columns || 80), rows: Math.max(1, output.rows || 24) });
   const channel = await hostChannel();
   const gamepad = options.gamepad ?? (options.controller ? new AgentGamepad(options.controller) : undefined);

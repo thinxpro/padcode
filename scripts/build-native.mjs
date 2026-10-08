@@ -15,4 +15,6 @@ for (const command of [args, ['--build', 'build/native', '--parallel', '4']]) {
   if (result.error) console.error(result.error.message);
   if (result.status !== 0) process.exit(result.status ?? 1);
 }
-writeFileSync('build/native/platform.json', JSON.stringify({ platform: process.platform, arch: process.arch }) + '\n');
+// macOS helpers are universal (see native/CMakeLists.txt); Linux builds only the host CPU.
+const arch = process.platform === 'darwin' ? ['arm64', 'x64'] : process.arch;
+writeFileSync('build/native/platform.json', JSON.stringify({ platform: process.platform, arch }) + '\n');

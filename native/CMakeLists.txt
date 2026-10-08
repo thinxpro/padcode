@@ -1,4 +1,9 @@
 cmake_minimum_required(VERSION 3.24)
+# Packaged macOS helpers run on macOS 13+ on Apple silicon and Intel. Set before project() so SDL inherits them.
+if(APPLE)
+  set(CMAKE_OSX_DEPLOYMENT_TARGET "13.0" CACHE STRING "Minimum macOS version")
+  set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64" CACHE STRING "Helper architectures")
+endif()
 project(padcode_controller LANGUAGES C CXX)
 include(FetchContent)
 set(SDL_SHARED OFF CACHE BOOL "" FORCE)

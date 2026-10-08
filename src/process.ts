@@ -1,14 +1,9 @@
 import { spawn } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
-import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { locateRuntime } from './runtime.js';
 
 export function helperPath(name: 'padcode-controller' | 'padcode-bluetooth' | 'padcode-audio'): string {
-  const manifest = new URL('../build/native/platform.json', import.meta.url);
-  if (existsSync(manifest)) {
-    const built = JSON.parse(readFileSync(manifest, 'utf8')) as { platform: string; arch: string };
-    if (built.platform !== process.platform || built.arch !== process.arch) throw new Error(`This development package was built for ${built.platform}/${built.arch}. Use a package built for this computer.`);
-  }
-  return fileURLToPath(new URL(`../build/native/${name}`, import.meta.url));
+  return join(locateRuntime('helpers'), name);
 }
 export interface RunOptions { signal?: AbortSignal; timeout?: number; maxBytes?: number }
 export async function runCommand(command: string, args: string[], options: RunOptions = {}): Promise<{ code: number; stdout: string; stderr: string }> {

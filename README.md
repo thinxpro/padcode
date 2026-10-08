@@ -21,7 +21,7 @@ Voice transcription runs on your Mac: macOS on-device speech needs nothing insta
 
 ## Run the development build
 
-Development prerequisites: Node.js 22.14+ (Node 22 LTS recommended), npm, CMake 3.24+ and a C/C++ compiler; use Xcode/Command Line Tools on macOS. The full test suite also needs Python 3 and `pgrep`. These are developer requirements; installation without build tools is a P1 release requirement.
+Development prerequisites: Node.js 22.14+ (Node 22 LTS recommended), npm, CMake 3.24+ and a C/C++ compiler; use Xcode/Command Line Tools on macOS. The full test suite also needs Python 3 and `pgrep`. These are developer requirements only: installed packages are prebuilt and need just Node.js and npm.
 
 ```sh
 npm ci --ignore-scripts
@@ -42,16 +42,15 @@ See the [terminal setup guide](docs/setup.md) for the complete flow and macOS pe
 
 ## Install a local npm test package
 
-After building and testing locally, create a package for the current platform. No npm publishing account is needed:
+Padcode ships as two npm packages: `padcode` (JavaScript only) and `padcode-darwin` (prebuilt helpers and the PTY runtime, universal for Apple silicon and Intel, macOS 13 or later). Installing them needs Node.js 22.14+ and npm, not Xcode, CMake or a compiler, and runs no install scripts. After `npm run check`, build both packages locally; no npm account is needed and nothing is published:
 
 ```sh
-mkdir -p artifacts
-npm pack --ignore-scripts --pack-destination artifacts
-npm install -g ./artifacts/padcode-0.1.0-rc.8.tgz
+npm run package
+npm install -g ./artifacts/padcode-darwin-0.1.0-rc.9.tgz ./artifacts/padcode-0.1.0-rc.9.tgz
 padcode
 ```
 
-The package includes compiled helpers and runs no compilation scripts during installation. It only supports the build machine's OS/CPU combination; it is not a published universal package. CI tests equivalent installation and onboarding in a temporary directory without modifying the user's global installation.
+Once published, `npm install -g padcode` installs the platform package automatically on macOS. Helpers are ad-hoc signed by default. Set `PADCODE_SIGN_IDENTITY` to a codesign identity (for example an Apple Development or Developer ID Application certificate) to sign them with hardened runtime and their microphone/Bluetooth entitlements; `PADCODE_SIGN_TIMESTAMP=off` skips the secure timestamp for offline development signing. With a stable identity, macOS keeps microphone permission across rebuilds. Without one, packaging reuses the previous release's helpers byte for byte (`padcode-darwin@latest`, or `--reuse <tarball>`; `--fresh` to skip) when nothing under `native/` changed and the signer is the same, so users are asked for microphone, speech or Bluetooth permission again only after releases that change the native helpers. The [prebuilt packages stage](docs/stages/prebuilt-packages.md) records the checks. Other operating systems are not packaged yet.
 
 ## Product boundaries
 
@@ -82,7 +81,7 @@ The initial target is macOS with a DualShock 4 over Bluetooth and one foreground
 
 No coding agent is bundled, and no vendor API is mandatory. Structured agent adapters, global mouse control, multiple sessions and background residency are deferred. Voice is opt-in, macOS-only and local.
 
-The [continuous controller sessions and voice](docs/stages/p0-4-continuous-controller-and-voice.md) stages C1-C6 are implemented. Remaining before a public release: Developer ID signing (development builds re-ask for microphone access after each update), installation without build tools, Codex and second-terminal compatibility records, and the maintainer's release decision.
+The [continuous controller sessions and voice](docs/stages/p0-4-continuous-controller-and-voice.md) stages C1-C6 are implemented. Remaining before a public release: Developer ID signing and notarization (ad-hoc builds re-ask for microphone access after each update), npm publication, Codex and second-terminal compatibility records, and the maintainer's release decision.
 
 ## Design documents
 
