@@ -65,3 +65,7 @@ Plan commit: `2119f52`. On macOS 27.0.1 arm64, `npm run check` passed 151 tests 
 - E2E: `panel_pty.py` `xbox_names()` runs a session with a simulated Xbox controller: status pane, legend, menu hints and the controller map (offset layout, XBOX WIRELESS CONTROLLER) use Xbox names. All existing scenarios run with a simulated PlayStation controller and pass unchanged.
 
 Artifact `padcode-0.1.0-rc.8.tgz`, npm SHA-1 `3604a9580620c09072f8c811b169c4f2160882d9`. The native controller helper changed; the audio helper did not. H1 (DualShock 4 unchanged) is pending; H2 needs Xbox and Nintendo hardware.
+
+### User-reported physical acceptance
+
+On 2026-10-08 the user reported that with 0.1.0-rc.8 the DualShock 4 works as before (H1). H2 (Xbox and Nintendo hardware) remains open because no such controller is available.
