@@ -1,6 +1,6 @@
 # Prebuilt packages: install on macOS without build tools
 
-Status: planned for 0.1.0-rc.9. This plan was committed before implementation.
+Status: implemented in 0.1.0-rc.9; automated acceptance passes locally; manual acceptance M1–M2 pending with the maintainer, M3 needs hardware not available. This plan was committed before implementation.
 
 ## Request
 
@@ -89,3 +89,22 @@ Not covered automatically here: running the x86_64 slices (no Intel Mac or Roset
 - M1: the maintainer installs the two tarballs globally with Node 23.5 and runs a normal session with the DualShock 4: Hub, Agent session, sticks, map and voice (L2 dictation).
 - M2: with `PADCODE_SIGN_IDENTITY="Apple Development: …"`, packaging signs and verifies the helpers. After installing, microphone permission is requested once and survives reinstalling a rebuilt package signed with the same identity.
 - M3 (when hardware is available): an Intel Mac or macOS 13–15 machine runs the installed package.
+
+## Implementation notes
+
+- `native/CMakeLists.txt` sets the deployment target and architectures before `project()`, so the static SDL build inherits them. The helpers compile cleanly with `-Werror` at macOS 13. A universal clean build takes about 50 seconds on the M4 Pro.
+- `src/runtime.ts` replaces the two separate lookups in `process.ts` and `agent-session.ts`. The platform package is found with `require.resolve('padcode-darwin/platform.json')` from the CLI, which works for global and local installs.
+- `scripts/pty-bundle.mjs` is shared by the development PTY bundle (host CPU) and the platform package (both macOS prebuilds, taken unchanged from node-pty).
+- npm accepts the main tarball alone even when the optional `padcode-darwin` cannot be fetched (offline, unpublished). The CLI then prints the missing-helpers message.
+- With `PADCODE_SIGN_IDENTITY` the helpers get hardened runtime. A trial signing of `padcode-audio` with the maintainer's Apple Development identity (team `P7WKBU5DDV`, no timestamp) produced flags `runtime`, the audio-input entitlement and identifier `com.thinxpro.padcode.audio`. `padcode-audio diagnose` then still reported `selfResponsible: true`. Microphone capture under hardened runtime is part of M2.
+- Files in the platform package keep upstream node-pty signatures (ad-hoc). Only Padcode's helpers are re-signed.
+
+## Validation record
+
+Plan commit: `31c27ac`. Environment: macOS 27.0.1, M4 Pro arm64, Xcode 27.0, CMake 4.0.3, Node 24.21, npm 11.19. `npm run check` passed 154 tests with zero failures or skips. CI is disabled by the maintainer's decision, so Linux was not exercised.
+
+- P1: all three helpers contain `arm64` and `x86_64` slices, each with `minos 13.0`.
+- P2: runtime resolution covers every case in the criteria.
+- P3: package contents and manifests are checked. Ad-hoc signing applies the `com.thinxpro.padcode.*` identifiers and passes `codesign --verify --strict`. A missing identity fails and leaves the output directory empty.
+- P4: the install runs offline with install scripts enabled. `PATH` contains only `node` and `/bin`, and the test asserts that `cmake`, `cc`, `clang`, `xcrun`, `make` and `python3` are unreachable. From the installed copy, `--help`, `--version`, the virtual helper, both diagnostics, and the onboarding, Agent PTY and gamepad Agent PTY scenarios pass. The mismatch and missing-package messages print no stack trace.
+- Not run: x86_64 slices (no Rosetta or Intel Mac), macOS 13–26, a full Apple Development signed package (only the trial signing in the notes above).

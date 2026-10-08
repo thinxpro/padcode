@@ -16,3 +16,10 @@ test('real SDL virtual gamepad flows through production JSONL serializer', () =>
 test('helper rejects unknown options', () => {
   const r = spawnSync(binary, ['--not-valid'], { encoding: 'utf8', timeout: 3000 }); assert.equal(r.status, 2); assert.match(r.stderr, /Usage/); assert.equal(r.stdout, '');
 });
+test('P1 macOS helpers are universal and run on macOS 13 or later', { skip: process.platform !== 'darwin' && 'macOS build only' }, () => {
+  for (const name of ['padcode-controller', 'padcode-bluetooth', 'padcode-audio']) {
+    const path = `build/native/${name}`;
+    assert.deepEqual(spawnSync('lipo', ['-archs', path], { encoding: 'utf8' }).stdout.trim().split(/\s+/).sort(), ['arm64', 'x86_64'], name);
+    for (const arch of ['arm64', 'x86_64']) assert.match(spawnSync('vtool', ['-arch', arch, '-show-build', path], { encoding: 'utf8' }).stdout, /minos 13\.0\n/, `${name} ${arch}`);
+  }
+});
