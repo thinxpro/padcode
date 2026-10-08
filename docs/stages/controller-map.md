@@ -44,3 +44,7 @@ User report (2026-10-08): the Controller map popup showed "... 2 more lines" and
 Test infrastructure: `npm test` and `npm run test:coverage` now load `test/no-child-coverage.mjs` with `--import`, so child processes started by the code under test (fake helpers and transcribers that tests kill on purpose) no longer inherit `NODE_V8_COVERAGE` and cannot leave truncated coverage files, which had failed the gate once more after all tests passed. Consequence: line coverage reported for `dist/**` falls from about 97% to about 76%, because code that only runs in those child processes (the tmux pane bridge and workers) is no longer counted; the tests themselves are unchanged and there is no coverage threshold.
 
 `npm run check` passed 143 tests with zero failures or skips. Artifact `padcode-0.1.0-rc.7.tgz`, npm SHA-1 `e4dec1fd260956811fb63caaa4b61d12a52124d6`.
+
+### User-reported physical acceptance
+
+On 2026-10-08 the user reported that the Controller map displays correctly in their terminal with 0.1.0-rc.7 (H1).
