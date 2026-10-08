@@ -14,7 +14,7 @@ const [events, mode = 'basic'] = process.argv.slice(2);
 const agent = { command: process.env.PADCODE_PYTHON, args: [resolve('test/fixtures/pty-agent.py'), mode] };
 const gamepad = new AgentGamepad(
   { transport: 'bluetooth', address: 'aa:bb:cc:dd:ee:ff', inputVerified: true },
-  { factory: () => new ControllerProbe(process.execPath, [resolve('test/fixtures/menu-helper.mjs'), events]), automaticHandoff: true,
+  { factory: () => new ControllerProbe(process.execPath, [resolve('test/fixtures/menu-helper.mjs'), events]), automaticHandoff: true, editing: process.env.PADCODE_EDITING ?? 'basic',
     ...(process.env.PADCODE_TRACE_FILE ? { trace: (event, generation) => appendFileSync(process.env.PADCODE_TRACE_FILE, `${Date.now()} ${event} ${generation}\n`) } : {}) },
 );
 try {

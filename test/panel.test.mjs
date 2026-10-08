@@ -91,7 +91,7 @@ test('C2-A2 status pane renders every state within narrow widths and without col
     assert.equal(colored.join('').replace(/\x1b\[[0-9;]*m/g, ''), renderPanel(status, 80, 2, false).join(''));
   }
   assert.equal(renderPanel('ACTIVE / Options to pause', 80, 1, false).length, 1);
-  assert.match(renderPanel('ACTIVE / x', 160, 2, false)[1], /D-PAD ARROWS {2}X ENTER {2}O ESC {2}L1 TAB {2}R1 SHIFT\+TAB {2}OPTIONS MENU {2}WHEEL HISTORY/);
+  assert.match(renderPanel('ACTIVE / x', 200, 2, false)[1], /D-PAD ARROWS {2}X ENTER {2}O ESC {2}L1 TAB {2}R1 SHIFT\+TAB {2}OPTIONS MENU {2}STICKS CURSOR {2}SQ BKSP {2}WHEEL HISTORY/);
   assert.ok(!renderPanel('ACTIVE / \x1b]0;evil\x07', 80, 2, false).join('').includes('\x1b'));
 });
 

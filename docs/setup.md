@@ -187,3 +187,20 @@ After transcription the text is typed into the Agent's input box and **never sen
 
 Player Hub lists **Start agent session** first and selects it when the Hub opens, followed by Voice / microphone settings, Controller lab, Edit configuration, Preview arcade dashboard and Exit. The launch confirmation still defaults to Cancel, so one X never launches an Agent; O on the Hub still exits.
 
+## Editing with sticks and face buttons
+
+In an Agent session (both display modes):
+
+| Control | Action | Hold |
+| --- | --- | --- |
+| Left stick | Move the cursor by character (left/right) and line (up/down) | Repeats, faster with more tilt |
+| Right stick left/right | Move by word | Repeats |
+| Right stick up/down | Line start / line end | Repeats line by line, so holding reaches the beginning or end of the input |
+| Square | Backspace | Repeats |
+| Triangle | Delete the word before the cursor | Repeats |
+| L3 (press left stick) | Delete the character after the cursor | |
+| R2 | New line without sending (Claude Code) | |
+| R3 (press right stick) | Undo (Claude Code) | |
+
+None of these sends Enter. R2 and R3 are only active when the Agent is Claude Code, because the newline key acts as Enter in many other programs. Claude Code's input has no text selection; select with the mouse in the terminal instead. In Padcode menus and history the left stick works like the D-pad and the right stick pages history.
+

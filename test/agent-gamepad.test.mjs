@@ -11,7 +11,7 @@ test('mapping starts paused, settles held Options and uses exact terminal key by
   f.edge('start', true); f.advance(); f.edge('start', false); f.press('south'); assert.deepEqual(f.bytes, []);
   f.press('start'); for (const key of Object.keys(terminalKeys)) f.press(key);
   assert.deepEqual(f.bytes, ['\x1b[A','\x1b[B','\x1b[C','\x1b[D','\r','\x1b','\t','\x1b[Z']);
-  f.press('north'); f.press('guide'); assert.equal(f.bytes.length, 8);
+  f.press('north'); f.press('guide'); f.press('back'); f.press('touchpad'); assert.deepEqual(f.bytes.slice(8), ['\x17'], 'only Triangle (delete word) is an editing button here');
   await f.gamepad.stop(); assert.equal(f.stopped(), 1);
 });
 test('adopted menu feed activates after a neutral barrier without replaying launch buttons', async () => {
