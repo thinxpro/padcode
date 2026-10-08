@@ -24,6 +24,7 @@
     "test:coverage": "node --test --experimental-test-coverage --test-coverage-include='dist/**' --import ./test/no-child-coverage.mjs --test-concurrency=1 test/*.test.mjs",
     "check": "npm run typecheck && npm run build && npm run build:native && npm run build:pty && npm run test:coverage",
     "dev": "npm run build && node dist/cli.js",
+    "gallery": "npm run build && node scripts/tui-gallery.mjs",
     "build:pty": "node scripts/build-pty.mjs",
     "package": "node scripts/package.mjs"
   },

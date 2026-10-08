@@ -1,0 +1,30 @@
+ P A D C O D E   T U I   G A L L E R Y 
+
+── TONES ──────────────────────────────
+brand  accent  ok  warn  danger  info  
+
+── KEYCAPS + STEPPER ──────────────────
+[X] [O] [TRI] [SQ]   MISSION 2/5 ●●○○○
+
+╭─ STATUS CARD ───────────────────────╮
+│ ● PLAYER 1   linked                 │
+│ ▲ INPUT      unverified             │
+│ ○ VOICE      off                    │
+│ ✕ HELPER     missing                │
+│ ◆ SESSION    live                   │
+├─────────────────────────────────────┤
+│ Unicode data: 한국어 カタカナ 🎮 k… │
+╰─────────────────────────────────────╯
+
+░░░░░░░░░░░░ 0.00
+████░░░░░░░░ 0.33
+██████░░░░░░ 0.50
+██████████▌░ 0.88
+████████████ 1.00
+
+RIGHT COLUMN
+stacks below the meters
+when the terminal is narrow
+
+───────────────────────────────────────
+[X] SELECT   [O] BACK   [D-PAD] MOVE

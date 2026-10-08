@@ -1,6 +1,6 @@
 # UI-0: Terminal UI foundation
 
-Status: planned. This plan, its acceptance criteria and test matrix are committed before implementation.
+Status: implemented; automated acceptance passes locally, manual display review pending. This plan, its acceptance criteria and test matrix were committed before implementation.
 
 ## Request
 
@@ -70,6 +70,19 @@ Existing screens do not change in UI-0. Later stages migrate them onto this laye
 
 Display review, not hardware: run `npm run gallery` and confirm that frames close and line up, colours are readable on dark and light themes, and ASCII and `NO_COLOR` output are clean in Terminal.app, iTerm2, Ghostty, the VS Code terminal and inside tmux, at 40 columns and at full width. Record the terminal versions and anything that misrenders. No controller is involved in UI-0.
 
+## Implementation notes
+
+- `truncate` holds escape sequences until a visible character follows, so a cut never leaves an empty styled span (the first gallery snapshot caught one).
+- Callers' own styling and user data pass through frames unchanged: in ASCII mode only the chrome is ASCII, and a row of Korean, kana and emoji keeps its characters and width.
+- The gradient is a cyan-magenta-cyan triangle, so moving `offset` from 0 to 1 sweeps across and wraps without a jump; UI-1 uses it for the welcome sweep.
+- `npm run gallery` builds and prints the gallery; piping it (non-TTY) prints monochrome output.
+
 ## Validation record
 
-Pending.
+Plan commit: `4ff8059`. On macOS 27.0.1 arm64 with Node 24.21.0, `npm run check` passed 172 tests (17 new in `test/tui.test.mjs`) with zero failures or skips; `src/tui/` has 100% line coverage. CI is disabled by the maintainer's decision, so Linux was not exercised.
+
+- A1-A6: covered by `test/tui.test.mjs` as listed above.
+- A7: twelve golden files in `test/snapshots/tui/` (40/60/80/120 columns x truecolor/monochrome/ASCII).
+- A8: all existing suites pass unchanged; no existing screen imports `src/tui/` yet.
+
+Manual display review is pending: the maintainer has not yet run `npm run gallery` in the listed terminals.
