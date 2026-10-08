@@ -183,3 +183,7 @@ After transcription the text is typed into the Agent's input box and **never sen
 - To check every draft before it is typed, choose **Show the draft first** in Voice / microphone settings; the popup then offers Insert into Agent, Keep draft, Rerecord and Discard.
 - Edit inserted text with the keyboard in the Agent's own input box.
 
+## Player Hub order
+
+Player Hub lists **Start agent session** first and selects it when the Hub opens, followed by Voice / microphone settings, Controller lab, Edit configuration, Preview arcade dashboard and Exit. The launch confirmation still defaults to Cancel, so one X never launches an Agent; O on the Hub still exits.
+

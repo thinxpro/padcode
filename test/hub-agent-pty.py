@@ -44,8 +44,7 @@ def scenario(display):
         try:
             expect(b'PLAYER HUB'); expect(b'GAMEPAD READY'); expect(b'Select [1]')
             time.sleep(.3)
-            press('dpad_up'); expect(b'Select [6]')          # Wraps to Voice settings,
-            press('dpad_up'); expect(b'Select [5]')          # then up to Start agent session.
+            # Start agent session is the default first item.
             press('south'); expect(b'MISSION START'); expect(b'Select [2]')
             press('dpad_up'); expect(b'Select [1]')
             press('south')
