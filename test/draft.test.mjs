@@ -63,7 +63,7 @@ test('C5-A2 empty, failed, cancelled, late and permission-required transcription
   s.take(); await eventually(() => s.voice.state === 'transcribing'); const before = s.calls.length; s.voice.dispose(); await wait(30);
   assert.deepEqual(s.drafts, []); assert.equal(s.calls.length, before, 'late transcription result acted after session end');
   s = session(t, dir, { kind: 'system', language: 'zh' }, { result: { ok: false, code: 'speech-permission-required', message: 'x' } });
-  s.take(); await eventually(() => s.calls.includes('notice:SPEECH READY / Hold L2 to record again'));
+  s.take(); await eventually(() => s.calls.includes('notice:SPEECH READY / Hold {l2} to record again'));
   assert.equal(s.audio.requests, 1); assert.ok(s.calls.includes('notice:SPEECH PERMISSION / Answer the macOS dialog for Padcode Audio')); s.voice.dispose();
   s = session(t, dir, { kind: 'system', language: 'zh' }, { result: { ok: false, code: 'speech-permission-required', message: 'x' }, answer: 'denied' });
   s.take(); await eventually(() => s.calls.some(c => c.startsWith('notice:SPEECH DENIED'))); s.voice.dispose();
@@ -85,7 +85,7 @@ test('C5 draft review context: keep, rerecord, discard, reopen and every button'
   calls.length = 0; controls.openMenu(); assert.match(calls.at(-1), /Review voice draft\|End session/);
   for (let i = 0; i < 6; i++) handler('dpad_down');
   handler('south'); assert.equal(controls.context, 'draft');
-  handler('dpad_down'); handler('dpad_down'); handler('south'); assert.equal(controls.draftText, undefined); assert.ok(calls.includes('notice:DRAFT DISCARDED / Hold L2 to record again'));
+  handler('dpad_down'); handler('dpad_down'); handler('south'); assert.equal(controls.draftText, undefined); assert.ok(calls.includes('notice:DRAFT DISCARDED / Hold {l2} to record again'));
   controls.openDraft('second'); handler('dpad_up'); handler('south'); assert.equal(controls.draftText, undefined); assert.ok(calls.includes('notice:DRAFT DISCARDED'));
   // Default X inserts the reviewed text; the draft stays available for Insert again.
   controls.openDraft('third'); handler('south'); assert.equal(controls.draftText, 'third'); assert.deepEqual(calls.slice(-1), ['insert:third']);

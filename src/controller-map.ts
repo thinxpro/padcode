@@ -1,8 +1,11 @@
-// Game-style controls screen for the DualShock 4. ASCII only: box-drawing and shape symbols are
-// ambiguous-width and render two columns wide in many CJK terminal setups, breaking the drawing.
-export interface MapProfile { claude: boolean; voice: boolean }
+import { glyph, type Family, type Glyphs, type Role } from './glyphs.js';
+
+// Game-style controls screen. ASCII only: box-drawing and shape symbols are ambiguous-width and render
+// two columns wide in many CJK terminal setups, breaking the drawing.
+export interface MapProfile { claude: boolean; voice: boolean; family?: Family; swap?: boolean }
 type Segment = [kind: 'label' | 'art' | 'text' | 'dim', text: string];
 const styles = { label: '\x1b[1;96m', art: '\x1b[2;37m', text: '\x1b[0;37m', dim: '\x1b[2;37m' };
+const pad = (text: string, width: number) => text.length >= width ? text.slice(0, width) : text + ' '.repeat(width - text.length);
 
 function actions(profile: MapProfile) {
   return {
@@ -11,58 +14,84 @@ function actions(profile: MapProfile) {
     r3: profile.claude ? 'Undo' : 'Unused (Claude Code only)',
   };
 }
-const pad = (text: string, width: number) => text.length >= width ? text.slice(0, width) : text + ' '.repeat(width - text.length);
+// Drawings use the names printed on the buttons; the legend follows the confirm setting.
+const printed = (profile: MapProfile): Glyphs => ({ family: profile.family ?? 'playstation' });
+const active = (profile: MapProfile): Glyphs => ({ family: profile.family ?? 'playstation', swap: Boolean(profile.swap) });
 
-// Wide layout: shoulders above, the controller in the middle, a two-column legend below.
-// Inner rows are padded to one width so the frame always closes.
 const inner = 57;
-const body = [
-  '    _         SHARE                     OPTIONS   (TRI)    ',
-  '  _| |_            .------------------.        (SQ)  (O)   ',
-  ' |_ + _|           |     TOUCHPAD     |           (X)      ',
-  '   |_|             \'------------------\'                     ',
-  '  D-PAD       ( L3 )                  ( R3 )               ',
-];
-const frame = [
-  `   ${'_'.repeat(inner)}`,
-  ...body.map((row, index) => `  ${index === 0 ? '/' : '|'}${pad(row, inner)}${index === 0 ? '\\' : '|'}`),
-  `  \\${'_'.repeat(13)}/  L STICK   \\${'_'.repeat(9)}/  R STICK   \\${'_'.repeat(inner - 50)}/`,
-];
-const labels = /\(TRI\)|\(SQ\)|\(O\)|\(X\)|\( L3 \)|\( R3 \)|SHARE|OPTIONS|TOUCHPAD|D-PAD|L STICK|R STICK/g;
-function wide(profile: MapProfile): Segment[][] {
-  const art = frame.map(line => {
-    const segments: Segment[] = []; let at = 0;
-    for (const match of line.matchAll(labels)) {
-      if (match.index! > at) segments.push(['art', line.slice(at, match.index)]);
-      segments.push(['label', match[0]]); at = match.index! + match[0].length;
-    }
-    if (at < line.length) segments.push(['art', line.slice(at)]);
-    return segments;
-  });
-  return [...shoulders(profile), ...art, ...legend(profile, 40)];
+// Each element sits at a fixed column, so the drawing stays aligned whatever the names.
+type Place = [column: number, text: string];
+const drawings: Record<'symmetric' | 'offset', Place[][]> = {
+  // PlayStation: D-pad and face buttons on top, both sticks below, touchpad in the middle.
+  symmetric: [
+    [[4, '_'], [14, '{view}'], [38, '{menu}'], [48, '{north}']],
+    [[2, '_| |_'], [19, '.------------------.'], [44, '{west}'], [52, '{east}']],
+    [[1, '|_ + _|'], [19, '|     TOUCHPAD     |'], [48, '{south}']],
+    [[3, '|_|'], [19, "'------------------'"]],
+    [[2, 'D-PAD'], [14, '( {l3} )'], [38, '( {r3} )']],
+  ],
+  // Xbox, Nintendo and standard gamepads: left stick high, D-pad low, right stick low, face buttons high.
+  offset: [
+    [[3, '( {l3} )'], [18, '{view}'], [34, '{menu}'], [48, '{north}']],
+    [[22, '.--------.'], [44, '{west}'], [52, '{east}']],
+    [[6, '_'], [22, '|  HOME  |'], [48, '{south}']],
+    [[4, '_| |_'], [22, "'--------'"], [36, '( {r3} )']],
+    [[3, '|_ + _|'], [12, 'D-PAD']],
+    [[5, '|_|']],
+  ],
+};
+// Face buttons are centred in five columns ("(TRI)", " (A) "); menu/view and stick names are plain.
+const centre = (text: string, width: number) => { const left = Math.floor((width - text.length) / 2); return pad(' '.repeat(Math.max(0, left)) + text, width); };
+const names = (text: string, glyphs: Glyphs) => text.replace(/\{(south|east|west|north|menu|view|l3|r3)\}/g, (_, role: Role) =>
+  ['south', 'east', 'west', 'north'].includes(role) ? centre(`(${glyph(role, glyphs)})`, 5) : glyph(role, glyphs));
+function place(row: Place[], glyphs: Glyphs): string {
+  let line = '';
+  for (const [column, text] of row) line = pad(line, column) + names(text, glyphs);
+  return line;
+}
+function frame(profile: MapProfile): string[] {
+  const rows = drawings[(profile.family ?? 'playstation') === 'playstation' ? 'symmetric' : 'offset'].map(row => place(row, printed(profile)));
+  return [
+    `   ${'_'.repeat(inner)}`,
+    ...rows.map((row, index) => `  ${index === 0 ? '/' : '|'}${pad(row, inner)}${index === 0 ? '\\' : '|'}`),
+    `  \\${'_'.repeat(13)}/  L STICK   \\${'_'.repeat(9)}/  R STICK   \\${'_'.repeat(inner - 50)}/`,
+  ];
+}
+function highlight(line: string, profile: MapProfile): Segment[] {
+  const g = printed(profile);
+  const tokens = [...(['south', 'east', 'west', 'north'] as const).map(role => `(${glyph(role, g)})`), `( ${glyph('l3', g)} )`, `( ${glyph('r3', g)} )`,
+    glyph('menu', g), glyph('view', g), 'TOUCHPAD', 'HOME', 'D-PAD', 'L STICK', 'R STICK'];
+  const pattern = new RegExp([...new Set(tokens)].sort((a, b) => b.length - a.length).map(token => token.replace(/[.*+?^${}()|[\]\\-]/g, '\\$&')).join('|'), 'g');
+  const segments: Segment[] = []; let at = 0;
+  for (const match of line.matchAll(pattern)) {
+    if (match.index! > at) segments.push(['art', line.slice(at, match.index)]);
+    segments.push(['label', match[0]]); at = match.index! + match[0].length;
+  }
+  if (at < line.length) segments.push(['art', line.slice(at)]);
+  return segments;
 }
 function shoulders(profile: MapProfile): Segment[][] {
-  const a = actions(profile);
+  const a = actions(profile), g = active(profile);
   const top = (left: string, leftText: string, right: string, rightText: string): Segment[] =>
-    [['label', ` ${left} `], ['text', pad(leftText, 34)], ['label', ` ${right} `], ['text', rightText]];
-  return [top('[L2]', a.l2, '[R2]', a.r2), top('[L1]', 'Tab', '[R1]', 'Shift+Tab (mode)')];
+    [['label', ` [${left}] `], ['text', pad(leftText, 36 - left.length)], ['label', ` [${right}] `], ['text', rightText]];
+  return [top(glyph('l2', g), a.l2, glyph('r2', g), a.r2), top(glyph('l1', g), 'Tab', glyph('r1', g), 'Shift+Tab (mode)')];
 }
 function legend(profile: MapProfile, column: number): Segment[][] {
-  const a = actions(profile);
+  const a = actions(profile), g = active(profile);
   const left: [string, string][] = [
     ['D-PAD', 'Arrows: menus, choices'],
     ['L STICK', 'Cursor by char / line, hold'],
-    ['L3', 'Delete forward'],
+    [glyph('l3', g), 'Delete forward'],
     ['R STICK', 'Word <->, line start ^ end v'],
-    ['R3', a.r3],
-    ['L2', a.l2],
+    [glyph('r3', g), a.r3],
+    [glyph('l2', g), a.l2],
   ];
   const right: [string, string][] = [
-    ['(X)', 'Enter / send'],
-    ['(O)', 'Esc / back'],
-    ['(SQ)', 'Backspace, hold'],
-    ['(TRI)', 'Delete word, hold'],
-    ['OPTIONS', 'Padcode menu'],
+    [`(${glyph('south', g)})`, 'Enter / send'],
+    [`(${glyph('east', g)})`, 'Esc / back'],
+    [`(${glyph('west', g)})`, 'Backspace, hold'],
+    [`(${glyph('north', g)})`, 'Delete word, hold'],
+    [glyph('menu', g), 'Padcode menu'],
     ['CTRL+]', 'Ends the session (keyboard)'],
   ];
   return left.map(([key, action], index) => {
@@ -71,19 +100,20 @@ function legend(profile: MapProfile, column: number): Segment[][] {
   });
 }
 function narrow(profile: MapProfile): Segment[][] {
-  const a = actions(profile);
+  const a = actions(profile), g = active(profile);
   const rows: [string, string][] = [
-    ['L2', a.l2], ['L1 / R1', 'Tab / Shift+Tab'], ['R2', a.r2], ['D-PAD', 'Arrows'],
-    ['L STICK', 'Cursor, hold repeats'], ['L3', 'Delete forward'], ['R STICK', 'Word, line start/end'], ['R3', a.r3],
-    ['(X)', 'Enter / send'], ['(O)', 'Esc / back'], ['(SQ)', 'Backspace'], ['(TRI)', 'Delete word'],
-    ['OPTIONS', 'Padcode menu'], ['CTRL+]', 'End session'],
+    [glyph('l2', g), a.l2], [`${glyph('l1', g)} / ${glyph('r1', g)}`, 'Tab / Shift+Tab'], [glyph('r2', g), a.r2], ['D-PAD', 'Arrows'],
+    ['L STICK', 'Cursor, hold repeats'], [glyph('l3', g), 'Delete forward'], ['R STICK', 'Word, line start/end'], [glyph('r3', g), a.r3],
+    [`(${glyph('south', g)})`, 'Enter / send'], [`(${glyph('east', g)})`, 'Esc / back'], [`(${glyph('west', g)})`, 'Backspace'], [`(${glyph('north', g)})`, 'Delete word'],
+    [glyph('menu', g), 'Padcode menu'], ['CTRL+]', 'End session'],
   ];
   return rows.map(([key, action]) => [['label', ` ${pad(key, 8)}`], ['text', action]]);
 }
-export const mapWidth = 78, drawingHeight = 15, compactHeight = 8;
+export const mapWidth = 78, compactHeight = 8;
 // Picks the richest layout that fits: the drawing, then a two-column legend, then a single list.
 export function renderControllerMap(profile: MapProfile, width: number, color: boolean, height = Infinity): string[] {
-  const rows = width < mapWidth ? narrow(profile) : height >= drawingHeight ? wide(profile) : [...shoulders(profile), ...legend(profile, 40)];
+  const drawn = [...shoulders(profile), ...frame(profile).map(line => highlight(line, profile)), ...legend(profile, 40)];
+  const rows = width < mapWidth ? narrow(profile) : height >= drawn.length ? drawn : [...shoulders(profile), ...legend(profile, 40)];
   return rows.map(segments => {
     let used = 0, line = '';
     for (const [kind, text] of segments) {

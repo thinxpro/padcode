@@ -30,9 +30,28 @@ static void emit(const std::string &fields) {
 static std::string deviceField(SDL_JoystickID id) { return "\"device\":" + std::to_string(id); }
 struct Pad { SDL_Gamepad *handle; std::array<int, SDL_GAMEPAD_AXIS_COUNT> pending; };
 
+// Families group SDL's gamepad types by the names printed on the buttons.
+static const char *family(SDL_Gamepad *handle) {
+    switch (SDL_GetGamepadType(handle)) {
+        case SDL_GAMEPAD_TYPE_PS3: case SDL_GAMEPAD_TYPE_PS4: case SDL_GAMEPAD_TYPE_PS5: return "playstation";
+        case SDL_GAMEPAD_TYPE_XBOX360: case SDL_GAMEPAD_TYPE_XBOXONE: return "xbox";
+        case SDL_GAMEPAD_TYPE_NINTENDO_SWITCH_PRO: case SDL_GAMEPAD_TYPE_NINTENDO_SWITCH_JOYCON_LEFT:
+        case SDL_GAMEPAD_TYPE_NINTENDO_SWITCH_JOYCON_RIGHT: case SDL_GAMEPAD_TYPE_NINTENDO_SWITCH_JOYCON_PAIR: return "nintendo";
+        default: return "standard";
+    }
+}
+
 int main(int argc, char **argv) {
-    const bool synthetic = argc == 2 && std::strcmp(argv[1], "--virtual-test") == 0;
-    if (argc > 1 && !synthetic) { std::fprintf(stderr, "Usage: padcode-controller [--virtual-test]\n"); return 2; }
+    // --virtual-test [playstation|xbox|nintendo|standard]: a simulated gamepad with that family's vendor/product IDs.
+    const bool synthetic = (argc == 2 || argc == 3) && std::strcmp(argv[1], "--virtual-test") == 0;
+    const char *as = synthetic && argc == 3 ? argv[2] : "standard";
+    Uint16 vendor = 0, product = 0;
+    if (std::strcmp(as, "playstation") == 0) { vendor = 0x054C; product = 0x09CC; }
+    else if (std::strcmp(as, "xbox") == 0) { vendor = 0x045E; product = 0x02EA; }
+    else if (std::strcmp(as, "nintendo") == 0) { vendor = 0x057E; product = 0x2009; }
+    if ((argc > 1 && !synthetic) || (synthetic && std::strcmp(as, "playstation") && std::strcmp(as, "xbox") && std::strcmp(as, "nintendo") && std::strcmp(as, "standard"))) {
+        std::fprintf(stderr, "Usage: padcode-controller [--virtual-test [playstation|xbox|nintendo|standard]]\n"); return 2;
+    }
     std::signal(SIGINT, stop); std::signal(SIGTERM, stop);
     const pid_t parent = getppid();
     SDL_SetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS, "1");
@@ -49,6 +68,7 @@ int main(int argc, char **argv) {
         desc.axis_mask = (1u << SDL_GAMEPAD_AXIS_COUNT) - 1;
         desc.button_mask = (1u << SDL_GAMEPAD_BUTTON_COUNT) - 1;
         desc.name = "Padcode \"virtual\" \\ test\ncontroller";
+        desc.vendor_id = vendor; desc.product_id = product;
         virtualId = SDL_AttachVirtualJoystick(&desc);
         virtualPad = virtualId ? SDL_OpenJoystick(virtualId) : nullptr;
         if (!virtualPad) { std::fprintf(stderr, "Virtual device failed: %s\n", SDL_GetError()); SDL_Quit(); return 1; }
@@ -81,7 +101,7 @@ int main(int argc, char **argv) {
                 const auto connection = SDL_GetGamepadConnectionState(handle);
                 const char *transport = connection == SDL_JOYSTICK_CONNECTION_WIRELESS ? "wireless" : connection == SDL_JOYSTICK_CONNECTION_WIRED ? "wired" : "unknown";
                 const char *serial = SDL_GetGamepadSerial(handle);
-                emit("\"type\":\"connected\"," + deviceField(id) + ",\"name\":" + quote(SDL_GetGamepadName(handle)) + ",\"connection\":" + quote(transport) + (serial ? ",\"serial\":" + quote(serial) : ""));
+                emit("\"type\":\"connected\"," + deviceField(id) + ",\"name\":" + quote(SDL_GetGamepadName(handle)) + ",\"connection\":" + quote(transport) + ",\"family\":" + quote(family(handle)) + (serial ? ",\"serial\":" + quote(serial) : ""));
             } else if (event.type == SDL_EVENT_GAMEPAD_REMOVED) {
                 const auto id = event.gdevice.which;
                 const auto found = pads.find(id);

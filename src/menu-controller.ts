@@ -2,10 +2,12 @@ import { EventEmitter } from 'node:events';
 import { ControllerProbe, identityMatch, type InputDevice, type ProbePort } from './probe.js';
 import type { Event } from './protocol.js';
 import type { Config } from './config.js';
+import { formatGlyphs, type Glyphs } from './glyphs.js';
 
 export type MenuAction = 'up' | 'down' | 'confirm' | 'cancel';
 export interface MenuInput {
   readonly statusText?: string;
+  glyphs?(): Glyphs;
   subscribeAction(listener: (action: MenuAction) => void): () => void;
   subscribeStatus(listener: (status: string) => void): () => void;
 }
@@ -31,7 +33,11 @@ export class GamepadMenus implements MenuInput {
   subscribeStatus(listener: (status: string) => void): () => void {
     this.events.on('status', listener); return () => this.events.removeListener('status', listener);
   }
-  private status(text: string): void { this.statusText = text; this.events.emit('status', text); }
+  glyphs(): Glyphs {
+    const device = this.selected === undefined ? undefined : this.devices.get(this.selected);
+    return { family: device?.family ?? this.target?.family ?? 'standard', swap: this.target?.confirm === 'east' };
+  }
+  private status(text: string): void { this.statusText = formatGlyphs(text, this.glyphs()); this.events.emit('status', this.statusText); }
   private compatible(device: InputDevice): boolean {
     return Boolean(this.target && identityMatch(device, this.target.transport, this.target.address) !== 'mismatch');
   }
@@ -45,7 +51,7 @@ export class GamepadMenus implements MenuInput {
       this.devices = new Map(feed.snapshot().map(device => [device.device, device]));
       this.release = feed.subscribe((event, error) => this.receive(event, error));
       this.selectConfigured();
-      if (this.selected === undefined) this.status('GAMEPAD MENUS / D-pad to navigate, or X to claim. O back/cancel. Keyboard available.');
+      if (this.selected === undefined) this.status('GAMEPAD MENUS / D-pad to navigate, or {confirm} to claim. {back} back/cancel. Keyboard available.');
     } catch (error) {
       await this.stop();
       signal.throwIfAborted();
@@ -55,7 +61,7 @@ export class GamepadMenus implements MenuInput {
   private selectConfigured(): void {
     if (!this.automatic || !this.target?.address || this.selected !== undefined) return;
     const matches = [...this.devices.values()].filter(device => identityMatch(device, this.target!.transport, this.target!.address) === 'match');
-    if (matches.length === 1) { this.selected = matches[0]!.device; this.status('GAMEPAD READY / D-pad up/down, X confirm, O back/cancel.'); }
+    if (matches.length === 1) { this.selected = matches[0]!.device; this.status('GAMEPAD READY / D-pad up/down, {confirm} confirm, {back} back/cancel.'); }
   }
   private receive(event?: Event, error?: Error): void {
     if (error) {
@@ -68,17 +74,18 @@ export class GamepadMenus implements MenuInput {
       this.devices.delete(event.device);
       if (this.selected === event.device) {
         this.selected = undefined;
-        this.status('GAMEPAD DISCONNECTED / Keyboard remains available. Reconnect and press X to take control again.');
+        this.status('GAMEPAD DISCONNECTED / Keyboard remains available. Reconnect and press {confirm} to take control again.');
       }
       return;
     }
     if (event.type !== 'button' || !event.down || (this.automatic && Date.now() < this.settledAt)) return;
+    if (this.target?.confirm === 'east' && (event.button === 'south' || event.button === 'east')) event = { ...event, button: event.button === 'south' ? 'east' : 'south' };
     const device = this.devices.get(event.device);
     if (!device || !this.compatible(device)) return;
     if (this.selected === undefined) {
       if (!['south', 'dpad_up', 'dpad_down'].includes(event.button)) return;
       this.selected = device.device;
-      this.status('GAMEPAD READY / D-pad up/down, X confirm, O back/cancel.');
+      this.status('GAMEPAD READY / D-pad up/down, {confirm} confirm, {back} back/cancel.');
       // The claiming press never selects a menu item.
       if (event.button === 'south') return;
     }

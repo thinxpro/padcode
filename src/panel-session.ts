@@ -8,7 +8,8 @@ import type { AgentGamepad } from './agent-gamepad.js';
 import type { Config } from './config.js';
 import { resolveExecutable } from './config.js';
 import { restoreTerminal } from './agent-session.js';
-import { SessionServer } from './session-ipc.js';
+import { SessionServer, type ToPanel } from './session-ipc.js';
+import { formatGlyphs } from './glyphs.js';
 import { SessionControls, type HistoryCommand, type MenuView } from './session-controls.js';
 import { removeStaleVoice, voiceDirectory, VoiceCapture } from './voice-session.js';
 import type { AudioPort } from './audio.js';
@@ -112,9 +113,16 @@ export async function runPanelAgent(agent: Agent, options: PanelOptions): Promis
     await panelJoined.catch(() => {});
     control = new ControlClient(tmux, session);
     const live = control;
-    let latest = 'STARTING / Waiting for Agent', respawns = 0;
-    ipc.on('connect', role => { if (role === 'panel') ipc.send('panel', { t: 'status', text: latest }); });
-    ipc.send('panel', { t: 'status', text: latest });
+    let latest = 'STARTING / Waiting for Agent', respawns = 0, shownNames = '';
+    // Every pane message names buttons for the controller in use; the legend gets the same names.
+    const names = () => gamepad?.glyphs() ?? { family: 'standard' as const };
+    function toPanel(message: ToPanel): void {
+      const current = names(), key = `${current.family}:${Boolean(current.swap)}`;
+      if (key !== shownNames && ipc.connected('panel')) { shownNames = key; ipc.send('panel', { t: 'names', family: current.family, swap: Boolean(current.swap) }); }
+      ipc.send('panel', message.t === 'names' ? message : { ...message, text: formatGlyphs(message.text, current) });
+    }
+    ipc.on('connect', role => { if (role === 'panel') { shownNames = ''; toPanel({ t: 'status', text: latest }); } });
+    toPanel({ t: 'status', text: latest });
     ipc.on('disconnect', role => {
       if (role !== 'panel' || finished) return;
       // A crashed status worker is replaced; the Agent keeps running either way.
@@ -128,7 +136,11 @@ export async function runPanelAgent(agent: Agent, options: PanelOptions): Promis
     let popup: ChildProcess | undefined, menuView: MenuView | null = null, closingPopup = false, popupKind = 'menu';
     const kindOf = (view: MenuView) => view.map ? 'map' : view.body !== undefined ? 'body' : 'menu';
     // Draft previews are bounded so every popup message fits one IPC line; the full draft stays here.
-    const sendView = (view: MenuView) => ({ ...view, ...(view.body === undefined ? {} : { body: previewText(view.body) }) });
+    const sendView = (view: MenuView) => {
+      const current = names(), say = (text: string) => formatGlyphs(text, current);
+      return { ...view, title: say(view.title), items: view.items.map(say), hint: say(view.hint), ...(view.body === undefined ? {} : { body: previewText(view.body) }),
+        ...(view.map ? { map: { ...view.map, family: current.family, swap: Boolean(current.swap) } } : {}) };
+    };
     // The menu can close or change while tmux is queried, so the view is read again after every await,
     // only one open runs at a time, and a failure never escapes into the session.
     let opening = false;
@@ -155,7 +167,8 @@ export async function runPanelAgent(agent: Agent, options: PanelOptions): Promis
       // or title/blank/body/blank/items/blank/hint for menus and drafts.
       const most = Math.max(8, rows - 2);
       const height = popupKind === 'map'
-        ? Math.min(most, renderControllerMap(view.map!, width - 4, false, most - 5).length + 5)
+        // Size with the view the worker will draw (it carries the controller family).
+        ? Math.min(most, renderControllerMap(sendView(view).map!, width - 4, false, most - 5).length + 5)
         : Math.min(most, view.items.length + 6 + (popupKind === 'body' ? wrapText(view.body!, width - 4).length + 1 : 0));
       popup = spawn(tmux.binary, tmux.args(['display-popup', '-c', name, '-E', '-w', String(width), '-h', String(height), '-x', 'C', '-y', 'C', `${shell(node)} ${shell(paneMenu)}`]), { stdio: 'ignore', env: clientEnv(env) });
       popup.on('error', () => {});
@@ -185,13 +198,13 @@ export async function runPanelAgent(agent: Agent, options: PanelOptions): Promis
         routing: () => gamepad.routing && controls.context === 'agent',
         capture: (handler, status) => gamepad.capture(handler, status),
         release: resume => gamepad.releaseCapture(resume),
-        status: text => { latest = text; ipc.send('panel', { t: 'status', text }); },
-        notice: text => ipc.send('panel', { t: 'notice', text }),
+        status: text => { latest = text; toPanel({ t: 'status', text }); },
+        notice: text => toPanel({ t: 'notice', text }),
         draft: text => {
           if ((options.voice!.insert ?? 'auto') === 'auto' && !shortAnswer(text) && controls.context === 'agent') insertText(text);
           else {
             controls.openDraft(text);
-            if (controls.context !== 'draft') ipc.send('panel', { t: 'notice', text: 'VOICE DRAFT READY / Options > Review voice draft' });
+            if (controls.context !== 'draft') toPanel({ t: 'notice', text: 'VOICE DRAFT READY / {menu} > Review voice draft' });
           }
         },
       }, Date.now, 60, options.voice.transcriber);
@@ -205,11 +218,11 @@ export async function runPanelAgent(agent: Agent, options: PanelOptions): Promis
       for (let i = 0; i < chars.length; i += 300) ipc.send('agent', { t: 'paste-part', text: chars.slice(i, i + 300).join('') });
       ipc.send('agent', { t: 'paste-end' });
       inserted = chars.length;
-      ipc.send('panel', { t: 'notice', text: `INSERTED ${chars.length} chars / X or Enter sends, Options > Undo voice insert` });
+      toPanel({ t: 'notice', text: `INSERTED ${chars.length} chars / {confirm} or Enter sends, {menu} > Undo voice insert` });
     }
     ipc.on('undo', result => {
       inserted = undefined;
-      ipc.send('panel', { t: 'notice', text: result.ok ? undoRerecord ? 'VOICE INSERT UNDONE / Hold L2 to record again' : 'VOICE INSERT UNDONE'
+      toPanel({ t: 'notice', text: result.ok ? undoRerecord ? 'VOICE INSERT UNDONE / Hold {l2} to record again' : 'VOICE INSERT UNDONE'
         : 'UNDO UNAVAILABLE / The input changed after the voice insert' });
     });
     const controls = new SessionControls({
@@ -217,7 +230,7 @@ export async function runPanelAgent(agent: Agent, options: PanelOptions): Promis
       canUndo: () => inserted !== undefined,
       undo: rerecord => { if (inserted === undefined) return; undoRerecord = rerecord; ipc.send('agent', { t: 'undo', count: inserted }); },
       hasRecording: () => Boolean(voice?.last),
-      notice: text => ipc.send('panel', { t: 'notice', text }),
+      notice: text => toPanel({ t: 'notice', text }),
       mapProfile: () => ({ claude: basename(agent.command) === 'claude', voice: Boolean(voice) }),
       play: () => voice?.play(),
       capture: (handler, status) => gamepad?.capture(handler, status),
@@ -253,10 +266,10 @@ export async function runPanelAgent(agent: Agent, options: PanelOptions): Promis
     const abort = new AbortController();
     if (gamepad) {
       unsubscribe = gamepad.subscribe(bytes => ipc.send('agent', { t: 'keys', data: bytes.toString('base64') }),
-        text => { latest = text; ipc.send('panel', { t: 'status', text }); }, () => ipc.send('agent', { t: 'cancel' }));
+        text => { latest = text; toPanel({ t: 'status', text }); }, () => ipc.send('agent', { t: 'cancel' }));
       gamepad.enableMenu();
       gamepadStarted = gamepad.start(abort.signal).catch(() => gamepad.suspend('UNAVAILABLE / Keyboard available'));
-    } else { latest = 'KEYBOARD ONLY / No controller configured'; ipc.send('panel', { t: 'status', text: latest }); }
+    } else { latest = 'KEYBOARD ONLY / No controller configured'; toPanel({ t: 'status', text: latest }); }
     for (const [signal, code] of signals) { const handler = () => terminate(code); handlers.set(signal, handler); process.on(signal, handler); }
     client = spawn(tmux.binary, tmux.args(['attach-session', '-t', session]), { stdio: 'inherit', env: clientEnv(env) });
     client.on('error', () => terminate(1));

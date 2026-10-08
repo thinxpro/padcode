@@ -1,7 +1,7 @@
 import { AgentGamepad } from '../dist/agent-gamepad.js';
 // Shared virtual feed for AgentGamepad unit tests.
 export const target = { transport: 'bluetooth', address: 'aa:bb:cc:dd:ee:ff', inputVerified: true };
-export const pad = { type: 'connected', device: 1, name: 'Fixture PS4', connection: 'wireless', serial: target.address };
+export const pad = { type: 'connected', device: 1, name: 'Fixture PS4', connection: 'wireless', family: 'playstation', serial: target.address };
 export function fixture(startError, settings = {}) {
   let listener, clock = 0, stopped = 0;
   const feed = { start: async () => { if (startError) throw startError; }, stop: async () => { stopped++; }, snapshot: () => [pad], subscribe: fn => { listener = fn; return () => { listener = undefined; }; } };

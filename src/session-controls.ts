@@ -1,10 +1,11 @@
 import type { Button } from './protocol.js';
+import type { MapView } from './session-ipc.js';
 
 // Routes captured controller presses and popup keys through the Padcode session contexts.
 export type Context = 'agent' | 'menu' | 'confirm' | 'history' | 'draft' | 'map';
 export type HistoryCommand = 'enter' | 'up' | 'down' | 'page-up' | 'page-down' | 'exit';
 export type MenuKey = 'up' | 'down' | 'confirm' | 'back';
-export interface MenuView { title: string; items: string[]; selected: number; hint: string; body?: string; map?: { claude: boolean; voice: boolean } }
+export interface MenuView { title: string; items: string[]; selected: number; hint: string; body?: string; map?: MapView }
 export interface ControlEffects {
   capture(handler: (button: Button) => void, status: string): void;
   release(resume: boolean): void;
@@ -27,11 +28,11 @@ type MenuId = typeof menuIds[number] | 'play' | 'draft' | 'undo' | 'rerecord';
 export const draftItems = ['Insert into Agent', 'Keep draft', 'Rerecord', 'Discard'];
 export const confirmItems = ['Keep the session running', 'End the Agent session'];
 const statuses = {
-  menu: 'MENU / D-pad select, X confirm, O back',
-  confirm: 'END SESSION? / X confirm, O back',
-  history: 'HISTORY / D-pad scroll, L1/R1 page, O exit',
-  draft: 'VOICE DRAFT / X choose, O keep',
-  map: 'CONTROLLER MAP / O back, X or Options close',
+  menu: 'MENU / D-pad select, {confirm} confirm, {back} back',
+  confirm: 'END SESSION? / {confirm} confirm, {back} back',
+  history: 'HISTORY / D-pad scroll, {l1}/{r1} page, {back} exit',
+  draft: 'VOICE DRAFT / {confirm} choose, {back} keep',
+  map: 'CONTROLLER MAP / {back} back, {confirm} or {menu} close',
 };
 const keyFor: Partial<Record<Button, MenuKey>> = { dpad_up: 'up', dpad_down: 'down', south: 'confirm', east: 'back' };
 
@@ -53,11 +54,11 @@ export class SessionControls {
   }
   private endIndex(): number { return this.entries().findIndex(entry => entry.id === 'end'); }
   private view(): MenuView {
-    if (this.context === 'map') return { title: 'CONTROLLER MAP / DUALSHOCK 4', items: ['Back to menu'], selected: 0, hint: 'O / Esc back   X / Options close', map: this.fx.mapProfile?.() ?? { claude: false, voice: false } };
-    if (this.context === 'draft') return { title: 'VOICE DRAFT', items: draftItems, selected: this.selected, hint: 'X / Enter choose   O / Esc keep draft', body: this.draftText ?? '' };
+    if (this.context === 'map') return { title: 'CONTROLLER MAP / {padName}', items: ['Back to menu'], selected: 0, hint: '{back} / Esc back   {confirm} / {menu} close', map: this.fx.mapProfile?.() ?? { claude: false, voice: false } };
+    if (this.context === 'draft') return { title: 'VOICE DRAFT', items: draftItems, selected: this.selected, hint: '{confirm} / Enter choose   {back} / Esc keep draft', body: this.draftText ?? '' };
     return this.context === 'confirm'
-      ? { title: 'END SESSION?', items: confirmItems, selected: this.selected, hint: 'X / Enter confirm   O / Esc back' }
-      : { title: 'PADCODE CONTROLS', items: this.entries().map(entry => entry.label), selected: this.selected, hint: 'X / Enter confirm   O / Esc close' };
+      ? { title: 'END SESSION?', items: confirmItems, selected: this.selected, hint: '{confirm} / Enter confirm   {back} / Esc back' }
+      : { title: 'PADCODE CONTROLS', items: this.entries().map(entry => entry.label), selected: this.selected, hint: '{confirm} / Enter confirm   {back} / Esc close' };
   }
   private enter(context: 'menu' | 'confirm' | 'history' | 'draft' | 'map', selected = 0): void {
     this.context = context; this.selected = selected;
@@ -98,7 +99,7 @@ export class SessionControls {
     if (key === 'back') { if (this.context === 'confirm') this.enter('menu', this.endIndex()); else this.close(); return; }
     if (this.context === 'draft') {
       const text = this.draftText;
-      if (this.selected >= 2) { this.draftText = undefined; this.fx.notice?.(this.selected === 2 ? 'DRAFT DISCARDED / Hold L2 to record again' : 'DRAFT DISCARDED'); }
+      if (this.selected >= 2) { this.draftText = undefined; this.fx.notice?.(this.selected === 2 ? 'DRAFT DISCARDED / Hold {l2} to record again' : 'DRAFT DISCARDED'); }
       this.close();
       if (this.selected === 0 && text) this.fx.insert?.(text);
       return;

@@ -49,7 +49,7 @@ test('C3 menu items: resume, pause, history, interrupt and confirmed end', () =>
   assert.deepEqual(pick(2).calls, ['capture:HISTORY', 'menu:close', 'history:enter']);
   assert.deepEqual(pick(3).calls, ['interrupt', 'menu:close', 'release:true']);
   assert.deepEqual(pick(4).calls, ['clear', 'menu:close', 'release:true']);
-  assert.deepEqual(pick(5).calls, ['capture:CONTROLLER MAP', 'menu:CONTROLLER MAP / DUALSHOCK 4:0']);
+  assert.deepEqual(pick(5).calls, ['capture:CONTROLLER MAP', 'menu:CONTROLLER MAP / {padName}:0']);
   assert.deepEqual(pick(6).calls, ['capture:END SESSION?', 'menu:END SESSION?:0']);
   const h = at('confirm'); h.press('dpad_down'); h.reset(); h.press('south');
   assert.deepEqual(h.calls, ['menu:close', 'end']); assert.equal(h.controls.context, 'agent');
@@ -79,7 +79,7 @@ test('C3-A2/A3 real gamepad routing: 100 presses per context and a release barri
   });
   f.gamepad.onControl(event => { if (event === 'menu') controls.openMenu(); else controls.lost(); });
   await f.gamepad.start(new AbortController().signal); f.advance(); await new Promise(r => setTimeout(r, 275));
-  assert.match(f.statuses.at(-1), /ACTIVE \/ Options menu/);
+  assert.match(f.statuses.at(-1), /ACTIVE \/ OPTIONS menu/);
   for (let i = 0; i < 100; i++) f.press('south');
   assert.equal(f.bytes.length, 100); assert.ok(f.bytes.every(b => b === '\r'));
   f.press('start'); assert.equal(controls.context, 'menu'); assert.match(f.statuses.at(-1), /MENU/);

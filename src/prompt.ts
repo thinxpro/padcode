@@ -2,6 +2,7 @@ import { createInterface } from 'node:readline/promises';
 import { emitKeypressEvents, type Key } from 'node:readline';
 import { colorEnabled, safeText } from './ui.js';
 import { wrapText } from './text-width.js';
+import { formatGlyphs } from './glyphs.js';
 import type { MenuInput, MenuAction } from './menu-controller.js';
 
 export interface Choice { label: string; value: string }
@@ -14,10 +15,12 @@ export interface PromptPort {
 export class TerminalPrompt implements PromptPort {
   private color = colorEnabled(process.env, Boolean(process.stdout.isTTY));
   constructor(private signal: AbortSignal, private cancel: () => void, private gamepad?: MenuInput) {}
+  // Button names follow the connected controller ({confirm}, {back}, {menu}...).
+  private names(text: string): string { return formatGlyphs(text, this.gamepad?.glyphs?.() ?? { family: 'standard' }); }
   private width(): number { return Math.max(12, Math.min(72, (process.stdout.columns || 80) - 1)); }
   private wrap(text: string): string[] {
     // Wrap by terminal columns so Chinese and emoji keep their characters and line up.
-    const lines = wrapText(safeText(text), this.width());
+    const lines = wrapText(safeText(this.names(text)), this.width());
     return lines.length ? lines : [''];
   }
   banner(title: string): void {
@@ -35,7 +38,7 @@ export class TerminalPrompt implements PromptPort {
     lines.on('SIGINT', this.cancel);
     lines.on('close', () => { if (!answered) this.cancel(); });
     try {
-      const answer = await lines.question(`${this.color ? '\x1b[95m' : ''}> ${safeText(message)}${this.color ? '\x1b[0m' : ''} `, { signal: this.signal });
+      const answer = await lines.question(`${this.color ? '\x1b[95m' : ''}> ${safeText(this.names(message))}${this.color ? '\x1b[0m' : ''} `, { signal: this.signal });
       answered = true; return answer;
     } finally { answered = true; lines.close(); process.stdin.pause(); }
   }
@@ -44,7 +47,7 @@ export class TerminalPrompt implements PromptPort {
     if (!choices.length || !choices[selected]) throw new Error('Menu has no valid default selection.');
     const input = process.stdin, wasRaw = Boolean(input.isRaw);
     const ansi = Boolean(process.stdout.isTTY) && process.env.TERM !== 'dumb';
-    let rows = 0, typed = '', status = this.gamepad ? this.gamepad.statusText ?? 'D-PAD select / X confirm / O back / keyboard available' : 'Arrow keys or numbers / Enter confirm';
+    let rows = 0, typed = '', status = this.gamepad ? this.gamepad.statusText ?? 'D-PAD select / {confirm} confirm / {back} back / keyboard available' : 'Arrow keys or numbers / Enter confirm';
     const render = () => {
       if (ansi && rows) process.stdout.write(`\r\x1b[${rows}A\x1b[0J`);
       const lines = [message, ...choices.map((choice, index) => `  ${index === selected ? '>' : ' '} [${index + 1}] ${choice.label}`), status, `> Select [${selected + 1}] (q to cancel):`].flatMap(text => this.wrap(text));

@@ -56,8 +56,8 @@ export class VoiceCapture {
     this.state = 'recording'; this.cancelled = false;
     const recording = this.audio.record({ path, device: this.microphone, maxSeconds: this.maxSeconds });
     this.recording = recording;
-    const status = (peak: number) => began === undefined ? 'MIC STARTING / Keep holding L2, speak at REC'
-      : `REC ${clock(this.now() - began)} ${meter(peak)} / Release L2 to stop, O cancel`;
+    const status = (peak: number) => began === undefined ? 'MIC STARTING / Keep holding {l2}, speak at REC'
+      : `REC ${clock(this.now() - began)} ${meter(peak)} / Release {l2} to stop, {back} cancel`;
     this.fx.capture(button => { if (button === 'east') this.cancel(); }, status(0));
     recording.onLive(() => { clearTimeout(this.liveTimer); if (this.recording !== recording) return; began = this.now(); if (this.state === 'recording') this.fx.status(status(0)); });
     // Backup for the helper's own watchdog: never leave MIC STARTING on screen indefinitely.
@@ -67,7 +67,7 @@ export class VoiceCapture {
       // Give the controller back now; the stuck helper is killed in the background and its result ignored.
       this.abandoned.add(path); recording.cancel();
       this.recording = undefined; this.state = 'idle'; this.fx.release(true);
-      this.fx.notice('MIC NOT RESPONDING / Reconnect it or choose another in Voice settings, then hold L2 again');
+      this.fx.notice('MIC NOT RESPONDING / Reconnect it or choose another in Voice settings, then hold {l2} again');
     }, this.liveLimit);
     this.liveTimer.unref();
     recording.onLevel(peak => { if (this.recording === recording && this.state === 'recording') this.fx.status(status(peak)); });
@@ -84,13 +84,13 @@ export class VoiceCapture {
     this.recording = undefined; this.state = 'idle';
     if (result.kind === 'stopped' && !this.cancelled && result.seconds < shortestSeconds) {
       void rm(path, { force: true });
-      this.fx.release(true); this.fx.notice('RECORDING TOO SHORT / Hold L2 until REC appears');
+      this.fx.release(true); this.fx.notice('RECORDING TOO SHORT / Hold {l2} until REC appears');
       return;
     }
     if (result.kind === 'stopped' && !this.cancelled) {
       this.last = path;
       if (this.transcriber) { this.transcribeClip(path, generation); return; }
-      this.fx.release(true); this.fx.notice(`RECORDED ${result.seconds.toFixed(1)}s / Options > Play last recording`);
+      this.fx.release(true); this.fx.notice(`RECORDED ${result.seconds.toFixed(1)}s / {menu} > Play last recording`);
       return;
     }
     void rm(path, { force: true });
@@ -103,13 +103,13 @@ export class VoiceCapture {
   // The controller stays captured while the draft is produced; O cancels it. Nothing reaches the Agent.
   private transcribeClip(path: string, generation: number): void {
     this.state = 'transcribing'; this.cancelled = false;
-    this.fx.capture(button => { if (button === 'east') this.cancel(); }, 'TRANSCRIBING... / O cancel');
+    this.fx.capture(button => { if (button === 'east') this.cancel(); }, 'TRANSCRIBING... / {back} cancel');
     const job = transcribe(this.transcriber!, path, this.audio);
     this.job = job;
     void job.done.then(result => {
       if (generation !== this.generation || this.job !== job) return;
       this.job = undefined; this.state = 'idle'; this.fx.release(true);
-      if (result.ok) { if (result.text) this.fx.draft?.(result.text); else this.fx.notice('NO SPEECH RECOGNIZED / Hold L2 and try again'); return; }
+      if (result.ok) { if (result.text) this.fx.draft?.(result.text); else this.fx.notice('NO SPEECH RECOGNIZED / Hold {l2} and try again'); return; }
       if (result.code === 'speech-permission-required') { this.requestSpeech(generation); return; }
       this.fx.notice(this.cancelled || result.code === 'cancelled' ? 'TRANSCRIPTION CANCELLED' : `TRANSCRIPTION FAILED / ${result.message}`);
     });
@@ -120,7 +120,7 @@ export class VoiceCapture {
     void this.audio.speechRequest().then(status => {
       if (generation !== this.generation) return;
       this.state = 'idle';
-      this.fx.notice(status === 'authorized' ? 'SPEECH READY / Hold L2 to record again'
+      this.fx.notice(status === 'authorized' ? 'SPEECH READY / Hold {l2} to record again'
         : 'SPEECH DENIED / Allow Padcode Audio in System Settings > Privacy & Security > Speech Recognition');
     }, () => { if (generation === this.generation) { this.state = 'idle'; this.fx.notice('SPEECH PERMISSION FAILED'); } });
   }
@@ -130,7 +130,7 @@ export class VoiceCapture {
     void this.audio.request().then(status => {
       if (generation !== this.generation) return;
       this.state = 'idle';
-      this.fx.notice(status === 'authorized' ? 'MIC READY / Hold L2 again to record'
+      this.fx.notice(status === 'authorized' ? 'MIC READY / Hold {l2} again to record'
         : 'MIC DENIED / Allow Padcode Audio in System Settings > Privacy & Security > Microphone');
     }, (error: Error) => {
       if (generation !== this.generation) return;
@@ -147,7 +147,7 @@ export class VoiceCapture {
     this.state = 'playing';
     const playback = this.audio.play(this.last);
     this.player = playback;
-    this.fx.capture(button => { if (button === 'east' || button === 'start') playback.stop(); }, 'PLAYING / O stop');
+    this.fx.capture(button => { if (button === 'east' || button === 'start') playback.stop(); }, 'PLAYING / {back} stop');
     void playback.done.then(() => { this.player = undefined; this.state = 'idle'; this.fx.release(true); });
   }
   // Session end: stop everything; late helper results only delete their files.

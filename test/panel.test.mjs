@@ -121,7 +121,7 @@ test('launch confirmation states the display mode and recovery path', async () =
   const lines = []; const io = { banner: t => lines.push(t), say: t => lines.push(t), choose: async () => 'cancel' };
   const agent = { command: process.execPath, args: [] };
   await confirmAgent(io, agent, '/tmp', { kind: 'panel', tmux: '/opt/tmux', version: 'tmux 3.7c' });
-  assert.match(lines.join('\n'), /DISPLAY \/ Controls pane \(tmux 3\.7c\)/); assert.match(lines.join('\n'), /Options controls menu/); assert.doesNotMatch(lines.join('\n'), /terminal title/);
+  assert.match(lines.join('\n'), /DISPLAY \/ Controls pane \(tmux 3\.7c\)/); assert.match(lines.join('\n'), /\{menu\} controls menu/); assert.doesNotMatch(lines.join('\n'), /terminal title/);
   lines.length = 0;
   await confirmAgent(io, agent, '/tmp', { kind: 'transparent', reason: 'tmux was not found. Install tmux 3.2+ (brew install tmux, or apt install tmux) for the controls pane.' });
   assert.match(lines.join('\n'), /DISPLAY \/ Transparent\. tmux was not found/); assert.match(lines.join('\n'), /terminal title/);

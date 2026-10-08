@@ -69,7 +69,7 @@ test('C4-A1 L2 hysteresis, debounce, held-at-start trigger and routing guard', a
   // A second press while the first job is still stopping is ignored.
   v.tick(200); v.capture.trigger(0.9); assert.equal(v.recordings.length, 1);
   await v.recordings[0].finish({ kind: 'stopped', seconds: 0.4 });
-  assert.equal(v.capture.state, 'idle'); assert.ok(v.calls.includes('notice:RECORDED 0.4s / Options > Play last recording'));
+  assert.equal(v.capture.state, 'idle'); assert.ok(v.calls.includes('notice:RECORDED 0.4s / {menu} > Play last recording'));
   v.capture.trigger(0.1); v.tick(200);
   v.setRouting(false); v.capture.trigger(0.9); assert.equal(v.recordings.length, 1, 'recorded while the menu or pause owned the controller');
   v.setRouting(true); v.capture.trigger(0.1); v.tick(200); v.capture.trigger(0.9); assert.equal(v.recordings.length, 2);
@@ -101,7 +101,7 @@ test('C4-A2/A3 cancel, replacement, errors, crashes and late results leave no st
   // Released before audio arrived (or under 0.3 s): discarded as too short.
   const short = await record({ kind: 'stopped', seconds: 0.1 });
   await eventually(() => !existsSync(short.options.path), 'short recording kept');
-  assert.ok(v.calls.includes('notice:RECORDING TOO SHORT / Hold L2 until REC appears')); assert.equal(v.capture.last, undefined, 'a too-short recording replaced nothing usable');
+  assert.ok(v.calls.includes('notice:RECORDING TOO SHORT / Hold {l2} until REC appears')); assert.equal(v.capture.last, undefined, 'a too-short recording replaced nothing usable');
   // A result arriving after dispose only deletes its file.
   press();
   const late = v.recordings.at(-1); v.capture.dispose(); assert.equal(late.cancelled, 1);
@@ -119,7 +119,7 @@ test('C4 lost macOS grant: L2 asks for microphone access in the session instead 
   assert.ok(!v.calls.some(call => call.includes('padcode config')), 'pointed to padcode config');
   press(); assert.equal(v.recordings.length, 1, 'recorded while the permission dialog was open');
   await eventually(() => v.capture.state === 'idle', 'permission request never finished');
-  assert.ok(v.calls.includes('notice:MIC READY / Hold L2 again to record'));
+  assert.ok(v.calls.includes('notice:MIC READY / Hold {l2} again to record'));
   press(); assert.equal(v.recordings.length, 2, 'could not record after permission was granted');
   v.audio.answer = 'denied'; v.capture.trigger(0.1);
   await v.recordings[1].finish({ kind: 'error', code: 'permission-required', message: 'x' });

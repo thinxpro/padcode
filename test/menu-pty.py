@@ -52,7 +52,7 @@ with tempfile.TemporaryDirectory(prefix='padcode-menu-') as root:
         expect('Select [1]'); press('south'); expect('MISSION 05')
         expect('Select [1]')
         event(dict(type='disconnected', device=1)); expect('GAMEPAD DISCONNECTED')
-        event(dict(type='connected', device=1, name='Test Pad', connection='wireless', serial='aa:bb:cc:dd:ee:ff'))
+        event(dict(type='connected', device=1, name='Test Pad', connection='wireless', family='playstation', serial='aa:bb:cc:dd:ee:ff'))
         press('south'); expect('GAMEPAD READY')
         press('south'); expect('SAVE COMPLETE')
         expect('PLAYER HUB'); expect('Select [1]')
