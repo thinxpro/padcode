@@ -67,3 +67,7 @@ Plan commit: `79b0565`. `npm run check` passed 138 tests with zero failures or s
 - A5: `test/panel_pty.py` `sticks()` in real tmux: every stick direction and editing button reaches the Agent as its exact key, a held stick repeats only Right and stops on release, and in the controls menu the stick moves the selection without reaching the Agent. The status legend lists STICKS CURSOR and SQ BKSP; `--help` lists the controls.
 
 Artifact `padcode-0.1.0-rc.5.tgz`, npm SHA-1 `c251906b5ce14725924bffad4d567fbcd0a44509` (includes the Player Hub order change from PR #20). Native helpers unchanged. H1-H3 are pending.
+
+### User-reported physical acceptance
+
+On 2026-10-08 the user reported that the stick and face-button design feels right in Claude Code ("设计很合手") with 0.1.0-rc.5 (H3). Individual H1/H2 items were not reported separately.
