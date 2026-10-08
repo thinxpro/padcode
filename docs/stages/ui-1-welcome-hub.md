@@ -1,6 +1,6 @@
 # UI-1: Welcome screen and Player Hub
 
-Status: implemented; automated acceptance passes locally, manual display review and DualShock 4 Hub navigation pending. This plan, its acceptance criteria and test matrix were committed before implementation.
+Status: implemented; automated acceptance passes locally and the maintainer accepted the display; DualShock 4 Hub navigation pending. This plan, its acceptance criteria and test matrix were committed before implementation.
 
 Stacked on [UI-0](ui-0-tui-foundation.md) (`feature/tui-foundation`, PR #25), which is not merged yet. This PR targets that branch and is retargeted to `main` after UI-0 merges.
 
@@ -70,4 +70,6 @@ Plan commit: `623e583`. On macOS 27.0.1 arm64 with Node 24.21.0, `npm run check`
 - B5, B6: `test/hub-view.test.mjs`, with 18 Hub and 3 help snapshots in `test/snapshots/`.
 - B7: the four Hub PTY suites above and the installed-package smoke test pass.
 
-Manual display review and the DualShock 4 Hub navigation check are pending.
+### Maintainer review
+
+On 2026-10-08 the maintainer reviewed UI-1 and reported "UI-1 可以" (UI-1 is acceptable). No terminal-by-terminal results were given, and the report did not mention the DualShock 4, so the DualShock 4 Hub navigation check (D-pad, X, O) remains pending.
