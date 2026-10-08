@@ -42,7 +42,7 @@ for line in sys.stdin:
             raise AssertionError((token,output))
         try:
             if hub:
-                expect(b'Select [1]'); os.write(master,b'1\n')
+                expect(b'MENU 1/'); os.write(master,b'1\n')  # Full-screen Player Hub: digit moves, Enter confirms.
             expect(b'Select [2]')
             # The controls pane needs tmux; the suite treats a missing tmux as a failure, not a skip.
             assert (b'DISPLAY / Controls pane' in output) == (display == 'panel' and not plain), output[-600:]
@@ -56,7 +56,7 @@ for line in sys.stdin:
                     os.write(master,b'exit!\n'); expect(b'FINAL_OUTPUT'); expected=7
                     if hub:
                         # Player Hub sessions return to the Hub; Exit then leaves with status 0.
-                        expect(b'SESSION OVER / Agent exited with status 7'); expect(b'Select [1]')
+                        expect(b'SESSION OVER / Agent exited with status 7'); expect(b'MENU 1/')
                         os.write(master,b'6\n'); expected=0
                 elif mode=='escape': os.write(master,b'\x1d'); expected=130
                 else:

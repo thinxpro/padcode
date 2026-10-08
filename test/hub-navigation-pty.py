@@ -40,10 +40,10 @@ class Hub:
     def edge(self, button, down): self.event(dict(type='button', device=1, button=button, down=down))
     def press(self, button): self.edge(button, True); self.edge(button, False)
     def hub(self):
-        self.expect(b'PLAYER HUB'); self.expect(b'GAMEPAD READY'); self.expect(b'Select [1]'); time.sleep(.3)
+        self.expect(b'PLAYER HUB'); self.expect(b'MENU 1/'); self.expect(b'GAMEPAD READY'); time.sleep(.3)
     def pick(self, index):
-        # Index is 1-based; the Hub cursor starts on item 1 and wraps.
-        for _ in range(index - 1): self.press('dpad_down'); self.expect(b'Select [%d]' % (_ + 2))
+        # Index is 1-based; the Hub cursor starts on item 1 and wraps. Every move repaints the full-screen Hub.
+        for _ in range(index - 1): self.press('dpad_down'); self.expect(b'MENU %d/' % (_ + 2))
         self.press('south')
     def finish(self, status):
         deadline = time.monotonic() + 6

@@ -5,7 +5,7 @@ import { once } from 'node:events';
 import { readFileSync } from 'node:fs';
 const cli = args => spawnSync(process.execPath, ['dist/cli.js', ...args], { encoding: 'utf8', timeout: 5000 });
 test('help/version/invalid arguments and non-TTY dashboard', () => {
-  for (const args of [[], ['--help'], ['-h']]) { const r = cli(args); assert.equal(r.status, 0); assert.match(r.stdout, /P A D C O D E/); assert.ok(!r.stdout.includes('\x1b')); }
+  for (const args of [[], ['--help'], ['-h']]) { const r = cli(args); assert.equal(r.status, 0); assert.match(r.stdout, /YOUR CONTROLLER\. YOUR AGENT\./); assert.match(r.stdout, /padcode controllers --json/); assert.match(r.stdout, /^[\x20-\x7e\n]*$/); }
   assert.equal(cli(['--version']).stdout, JSON.parse(readFileSync('package.json', 'utf8')).version + '\n');
   for (const args of [['bad'], ['demo', '--json'], ['controllers', '--bad'], ['--help', 'extra']]) assert.equal(cli(args).status, 2);
   for (const cmd of ['controllers', 'demo']) { const r = cli([cmd]); assert.equal(r.status, 2); assert.match(r.stderr, /requires a terminal/); }

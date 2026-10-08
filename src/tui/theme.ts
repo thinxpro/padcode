@@ -38,17 +38,28 @@ export function paint(caps: Caps, text: string, style: Style): string {
   const open = sgr(caps, style);
   return open && text ? `${open}${text}${reset}` : text;
 }
-// Colours each column along a ramp; `offset` (0..1) shifts the ramp so a sweep can move across.
-export function gradient(caps: Caps, text: string, ramp: readonly [Rgb, Rgb] = brandRamp, offset = 0, bold = true): string {
+export interface GradientOptions { ramp?: readonly [Rgb, Rgb]; offset?: number; bold?: boolean; shine?: number }
+const white: Rgb = [255, 255, 255];
+// Colours each column along a ramp. `offset` (0..1) shifts the ramp; `shine` (0..1) places a white
+// highlight band that moves across the text for the welcome sweep.
+export function gradient(caps: Caps, text: string, options: GradientOptions = {}): string {
+  const { ramp = brandRamp, offset = 0, bold = true, shine } = options;
   if (!caps.color || !text) return text;
-  if (caps.color === 16) return paint(caps, text, { tone: 'brand', bold });
   const chars = [...text], span = Math.max(1, chars.length - 1);
+  // The band is about a sixth of the text wide and starts and ends fully outside it.
+  const band = Math.max(2, chars.length / 6), at = shine === undefined ? undefined : -band + shine * (chars.length + 2 * band);
+  const glow = (i: number) => at === undefined ? 0 : Math.max(0, 1 - Math.abs(i - at) / band);
   let out = '', last = '';
   chars.forEach((char, i) => {
     if (char === ' ') { out += char; return; }
-    const t = ((i / span + offset) % 1 + 1) % 1, k = t <= 0.5 ? t * 2 : (1 - t) * 2;
-    const rgb = ramp[0].map((from, c) => Math.round(from + (ramp[1][c]! - from) * k)) as unknown as Rgb;
-    const code = `\x1b[${bold ? '1;' : ''}${foreground(caps, rgb, cube(rgb), 96)}m`;
+    let code: string;
+    if (caps.color === 16) code = `\x1b[${bold ? '1;' : ''}${glow(i) > 0.5 ? 97 : 96}m`;
+    else {
+      const t = ((i / span + offset) % 1 + 1) % 1, k = t <= 0.5 ? t * 2 : (1 - t) * 2, g = glow(i);
+      const base = ramp[0].map((from, c) => from + (ramp[1][c]! - from) * k);
+      const rgb = base.map((v, c) => Math.round(v + (white[c]! - v) * g)) as unknown as Rgb;
+      code = `\x1b[${bold ? '1;' : ''}${foreground(caps, rgb, cube(rgb), 96)}m`;
+    }
     out += (code === last ? '' : code) + char; last = code;
   });
   return `${out}${reset}`;

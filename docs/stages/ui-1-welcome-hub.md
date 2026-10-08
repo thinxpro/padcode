@@ -1,6 +1,6 @@
 # UI-1: Welcome screen and Player Hub
 
-Status: planned. This plan, its acceptance criteria and test matrix are committed before implementation.
+Status: implemented; automated acceptance passes locally, manual display review and DualShock 4 Hub navigation pending. This plan, its acceptance criteria and test matrix were committed before implementation.
 
 Stacked on [UI-0](ui-0-tui-foundation.md) (`feature/tui-foundation`, PR #25), which is not merged yet. This PR targets that branch and is retargeted to `main` after UI-0 merges.
 
@@ -51,6 +51,23 @@ Running `padcode` should open a welcome screen with a terminal-drawn logo, like 
 
 Display review, not hardware: run `padcode` in Terminal.app, iTerm2, Ghostty, the VS Code terminal and tmux; check the sweep, the logo at full width and at 60 and 40 columns, `NO_COLOR=1`, `PADCODE_ASCII=1`, and that returning from a session, Controller Lab and the demo redraws the Hub cleanly. Hub navigation with the DualShock 4 (D-pad, X, O) is a hardware check and is recorded separately.
 
+## Implementation notes
+
+- `TerminalPrompt.choose` and `TerminalPrompt.screen` share one private input loop (`select`); `choose` keeps its inline rendering, digits + Enter and the `Select [n]` line unchanged.
+- `Screen` takes an explicit full-screen flag; the Hub passes false for `TERM=dumb`, so dumb terminals get plain repaints with no control sequences (the onboarding PTY suite checks this byte for byte).
+- At 80x24 the block logo fits by dropping blank spacer lines and the tip; under 40 columns the Hub drops frames and shows the wordmark.
+- Hub labels became upper case (`START AGENT SESSION`, `VOICE + MICROPHONE`, `CONTROLLER LAB`, `EDIT CONFIGURATION`, `ARCADE DEMO`, `EXIT`); their order and values are unchanged. The previous `AGENT CONTROLS` line is now a one-line tip.
+- The help section for `--help` / `--version` is titled `FLAGS`: the families source scan (controller-families A3) correctly flagged a literal `OPTIONS`, which reads as the PlayStation button.
+- PTY suites that walk the Hub (`hub-navigation-pty.py`, `hub-agent-pty.py`, `onboarding_pty.py`, `agent_pty.py`) now wait for the `MENU n/total` rule instead of the inline `Select [n]` line; their scenarios and assertions are otherwise unchanged.
+- The screen-menu fixture reads its fake gamepad feed through a `net.Socket`: a file stream on a pipe kept a thread-pool read blocked and the process from exiting.
+
 ## Validation record
 
-Pending.
+Plan commit: `623e583`. On macOS 27.0.1 arm64 with Node 24.21.0, `npm run check` passed 181 tests with zero failures or skips. CI is disabled by the maintainer's decision, so Linux was not exercised.
+
+- B1, B2: `test/tui.test.mjs` (logo variants, shine band).
+- B3, B4: `test/screen-menu-pty.py` under a real PTY: sweep of at least five frames that settles and never resumes; a key or a gamepad action ends it at once; no sweep with `PADCODE_NO_ANIM`, `CI` or `NO_COLOR`; arrows, digit jump, invalid digit flash, gamepad up/confirm/cancel, status update, SIGWINCH resize, Enter, Esc, `q`, Ctrl+C (cancels the caller); `TERM=dumb` without control sequences; alternate screen left, cursor shown and terminal modes restored on every path.
+- B5, B6: `test/hub-view.test.mjs`, with 18 Hub and 3 help snapshots in `test/snapshots/`.
+- B7: the four Hub PTY suites above and the installed-package smoke test pass.
+
+Manual display review and the DualShock 4 Hub navigation check are pending.

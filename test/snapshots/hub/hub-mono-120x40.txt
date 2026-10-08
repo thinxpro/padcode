@@ -1,0 +1,29 @@
+                    ╭─ PLAYER HUB ───────────────────────────────────────────────────────────────╮
+                    │                                                                            │
+                    │         ██████╗  █████╗ ██████╗  ██████╗ ██████╗ ██████╗ ███████╗          │
+                    │         ██╔══██╗██╔══██╗██╔══██╗██╔════╝██╔═══██╗██╔══██╗██╔════╝          │
+                    │         ██████╔╝███████║██║  ██║██║     ██║   ██║██║  ██║█████╗            │
+                    │         ██╔═══╝ ██╔══██║██║  ██║██║     ██║   ██║██║  ██║██╔══╝            │
+                    │         ██║     ██║  ██║██████╔╝╚██████╗╚██████╔╝██████╔╝███████╗          │
+                    │         ╚═╝     ╚═╝  ╚═╝╚═════╝  ╚═════╝ ╚═════╝ ╚═════╝ ╚══════╝          │
+                    │                                                                            │
+                    │  YOUR CONTROLLER. YOUR AGENT.                                      v1.2.3  │
+                    ├────────────────────────────────────────────────────────────────────────────┤
+                    │  ● PLAYER 1  Wireless Controller ·…   ● AGENT     claude                   │
+                    │  ● INPUT     setup check passed       ● VOICE     Studio Mic / macOS on-…  │
+                    ╰────────────────────────────────────────────────────────────────────────────╯
+                    
+                      ◆ SESSION OVER / Agent exited with status 0
+                    
+                      ── MENU 2/6 ──────────────────────────────────────────────────────────────
+                        1  START AGENT SESSION   claude in padcode
+                      ▶ 2  VOICE + MICROPHONE    change microphone or transcription
+                        3  CONTROLLER LAB        test live input / hold O to return
+                        4  EDIT CONFIGURATION    Bluetooth, agent and buttons
+                        5  ARCADE DEMO           preview with synthetic input
+                        6  EXIT                  back to the shell
+                    
+                      TIP  In a session, OPTIONS opens the controls menu.
+                      ──────────────────────────────────────────────────────────────────────────
+                      [X] SELECT   [O] EXIT   [D-PAD ↑↓] MOVE   [1-6] JUMP   [Q] QUIT
+                      ● GAMEPAD READY / D-pad up/down, X confirm, O back/cancel.

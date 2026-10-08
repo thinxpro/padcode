@@ -1,6 +1,8 @@
 import type { Button } from './protocol.js';
 import type { State } from './state.js';
 import { glyph, type Glyphs } from './glyphs.js';
+import { logo, logoVariant, paint, rule, truncate, wrapAnsi, type Caps } from './tui/index.js';
+import { version } from './version.js';
 // ASCII content keeps width deterministic across fonts/locales; preserve names only in JSON mode.
 export function safeLabel(text: string): string { return text.replace(/[^\x20-\x7e]/g, '?'); }
 // Prose for people (transcripts, device names): keeps Unicode, drops controls, bidi overrides and lone surrogates.
@@ -51,7 +53,51 @@ export function render(state: State, width = 80, height = 30, color = true): str
     return `${style}${highlighted}\x1b[0m`;
   }).join('\n');
 }
-export function help(color: boolean): string {
-  const c = (s: string) => color ? `\x1b[1;96m${s}\x1b[0m` : s;
-  return `${c('  P A D C O D E')}\n  YOUR CONTROLLER. YOUR AGENT.\n\n  [01] padcode              First-run setup / player hub\n  [02] config               Edit Bluetooth + Agent loadout\n  [03] controllers          Open the live controller lab\n  [04] controllers --json   Stream raw controller events\n  [05] demo                 Preview the arcade dashboard\n\n  [06] run                  Start your configured Agent in a PTY\n\n  --help    Command hub\n  --version Build version\n\n  IN A SESSION (tmux controls pane; PlayStation / Xbox names)\n  OPTIONS / MENU  Controls menu: pause, history, interrupt, clear, map, end\n  Hold L2 / LT    Dictate (macOS, after Voice settings); typed, never sent\n  L stick         Cursor (hold to repeat)   R stick  word / line start-end\n  SQ / X          Backspace   TRI / Y  delete word   L3 / LS  Delete\n  R2 / RT, R3 / RS  Newline / undo (Claude Code)\n  Ctrl+]    End the session\n\n  Release candidate / private build.\n`;
+const commands: Array<[string, string]> = [
+  ['padcode', 'Player Hub (first run: setup)'],
+  ['padcode config', 'Edit Bluetooth + Agent loadout'],
+  ['padcode run', 'Start your configured Agent in a PTY'],
+  ['padcode controllers', 'Open the live controller lab'],
+  ['padcode controllers --json', 'Stream raw controller events'],
+  ['padcode demo', 'Preview the arcade dashboard'],
+];
+const controls: Array<[string, string]> = [
+  ['OPTIONS / MENU', 'Controls menu: pause, history, interrupt, clear, map, end'],
+  ['Hold L2 / LT', 'Dictate (macOS, after Voice settings); typed, never sent'],
+  ['L stick', 'Cursor (hold to repeat)'],
+  ['R stick', 'Word / line start-end'],
+  ['SQ / X', 'Backspace'],
+  ['TRI / Y', 'Delete word'],
+  ['L3 / LS', 'Delete'],
+  ['R2 / RT, R3 / RS', 'Newline / undo (Claude Code)'],
+  ['Ctrl+]', 'End the session'],
+];
+const flags: Array<[string, string]> = [['--help, -h', 'This command hub'], ['--version', 'Build version']];
+const environment: Array<[string, string]> = [
+  ['NO_COLOR', 'Monochrome output'],
+  ['PADCODE_ASCII=1', 'ASCII frames and logo (for terminals that draw symbols double wide)'],
+  ['PADCODE_NO_ANIM=1', 'Skip the welcome sweep'],
+];
+// Command hub. Piped output is plain ASCII so scripts can read it.
+export function help(caps: Caps): string {
+  const width = Math.max(20, Math.min(caps.width - 1, 80));
+  const section = (title: string, rows: Array<[string, string]>, note?: string) => {
+    const keyWidth = Math.max(...rows.map(([key]) => key.length));
+    return [
+      '', rule(width, caps, note ? `${title}  ${note}` : title),
+      ...rows.flatMap(([key, text]) => wrapAnsi(text, Math.max(10, width - keyWidth - 4))
+        .map((line, i) => `  ${paint(caps, (i ? '' : key).padEnd(keyWidth), { tone: 'brand', bold: true })}  ${paint(caps, line, { tone: 'text' })}`)),
+    ];
+  };
+  const variant = logoVariant(caps, width);
+  const lines = [
+    ...logo(caps, variant).map(line => `  ${line}`),
+    `  ${paint(caps, 'YOUR CONTROLLER. YOUR AGENT.', { tone: 'text', bold: true })}  ${paint(caps, `v${version()}`, { tone: 'muted' })}`,
+    ...section('COMMANDS', commands),
+    ...section('IN A SESSION', controls, '(PlayStation / Xbox names)'),
+    ...section('FLAGS', flags),
+    ...section('ENVIRONMENT', environment),
+    '', paint(caps, '  Release candidate / private build.', { tone: 'muted' }),
+  ];
+  return lines.map(line => truncate(line, width + 2)).join('\n') + '\n';
 }

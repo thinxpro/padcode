@@ -1,0 +1,16 @@
+P A D C O D E  v1.2.3
+PLAYER HUB
+* PLAYER 1  Wireless Controller / BLUE~
+* AGENT     claude                     
+* INPUT     setup check passed         
+* VOICE     Studio Mic / macOS on-devi~
++ SESSION OVER / Agent exited with stat
+-- MENU 2/6 ---------------------------
+  1  START AGENT SESSION
+> 2  VOICE + MICROPHONE 
+  3  CONTROLLER LAB     
+  4  EDIT CONFIGURATION 
+  5  ARCADE DEMO        
+  6  EXIT               
+[X] SELECT   [O] EXIT   [D-PAD] MOVE
+* GAMEPAD READY / D-pad up/down, X con~

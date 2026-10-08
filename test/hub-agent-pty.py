@@ -42,7 +42,7 @@ def scenario(display):
             while not check() and time.monotonic() < deadline: pump()
             assert check(), output[-1500:]
         try:
-            expect(b'PLAYER HUB'); expect(b'GAMEPAD READY'); expect(b'Select [1]')
+            expect(b'PLAYER HUB'); expect(b'MENU 1/'); expect(b'GAMEPAD READY')
             time.sleep(.3)
             # Start agent session is the default first item.
             press('south'); expect(b'MISSION START'); expect(b'Select [2]')
