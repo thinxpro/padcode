@@ -3,7 +3,9 @@ from pathlib import Path
 
 def scenario(mode, plain=False):
     with tempfile.TemporaryDirectory(prefix='pc-gamepad-agent-') as root:
-        events=Path(root)/'events'; events.write_text('')
+        # The controller starts with X held: the helper replays this right after connecting, so the session
+        # stays ARMING until X is released, however slowly it starts.
+        events=Path(root)/'events'; events.write_text(json.dumps(dict(type='button',device=1,button='south',down=True))+'\n')
         master,slave=pty.openpty(); before=termios.tcgetattr(slave)
         fcntl.ioctl(slave,termios.TIOCSWINSZ,struct.pack('HHHH',30,90,0,0))
         command=[os.environ['PADCODE_NODE'],'test/fixtures/gamepad-session.mjs',str(events)]
@@ -27,8 +29,8 @@ def scenario(mode, plain=False):
             while time.monotonic()<end: pump(.01)
         try:
             until(lambda:b'INFO:' in output and b'ARMING' in output)
-            press('south'); quiet(); assert received()==b''
-            time.sleep(.3); until(lambda:b'ACTIVE' in output)
+            press('east'); quiet(); assert received()==b'' and b'ACTIVE' not in output, 'a press while arming reached the Agent'
+            edge('south',False); time.sleep(.3); until(lambda:b'ACTIVE' in output)
             expected=b''
             for button,key in [('dpad_up',b'\x1b[A'),('dpad_down',b'\x1b[B'),('dpad_left',b'\x1b[D'),('dpad_right',b'\x1b[C'),('south',b'\r'),('east',b'\x1b'),('left_shoulder',b'\t'),('right_shoulder',b'\x1b[Z')]:
                 press(button); expected+=key; until(lambda:received()==expected)

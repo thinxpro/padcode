@@ -1,6 +1,6 @@
 # Fix: intermittent failure in the gamepad Agent PTY test
 
-Status: planned. This plan, its acceptance criteria and test matrix are committed before implementation.
+Status: implemented; acceptance passes locally. This plan, its acceptance criteria and test matrix were committed before implementation.
 
 ## Evidence
 
@@ -31,4 +31,9 @@ No product code changes.
 
 ## Validation record
 
-Pending.
+Plan commit: `33dccaa`. On macOS 27.0.1 arm64 with Node 24.21.0:
+
+- G1: `gamepad-agent-pty.py` passed three times as committed, and three times with a temporary fixture that blocks the session's event loop for 400 ms after `ARMING` (the same block made the old test fail every time). The temporary fixture was deleted and is not committed.
+- G2: `npm run check` passed 197 tests with zero failures or skips. CI is disabled by the maintainer's decision, so Linux was not exercised.
+
+An intermittent test can only be shown absent statistically; the change removes the timing dependency rather than widening a timeout.
