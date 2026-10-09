@@ -1,6 +1,6 @@
 # Codex controller profile
 
-Status: planned. This plan is committed before runtime changes. Branch `thinxpro/codex-mapping` from `main` at `85fb3d1`.
+Status: implemented; automated acceptance passes locally and physical acceptance (H1-H6) is pending. This plan was committed before runtime changes (`0d6d727`). Branch `thinxpro/codex-mapping` from `main` at `85fb3d1`.
 
 ## Request
 
@@ -44,25 +44,26 @@ The profile becomes `'basic' | 'claude' | 'codex'`. It is chosen from the execut
 | R2 | unbound | Ctrl+J newline | Ctrl+J newline (`\n`) |
 | R3 | unbound | Ctrl+_ undo (`\x1f`) | Ctrl+T transcript toggle (`\x14`) |
 | L1 label | Tab | Tab | Tab (queue message) |
-| R1 label | Shift+Tab | Shift+Tab (mode) | Shift+Tab (collaboration mode) |
+| R1 label | Shift+Tab | Shift+Tab (mode) | Shift+Tab (collab mode) |
 
 All other bytes are unchanged for every profile. R2 keeps the 0.65/0.35 trigger hysteresis, and R3 fires once per press. No new control sends CR, and the `basic` profile still sends no LF.
 
 Rendering changes:
 
 - `MapProfile` / IPC `MapView` replace `claude: boolean` with `agent: 'basic' | 'claude' | 'codex'`, and IPC validation rejects any other value.
-- Controller map (wide, two-column and narrow): R2/R3/L1/R1 text follows the profile. In the Codex profile, R3 reads "Transcript (R3 again closes)". In `basic`, R2/R3 read "Unused (Claude Code, Codex)".
-- `--help` (`ui.ts`): the R2/R3 line names both profiles and their actions.
+- Controller map: R2/R3 text follows the profile in every layout, and L1/R1 text follows it in the shoulder rows (drawing and two-column legend). In the Codex profile, R3 reads "Transcript on/off". In `basic`, R2/R3 read "Unused for this Agent". The narrow list keeps its generic "Tab / Shift+Tab" row.
+- The map's profile comes from the controller source (`AgentGamepad.profile`), so the map always shows the keys the controller actually sends.
+- `--help` (`ui.ts`): the R2/R3 line names both profiles and their actions. The README controls table states that each Agent's default keymap is assumed.
 - The comment in `stick-input.ts` and the `agentOnly` gating are generalised: per-profile key tables replace the single `agentOnly` list.
 
 Out of scope: approval-prompt detection, Codex vim mode, reading the user's `tui.keymap`, app-server integration, remapping Ctrl+] and adding profiles for other Agents.
 
 ## Automated acceptance
 
-- A1: the profile is selected from the basename (`codex`, `/opt/homebrew/bin/codex` → codex; `claude` → claude; `codex-wrapper`, `gemini` → basic) in both the controls-pane path (`panel-session.ts`) and the transparent path (`agent-session.ts`).
+- A1: the profile is selected from the basename (`codex`, `/opt/homebrew/bin/codex` → codex; `claude` → claude; `codex-wrapper`, `gemini` → basic). `launchConfigured` selects it once for both display modes, and the controls-pane map reads it from the same controller source.
 - A2: exact bytes per profile through a real `AgentGamepad`: Codex R2 → `\n`, R3 → `\x14`; Claude unchanged (`\n`, `\x1f`); basic sends nothing for R2/R3. Every other control sends identical bytes in all three profiles. No profile emits CR from R2/R3, and LF comes only from R2 in claude/codex.
 - A3: R2/R3 stay silent while paused, captured (menu, history, map), disconnected or failed, for the Codex profile too, with the existing release barrier.
-- A4: the controller map renders all three profiles at wide, two-column and narrow widths with voice on and off. Every line fits the width and the plain output stays ASCII. The Codex labels for R2, R3, L1 and R1 appear, and the Claude and basic labels match today's output except the basic R2/R3 wording.
+- A4: the controller map renders all three profiles at wide, two-column and narrow widths with voice on and off. Every line fits the width and the plain output stays ASCII. The Codex labels for R2, R3, L1 and R1 appear, the Claude output is unchanged, and the basic output differs from today only in the R1 and R2/R3 wording.
 - A5: `MapView` IPC accepts `agent: basic | claude | codex` and rejects a missing field, other strings and the old `claude` boolean.
 - A6: end to end in tmux (`panel_pty.py`) with a fixture Agent named `codex`: R2 and R3 reach the Agent as exactly `\n` and `\x14`, and the Controller map popup shows the Codex labels. The existing Claude-named scenario still passes.
 - A7: `--help` lists the per-profile R2/R3 actions. `npm run check` passes locally and in CI with no skipped tests.
@@ -80,6 +81,22 @@ Record the Codex version, terminal and its version, display mode and controller 
 
 Hardware-dependent items keep the PR in draft until the user reports them. Simulated runs are not reported as physical passes.
 
+## Changes against the plan
+
+Found while rendering, before any acceptance ran:
+
+- **Shorter labels.** The planned "Transcript (R3 again closes)" and "Unused (Claude Code, Codex)" do not fit the 34-column narrow list (25 characters for the action). They became "Transcript on/off" and "Unused for this Agent", and the "R3 again closes" hint is stated in this document and the physical checklist. "Shift+Tab (collaboration mode)" became "Shift+Tab (collab mode)" for the same reason.
+- **Basic R1 label.** The plan table already gave basic R1 as "Shift+Tab". The original A4 wording ("match today's output except the basic R2/R3 wording") contradicted that and now names R1 too.
+- **Default-keymap note.** The note is in the README controls table, not `--help`. The help row is already 77 of 80 columns.
+
 ## Validation record
 
-Pending.
+On macOS 27.0 arm64 with Node 23.5.0 and tmux 3.7c, `npm run check` passed 199 tests with zero failures or skips.
+
+- A1: `test/stick-input.test.mjs` "A1 the profile follows the executable name" covers bare names, absolute paths, wrappers, other Agents and an empty command, and that the profile list matches the key table.
+- A2/A3: the same file sends every stick and editing control through a real `AgentGamepad` for `basic`, `claude` and `codex`. Codex adds exactly `\x14` (R3) and `\n` (R2), Claude adds `\x1f` and `\n`, and basic adds nothing. A second controller and a paused controller send nothing. Inside a captured context, the Claude and Codex profiles both leak no bytes. No R2/R3 key contains CR, and no shared key contains CR or LF.
+- A4/A5: `test/controller-map.test.mjs` renders all three profiles at widths 34, 60, 78 and 100 with voice on and off and checks the R2/R3 rows and the shoulder labels. The `MapView` IPC accepts the three profiles, with and without family/swap, and rejects unknown, miscased, numeric and missing values as well as the old `claude` boolean. The Claude map snapshots (`test/snapshots/session/map-*.txt`) are unchanged.
+- A6: `test/panel_pty.py` `codex_profile()` in real tmux: R3 then R2 reach the Agent as exactly `\x14\n`, Square still sends `\x7f`, and the Controller map popup shows "Transcript on/off", "New line (no send)", "Tab (queue message)" and "Shift+Tab (collab mode)" with no Claude Code "Undo". Nothing from the menu or map reaches the Agent. The existing Claude `sticks()` scenario still passes.
+- A7: the `--help` snapshots changed only in the R2/R3 row.
+
+H1-H6 are pending physical testing with Codex.
