@@ -62,3 +62,7 @@ Plan commit: `d93a4ea`. On macOS 27.0.1 arm64 with Node 24.21.0, `npm run check`
 ### Maintainer physical report
 
 On 2026-10-08 the maintainer installed a local test build (0.1.0-rc.9 with UI-0 to UI-2 and this fix, packed fresh with `scripts/package.mjs --fresh`; not published) into the nvm Node 23.5 global prefix and reported that Bluetooth and the microphone both work after granting permission. This covers H1 (consent prompt, then device list) and the Bluetooth part of setup; the report did not cover H2 (deny or ignore the prompt) or H3 (Bluetooth actually off), which remain pending. The first microphone check after granting access failed once with "The microphone configuration changed during recording" and succeeded on Retry; that is a separate audio-helper issue, tracked in [fix-microphone-config-change](fix-microphone-config-change.md).
+
+### Merge decision
+
+On 2026-10-09, after H1 and the Bluetooth setup path were reported working, the maintainer asked to merge without testing H2 (deny or ignore the consent prompt) and H3 (Bluetooth actually off). They are not recorded as passed; the decision to merge without them is the maintainer's.
