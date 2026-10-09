@@ -1,6 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 import { NativeBluetooth, parseBluetoothResult, parseDevice, normalizeAddress } from '../dist/bluetooth.js';
 const pad = { address: 'aa-bb-cc-dd-ee-ff', name: 'DUALSHOCK 4', paired: true, connected: true };
 const signal = new AbortController().signal;
@@ -88,4 +91,41 @@ test('partial scan metadata is validated and warnings reset on a subsequent requ
   }
   response.devices = []; response.scan = { complete: false, started: false, discovered: 0, reason: 'deadline' };
   await assert.rejects(adapter.list(true, signal), /scan metadata/);
+});
+test('consent decision: only allowed continues; undetermined is requested, then pending or stopped', () => {
+  const root = mkdtempSync(join(tmpdir(), 'padcode-authorization-'));
+  try {
+    const binary = join(root, 'authorization-harness');
+    const built = spawnSync('cc', ['-Wall', '-Wextra', '-Werror', 'test/fixtures/authorization-harness.c', '-o', binary], { encoding: 'utf8', timeout: 20000 });
+    assert.equal(built.status, 0, built.stderr);
+    const result = spawnSync(binary, [], { encoding: 'utf8', timeout: 3000 });
+    assert.equal(result.status, 0, result.stderr);
+    const outcome = Object.fromEntries(result.stdout.trim().split('\n').map(line => line.split(' -> ')));
+    for (const flags of ['requested=0 interrupted=0', 'requested=0 interrupted=1', 'requested=1 interrupted=0', 'requested=1 interrupted=1']) {
+      assert.equal(outcome[`allowed ${flags}`], 'continue', flags);
+      assert.equal(outcome[`denied ${flags}`], 'permission', flags);
+      assert.equal(outcome[`restricted ${flags}`], 'permission', flags);
+    }
+    assert.equal(outcome['undetermined requested=0 interrupted=0'], 'request');
+    assert.equal(outcome['undetermined requested=0 interrupted=1'], 'request');
+    assert.equal(outcome['undetermined requested=1 interrupted=0'], 'pending');
+    assert.equal(outcome['undetermined requested=1 interrupted=1'], 'stopped');
+    assert.equal(Object.keys(outcome).length, 16);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+test('permission errors reach setup as LINK NOT READY with recovery, never as "Bluetooth is off"', async () => {
+  const { setup } = await import('../dist/onboarding.js');
+  for (const [code, message] of [
+    ['permission-pending', 'macOS has not granted Bluetooth access to padcode-bluetooth yet. Answer the macOS prompt, or allow padcode-bluetooth in Privacy & Security > Bluetooth, then retry. macOS ties this permission to the exact helper build, so reinstalling or rebuilding Padcode asks again.'],
+    ['permission', 'Bluetooth permission is denied. Allow padcode-bluetooth in macOS Privacy & Security > Bluetooth, then retry.'],
+  ]) {
+    const bluetooth = new NativeBluetooth('darwin', async () => ({ code: 1, stderr: '', stdout: JSON.stringify({ v: 1, ok: false, code, message }) }));
+    await assert.rejects(bluetooth.list(false, signal), error => error.message === message);
+    const output = [], choices = ['bluetooth', 'later', 'skip', 'later', 'terminal-basic', 'cancel'];
+    const io = { banner: t => output.push(t), say: t => output.push(t), ask: async () => '', choose: async (label, options) => { output.push(label, options.map(o => o.label).join(' | ')); return choices.shift(); } };
+    await setup(io, { bluetooth, probe: () => ({}), agents: async () => [], resolve: async () => null, save: async () => {} }, signal);
+    const text = output.join('\n');
+    assert.ok(text.includes(`LINK NOT READY: ${message}`), text); assert.doesNotMatch(text, /off or unavailable/);
+    assert.match(text, /Recovery\nRetry Bluetooth \| Use USB \| Configure Bluetooth later/);
+  }
 });

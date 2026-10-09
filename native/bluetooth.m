@@ -3,6 +3,7 @@
 #import <CoreBluetooth/CoreBluetooth.h>
 #import "permission.h"
 #import "discovery.h"
+#import "authorization.h"
 #include <signal.h>
 #include <unistd.h>
 
@@ -60,6 +61,33 @@ static BOOL waitForOperation(Operation *operation, NSTimeInterval seconds) {
     return operation.done && !interrupted && getppid() == parent;
 }
 
+@interface AuthorizationWaiter : NSObject <CBCentralManagerDelegate>
+@end
+@implementation AuthorizationWaiter
+- (void)centralManagerDidUpdateState:(CBCentralManager *)central { (void)central; }
+@end
+static PadcodeAuth currentAuthorization(void) {
+    switch ([CBManager authorization]) {
+        case CBManagerAuthorizationAllowedAlways: return PadcodeAuthAllowed;
+        case CBManagerAuthorizationDenied: return PadcodeAuthDenied;
+        case CBManagerAuthorizationRestricted: return PadcodeAuthRestricted;
+        default: return PadcodeAuthUndetermined;
+    }
+}
+// Creating a central manager makes macOS show its Bluetooth consent prompt; wait for the answer.
+static PadcodeAuth requestAuthorization(NSTimeInterval seconds) {
+    AuthorizationWaiter *delegate = [AuthorizationWaiter new];
+    CBCentralManager *central = [[CBCentralManager alloc] initWithDelegate:delegate queue:nil options:@{CBCentralManagerOptionShowPowerAlertKey: @NO}];
+    NSDate *deadline = [NSDate dateWithTimeIntervalSinceNow:seconds];
+    pid_t parent = getppid();
+    while (currentAuthorization() == PadcodeAuthUndetermined && !interrupted && getppid() == parent && deadline.timeIntervalSinceNow > 0) {
+        [[NSRunLoop currentRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:0.1]];
+    }
+    (void)central;
+    return currentAuthorization();
+}
+static NSString *const rebuildNote = @" macOS ties this permission to the exact helper build, so reinstalling or rebuilding Padcode asks again.";
+
 int main(int argc, const char **argv) {
     @autoreleasepool {
         BOOL handedOff = argc > 1 && strcmp(argv[1], "--permission-owner") == 0;
@@ -79,9 +107,16 @@ int main(int argc, const char **argv) {
             return 0;
         }
         signal(SIGINT, stopOperation); signal(SIGTERM, stopOperation);
-        if ([CBManager authorization] == CBManagerAuthorizationDenied || [CBManager authorization] == CBManagerAuthorizationRestricted) {
-            return failure(@"permission", @"Bluetooth permission is denied. Allow padcode-bluetooth in macOS Privacy & Security > Bluetooth, then retry.");
+        // Consent comes first: without it IOBluetooth reports no powered host, which used to read as "Bluetooth is off".
+        PadcodeAuthOutcome consent = padcodeAuthorizationOutcome(currentAuthorization(), 0, 0);
+        if (consent == PadcodeAuthRequest) consent = padcodeAuthorizationOutcome(requestAuthorization(20), 1, interrupted || getppid() == 1);
+        if (consent == PadcodeAuthPermission) {
+            return failure(@"permission", [@"Bluetooth permission is denied. Allow padcode-bluetooth in macOS Privacy & Security > Bluetooth, then retry." stringByAppendingString:rebuildNote]);
         }
+        if (consent == PadcodeAuthPending) {
+            return failure(@"permission-pending", [@"macOS has not granted Bluetooth access to padcode-bluetooth yet. Answer the macOS prompt, or allow padcode-bluetooth in Privacy & Security > Bluetooth, then retry." stringByAppendingString:rebuildNote]);
+        }
+        if (consent == PadcodeAuthStopped) return failure(@"cancelled", @"Bluetooth permission request was cancelled.");
         if (getenv("PADCODE_BLUETOOTH_DEBUG")) fprintf(stderr, "Bluetooth scan: host-query\n");
         IOBluetoothHostController *host = [IOBluetoothHostController defaultController];
         if (!host || host.powerState != kBluetoothHCIPowerStateON) {
