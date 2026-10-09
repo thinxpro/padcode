@@ -17,3 +17,5 @@ export function detectCaps(env: NodeJS.ProcessEnv, stream: TermStream): Caps {
     height: stream.rows && stream.rows > 0 ? stream.rows : 24,
   };
 }
+// Content width shared by the full-screen Hub and the inline screens, so both end at the same column.
+export const contentWidth = (columns: number) => Math.max(12, Math.min(78, columns - 1));

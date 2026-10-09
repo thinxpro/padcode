@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { renderHub } from '../dist/hub-view.js';
 import { help } from '../dist/ui.js';
-import { stripAnsi, visibleWidth } from '../dist/tui/index.js';
+import { contentWidth, stripAnsi, visibleWidth } from '../dist/tui/index.js';
+import { renderBanner } from '../dist/prompt-view.js';
 import { snapshot } from './snapshot.mjs';
 
 const caps = (over = {}) => ({ color: 24, unicode: true, motion: false, width: 80, height: 24, ...over });
@@ -39,8 +40,8 @@ test('Hub layout picks the largest logo that fits', () => {
   assert.match(plain(80, 18), /P A D C O D E/, 'wordmark when short');
   assert.doesNotMatch(plain(39, 24), /╭/, 'no frames under 40 columns');
   assert.match(plain(100, 40), /TIP  In a session, OPTIONS opens the controls menu\./);
-  // Content is centred in wide terminals.
-  assert.match(plain(120, 40).split('\n')[0], /^ {20}╭─ PLAYER HUB/);
+  // Left-aligned like the shell and inline screens: no centring margin in wide terminals.
+  for (const width of [100, 120, 200]) assert.match(plain(width, 40).split('\n')[0], /^╭─ PLAYER HUB/, `${width}`);
 });
 test('Hub states: selection, notices, unverified input, no agent, voice off, flash, hostile names', () => {
   const plain = (m, v = {}) => renderHub(model(m), view({ caps: caps({ color: 0, width: 90, height: 34 }), ...v })).join('\n');
@@ -56,6 +57,15 @@ test('Hub states: selection, notices, unverified input, no agent, voice off, fla
   const hostile = plain({ controller: { name: '\x1b]52;c;x\x07한국어 パッド 🎮'.repeat(4), transport: 'bluetooth', verified: true }, notice: 'SESSION FAILED / \x1b[2Jbad' });
   assert.ok(!hostile.includes('\x1b') && !hostile.includes('\x07')); assert.match(hostile, /한국어 パッ/); assert.match(hostile, /…/);
   assert.ok(hostile.split('\n').every(line => visibleWidth(line) <= 89));
+});
+test('Hub and inline screens share one left edge and width', () => {
+  assert.deepEqual([1, 12, 13, 40, 79, 80, 81, 100, 300].map(contentWidth), [12, 12, 12, 39, 78, 78, 78, 78, 78]);
+  for (const columns of [80, 100, 120]) {
+    const c = caps({ color: 0, width: columns, height: 40 });
+    const hub = renderHub(model(), view({ caps: c }))[0], banner = renderBanner('MISSION 01 / LINK CONTROLLER', c, contentWidth(columns))[1];
+    assert.equal(visibleWidth(hub), visibleWidth(banner), `${columns}`);
+    assert.ok(hub.startsWith('╭') && banner.startsWith('╭'), `${columns}`);
+  }
 });
 test('Hub sweep changes colours only', () => {
   const still = renderHub(model(), view()), lit = renderHub(model(), view({ shine: 0.5 }));
