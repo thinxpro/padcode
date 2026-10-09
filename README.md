@@ -13,7 +13,7 @@ Controllers: DualShock 4 is tested; PlayStation DualSense, Xbox, Nintendo Switch
 | Where | Controls |
 | --- | --- |
 | Player Hub and setup | D-pad moves, X confirms, O goes back. Every screen returns to the Hub. |
-| Agent session | D-pad arrows, X Enter, O Escape, L1 Tab, R1 Shift+Tab. Left stick moves the cursor, right stick jumps by word and to line start/end, Square backspace, Triangle delete word, L3 delete, R2 newline and R3 undo (Claude Code). Keyboard always works too. |
+| Agent session | D-pad arrows, X Enter, O Escape, L1 Tab, R1 Shift+Tab. Left stick moves the cursor, right stick jumps by word and to line start/end, Square backspace, Triangle delete word, L3 delete. R2 newline and R3 undo in Claude Code; R2 newline and R3 transcript in Codex (assumes each Agent's default keymap). Keyboard always works too. |
 | Options (with tmux) | Controls menu: resume, pause, browse history, send interrupt (Esc), clear input, controller map, voice undo/review, end session. |
 | L2 (macOS, opt-in) | Hold to dictate, release to transcribe. The text is typed into the Agent's input and **never sent**; X sends it. Options > Undo voice insert removes it. |
 

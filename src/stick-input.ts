@@ -1,17 +1,32 @@
+import { basename } from 'node:path';
 import type { Axis, Button } from './protocol.js';
 
 // Sticks and editing buttons for text input. Directions use hysteresis and a dominant-axis lock;
 // held controls repeat, faster with more tilt. Nothing here can produce Enter.
 export type EditAction = 'left' | 'right' | 'up' | 'down' | 'word-left' | 'word-right' | 'home' | 'end'
-  | 'backspace' | 'delete-word' | 'delete' | 'newline' | 'undo';
-export const editKeys: Record<EditAction, string> = {
+  | 'backspace' | 'delete-word' | 'delete' | ProfileAction;
+// R2 and R3 send Agent-specific keys; every other action is the same for all Agents.
+export type ProfileAction = 'r2' | 'r3';
+export const editKeys: Record<Exclude<EditAction, ProfileAction>, string> = {
   left: '\x1b[D', right: '\x1b[C', up: '\x1b[A', down: '\x1b[B',
   'word-left': '\x1b[1;5D', 'word-right': '\x1b[1;5C', home: '\x1b[H', end: '\x1b[F',
   backspace: '\x7f', 'delete-word': '\x17', delete: '\x1b[3~',
-  // Claude Code only: chat:newline and chat:undo. Ctrl+J acts as Enter in many other programs.
-  newline: '\n', undo: '\x1f',
 };
-export const agentOnly: EditAction[] = ['newline', 'undo'];
+export type AgentProfile = 'basic' | 'claude' | 'codex';
+export const agentProfiles: readonly AgentProfile[] = ['basic', 'claude', 'codex'];
+// Ctrl+J acts as Enter in many programs, so R2/R3 stay unbound unless the Agent's default keymap is known.
+export const profileKeys: Record<AgentProfile, Partial<Record<ProfileAction, string>>> = {
+  basic: {},
+  // Claude Code 2.1.292: chat:newline (Ctrl+J) and chat:undo (Ctrl+_).
+  claude: { r2: '\n', r3: '\x1f' },
+  // Codex 0.161.0: editor.insert_newline (Ctrl+J); app.open_transcript and pager.close_transcript (Ctrl+T) toggle the transcript.
+  codex: { r2: '\n', r3: '\x14' },
+};
+// The profile follows the executable name; wrappers and other Agents get only the universal keys.
+export function agentProfile(command: string): AgentProfile {
+  const name = basename(command);
+  return name === 'claude' || name === 'codex' ? name : 'basic';
+}
 export const activateAt = 0.5, releaseBelow = 0.3;
 interface Repeat { delay: number; slow: number; fast: number }
 const cursorRepeat: Repeat = { delay: 350, slow: 160, fast: 45 };
@@ -36,7 +51,7 @@ export class StickInput {
       const level = Math.max(0, normalized);
       this.triggerLevel = level;
       if (this.triggerBlocked) { if (level < 0.35) this.triggerBlocked = false; return; }
-      if (!this.trigger && level >= 0.65) { this.trigger = true; this.fire('newline'); }
+      if (!this.trigger && level >= 0.65) { this.trigger = true; this.fire('r2'); }
       else if (this.trigger && level < 0.35) this.trigger = false;
       return;
     }
@@ -71,7 +86,7 @@ export class StickInput {
   // Square and Triangle repeat while held; L3 and R3 act once per press. Returns true when handled.
   button(button: Button, down: boolean): boolean {
     const held: Partial<Record<Button, EditAction>> = { west: 'backspace', north: 'delete-word' };
-    const once: Partial<Record<Button, EditAction>> = { left_stick: 'delete', right_stick: 'undo' };
+    const once: Partial<Record<Button, EditAction>> = { left_stick: 'delete', right_stick: 'r3' };
     const repeated = held[button];
     if (repeated) { if (down) this.start(button, repeated, buttonRepeat, () => 1); else this.cancel(button); return true; }
     const single = once[button];

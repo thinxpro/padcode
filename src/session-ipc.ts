@@ -2,6 +2,7 @@ import { EventEmitter } from 'node:events';
 import { connect, createServer, type Socket } from 'node:net';
 import { randomBytes } from 'node:crypto';
 import { isFamily, type Family } from './glyphs.js';
+import { agentProfiles, type AgentProfile } from './stick-input.js';
 
 // Private, per-session protocol between the coordinator and its tmux panes.
 export type Role = 'agent' | 'panel' | 'menu';
@@ -10,7 +11,7 @@ export type ToAgent = { t: 'launch'; launch: Launch } | { t: 'keys'; data: strin
   | { t: 'paste-part'; text: string } | { t: 'paste-end' } | { t: 'undo'; count: number };
 export type FromAgent = { t: 'exit'; code: number } | { t: 'undo-result'; ok: boolean; reason: string };
 export type ToPanel = { t: 'status'; text: string } | { t: 'notice'; text: string } | { t: 'names'; family: Family; swap: boolean };
-export interface MapView { claude: boolean; voice: boolean; family?: Family; swap?: boolean }
+export interface MapView { agent: AgentProfile; voice: boolean; family?: Family; swap?: boolean }
 export type ToMenu = { t: 'menu'; title: string; items: string[]; selected: number; hint: string; body?: string; map?: MapView } | { t: 'close' };
 export type FromMenu = { t: 'action'; name: 'up' | 'down' | 'confirm' | 'back' } | { t: 'action'; name: 'pick'; index: number };
 export const maxLine = 4096;
@@ -76,8 +77,8 @@ export function parseToMenu(line: string): ToMenu {
   const value = decode(line);
   if (value.t === 'close' && exact(value, ['t'])) return { t: 'close' };
   const body = value.body, map = value.map;
-  const validMap = plain(map) && (exact(map, ['claude', 'voice']) || (exact(map, ['claude', 'voice', 'family', 'swap']) && isFamily(map.family) && typeof map.swap === 'boolean'))
-    && typeof map.claude === 'boolean' && typeof map.voice === 'boolean';
+  const validMap = plain(map) && (exact(map, ['agent', 'voice']) || (exact(map, ['agent', 'voice', 'family', 'swap']) && isFamily(map.family) && typeof map.swap === 'boolean'))
+    && agentProfiles.includes(map.agent as AgentProfile) && typeof map.voice === 'boolean';
   if (value.t === 'menu' && (exact(value, ['t', 'title', 'items', 'selected', 'hint']) || (exact(value, ['t', 'title', 'items', 'selected', 'hint', 'body']) && text(body, 3000) && !/[\x00-\x09\x0b-\x1f\x7f-\x9f]/.test(body as string))
       || (exact(value, ['t', 'title', 'items', 'selected', 'hint', 'map']) && validMap))
     && text(value.title, 64) && text(value.hint, 128)

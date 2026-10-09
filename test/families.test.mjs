@@ -91,13 +91,13 @@ test('A4 configuration: family and confirm are validated and kept', () => {
 });
 
 test('A5 controller map and status legend follow the family', () => {
-  const map = family => renderControllerMap({ claude: true, voice: true, family }, mapWidth, asciiCaps).join('\n');
+  const map = family => renderControllerMap({ agent: 'claude', voice: true, family }, mapWidth, asciiCaps).join('\n');
   assert.match(map('playstation'), /TOUCHPAD/); assert.match(map('playstation'), /\(TRI\)/);
   for (const family of ['xbox', 'nintendo', 'standard']) { assert.match(map(family), /HOME/); assert.doesNotMatch(map(family), /TOUCHPAD|\(TRI\)/); }
   assert.match(map('xbox'), /\[LT\] Hold to dictate/); assert.match(map('xbox'), /\(A\)\s+Enter \/ send/);
-  assert.match(renderControllerMap({ claude: true, voice: true, family: 'nintendo', swap: true }, mapWidth, asciiCaps).join('\n'), /\(A\)\s+Enter \/ send/);
+  assert.match(renderControllerMap({ agent: 'claude', voice: true, family: 'nintendo', swap: true }, mapWidth, asciiCaps).join('\n'), /\(A\)\s+Enter \/ send/);
   for (const family of families) {
-    const lines = renderControllerMap({ claude: true, voice: true, family }, mapWidth, asciiCaps);
+    const lines = renderControllerMap({ agent: 'claude', voice: true, family }, mapWidth, asciiCaps);
     const frame = lines.slice(3, lines.findIndex(line => line.includes('L STICK  ')) + 1);
     assert.equal(new Set(frame.map(line => line.length)).size, 1, `${family} frame does not close`);
   }

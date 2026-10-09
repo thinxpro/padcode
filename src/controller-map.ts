@@ -1,19 +1,22 @@
 import { glyph, type Family, type Glyphs, type Role } from './glyphs.js';
 import { paint, type Caps, type Style } from './tui/index.js';
+import type { AgentProfile } from './stick-input.js';
 
 // Game-style controls screen. Names and actions are ASCII; the outline uses rounded box drawing with Unicode
 // and the ASCII outline otherwise (PADCODE_ASCII=1 or a non-UTF-8 locale).
-export interface MapProfile { claude: boolean; voice: boolean; family?: Family; swap?: boolean }
+export interface MapProfile { agent: AgentProfile; voice: boolean; family?: Family; swap?: boolean }
 type Segment = [kind: 'label' | 'art' | 'text' | 'dim', text: string];
 const styles: Record<Segment[0], Style> = { label: { tone: 'brand', bold: true }, art: { tone: 'muted' }, text: { tone: 'text' }, dim: { tone: 'muted' } };
 const pad = (text: string, width: number) => text.length >= width ? text.slice(0, width) : text + ' '.repeat(width - text.length);
 
+// Labels follow the keys each profile sends (stick-input.ts profileKeys) and the Agent's own meaning of Tab/Shift+Tab.
+const agentActions: Record<AgentProfile, { l1: string; r1: string; r2: string; r3: string }> = {
+  basic: { l1: 'Tab', r1: 'Shift+Tab', r2: 'Unused for this Agent', r3: 'Unused for this Agent' },
+  claude: { l1: 'Tab', r1: 'Shift+Tab (mode)', r2: 'New line (no send)', r3: 'Undo' },
+  codex: { l1: 'Tab (queue message)', r1: 'Shift+Tab (collab mode)', r2: 'New line (no send)', r3: 'Transcript on/off' },
+};
 function actions(profile: MapProfile) {
-  return {
-    l2: profile.voice ? 'Hold to dictate' : 'Voice off (Hub > Voice settings)',
-    r2: profile.claude ? 'New line (no send)' : 'Unused (Claude Code only)',
-    r3: profile.claude ? 'Undo' : 'Unused (Claude Code only)',
-  };
+  return { ...agentActions[profile.agent], l2: profile.voice ? 'Hold to dictate' : 'Voice off (Hub > Voice settings)' };
 }
 // Drawings use the names printed on the buttons; the legend follows the confirm setting.
 const printed = (profile: MapProfile): Glyphs => ({ family: profile.family ?? 'playstation' });
@@ -83,7 +86,7 @@ function shoulders(profile: MapProfile): Segment[][] {
   const a = actions(profile), g = active(profile);
   const top = (left: string, leftText: string, right: string, rightText: string): Segment[] =>
     [['label', ` [${left}] `], ['text', pad(leftText, 36 - left.length)], ['label', ` [${right}] `], ['text', rightText]];
-  return [top(glyph('l2', g), a.l2, glyph('r2', g), a.r2), top(glyph('l1', g), 'Tab', glyph('r1', g), 'Shift+Tab (mode)')];
+  return [top(glyph('l2', g), a.l2, glyph('r2', g), a.r2), top(glyph('l1', g), a.l1, glyph('r1', g), a.r1)];
 }
 function legend(profile: MapProfile, column: number): Segment[][] {
   const a = actions(profile), g = active(profile);

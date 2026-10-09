@@ -385,6 +385,27 @@ def sticks():
         no_popup(s); os.write(s.master, b'exit!'); finish(s, 23)
     finally: s.close()
 
+def codex_profile():
+    """The Codex profile sends Ctrl+J on R2 and Ctrl+T on R3, and the controller map shows the Codex labels."""
+    s = Session('lines', extra={'PADCODE_EDITING': 'codex'})
+    try:
+        s.ready(); s.until(lambda: 'GAMEPAD ACTIVE' in s.panel())
+        def axis(name, value): s.event(dict(type='axis', device=1, axis=name, value=value))
+        s.press('right_stick'); s.until(lambda: s.received() == b'\x14', message='R3 did not send Ctrl+T')
+        axis('right_trigger', 32767); s.until(lambda: s.received() == b'\x14\n', message='R2 did not send Ctrl+J'); axis('right_trigger', 0)
+        s.press('west'); s.until(lambda: s.received() == b'\x14\n\x7f', message='shared keys changed under the Codex profile')
+        expected = s.received()
+        mark = len(s.output); s.press('start'); s.until(lambda: b'PADCODE CONTROLS' in s.output[mark:])
+        for _ in range(5): s.press('dpad_down'); s.quiet(.05)
+        mark = len(s.output); s.press('south'); s.until(lambda: 'CONTROLLER MAP' in s.panel())
+        for label in (b'Transcript on/off', b'New line (no send)', b'Tab (queue message)', b'Shift+Tab (collab mode)'):
+            s.until(lambda: label in s.output[mark:], message=f'controller map missing {label!r}')
+        assert b'Undo' not in s.output[mark:], 'controller map shows the Claude Code R3 label'
+        s.press('start'); s.until(lambda: 'GAMEPAD ACTIVE' in s.panel())
+        s.quiet(.3); assert s.received() == expected, 'map input reached the Agent'
+        no_popup(s); os.write(s.master, b'exit!'); finish(s, 23)
+    finally: s.close()
+
 def xbox_names():
     """An Xbox controller gets Xbox names in the status pane, its legend, the menu hints and the controller map."""
     s = Session('lines', extra={'PADCODE_FIXTURE_FAMILY': 'xbox'})
@@ -480,5 +501,5 @@ def controls():
         assert s.received() == expected
     finally: s.close()
 
-for scenario in (normal, controls, sticks, short_map, xbox_names, voice, draft, insert, escape, terminate, crash, fallback): scenario()
-print('Panel PTY passed: controls menu, sticks, voice capture, voice drafts, voice insertion, exact keys, CPR, isolation, resize, history hold, worker respawn, exits, crash cleanup and fallback.')
+for scenario in (normal, controls, sticks, codex_profile, short_map, xbox_names, voice, draft, insert, escape, terminate, crash, fallback): scenario()
+print('Panel PTY passed: controls menu, sticks, Codex profile, voice capture, voice drafts, voice insertion, exact keys, CPR, isolation, resize, history hold, worker respawn, exits, crash cleanup and fallback.')

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { StickInput, editKeys, agentOnly } from '../dist/stick-input.js';
+import { StickInput, editKeys, profileKeys, agentProfile, agentProfiles } from '../dist/stick-input.js';
 import { fixture } from './agent-gamepad-fixture.mjs';
 
 // Deterministic timers: advance(ms) runs due callbacks in order.
@@ -56,7 +56,7 @@ test('A2 repeats: delays, tilt-dependent speed, release and stop cancel everythi
   s.button('west', true); c.advance(400 + 70 * 5); s.button('west', false); assert.equal(fired.filter(a => a === 'backspace').length, 7);
   s.button('north', true); s.button('north', false); c.advance(1000); assert.equal(fired.filter(a => a === 'delete-word').length, 1);
   s.button('left_stick', true); s.button('left_stick', false); s.button('right_stick', true); c.advance(1000);
-  assert.equal(fired.filter(a => a === 'delete').length, 1); assert.equal(fired.filter(a => a === 'undo').length, 1);
+  assert.equal(fired.filter(a => a === 'delete').length, 1); assert.equal(fired.filter(a => a === 'r3').length, 1);
   assert.equal(s.button('south', true), false, 'claimed a button it does not handle');
   // stop(): cancels repeats; a stick still held must centre before acting again.
   s.axis('leftx', full); s.button('west', true); const held = fired.length; s.stop(); c.advance(3000); assert.equal(fired.length, held); assert.equal(c.pending(), 0);
@@ -64,21 +64,28 @@ test('A2 repeats: delays, tilt-dependent speed, release and stop cancel everythi
   s.axis('leftx', 0); s.axis('leftx', full); assert.equal(fired.at(-1), 'right');
 });
 
-test('A3 R2 newline uses trigger hysteresis and a trigger held through stop must release first', () => {
+test('A3 R2 uses trigger hysteresis and a trigger held through stop must release first', () => {
   const { s, fired } = input();
   s.axis('right_trigger', Math.round(0.6 * full)); assert.deepEqual(fired, []);
-  s.axis('right_trigger', Math.round(0.7 * full)); s.axis('right_trigger', Math.round(0.5 * full)); s.axis('right_trigger', full); assert.deepEqual(fired, ['newline']);
-  s.axis('right_trigger', Math.round(0.3 * full)); s.axis('right_trigger', full); assert.deepEqual(fired, ['newline', 'newline']);
-  s.stop(); s.axis('right_trigger', Math.round(0.9 * full)); assert.deepEqual(fired, ['newline', 'newline']);
-  s.axis('right_trigger', 0); s.axis('right_trigger', full); assert.deepEqual(fired, ['newline', 'newline', 'newline']);
+  s.axis('right_trigger', Math.round(0.7 * full)); s.axis('right_trigger', Math.round(0.5 * full)); s.axis('right_trigger', full); assert.deepEqual(fired, ['r2']);
+  s.axis('right_trigger', Math.round(0.3 * full)); s.axis('right_trigger', full); assert.deepEqual(fired, ['r2', 'r2']);
+  s.stop(); s.axis('right_trigger', Math.round(0.9 * full)); assert.deepEqual(fired, ['r2', 'r2']);
+  s.axis('right_trigger', 0); s.axis('right_trigger', full); assert.deepEqual(fired, ['r2', 'r2', 'r2']);
 });
 
-test('A3 exact bytes: no control sends Enter, and newline/undo are Claude Code only', async () => {
-  for (const [action, bytes] of Object.entries(editKeys)) assert.ok(!bytes.includes('\r'), action);
-  assert.deepEqual(Object.entries(editKeys).filter(([, b]) => b.includes('\n')).map(([a]) => a), ['newline']);
-  assert.deepEqual(agentOnly, ['newline', 'undo']);
+test('A1 the profile follows the executable name', () => {
+  for (const [command, profile] of [['claude', 'claude'], ['codex', 'codex'], ['/opt/homebrew/bin/codex', 'codex'], ['/usr/local/bin/claude', 'claude'],
+    ['codex-wrapper', 'basic'], ['gemini', 'basic'], ['opencode', 'basic'], ['/tmp/codex/run', 'basic'], ['', 'basic']]) assert.equal(agentProfile(command), profile, command);
+  assert.deepEqual(agentProfiles, Object.keys(profileKeys));
+});
+
+test('A2 exact bytes: no control sends Enter; R2/R3 follow the Agent profile', async () => {
+  for (const [action, bytes] of Object.entries(editKeys)) assert.ok(!bytes.includes('\r') && !bytes.includes('\n'), action);
+  for (const [profile, keys] of Object.entries(profileKeys)) for (const bytes of Object.values(keys)) assert.ok(!bytes.includes('\r'), profile);
+  assert.deepEqual(profileKeys, { basic: {}, claude: { r2: '\n', r3: '\x1f' }, codex: { r2: '\n', r3: '\x14' } });
   const wait = () => new Promise(r => setTimeout(r, 275));
-  for (const editing of ['basic', 'claude']) {
+  const extra = { basic: [], claude: ['\x1f', '\n'], codex: ['\x14', '\n'] };
+  for (const editing of ['basic', 'claude', 'codex']) {
     const f = fixture(undefined, { automaticHandoff: true, editing });
     await f.gamepad.start(new AbortController().signal); f.advance(); await wait();
     const axis = (axis, value) => f.emit({ type: 'axis', device: 1, axis, value });
@@ -86,7 +93,7 @@ test('A3 exact bytes: no control sends Enter, and newline/undo are Claude Code o
     axis('rightx', -full); axis('rightx', 0); axis('rightx', full); axis('rightx', 0); axis('righty', -full); axis('righty', 0); axis('righty', full); axis('righty', 0);
     f.press('west'); f.press('north'); f.press('left_stick'); f.press('right_stick'); axis('right_trigger', full); axis('right_trigger', 0);
     const base = ['\x1b[D', '\x1b[B', '\x1b[1;5D', '\x1b[1;5C', '\x1b[H', '\x1b[F', '\x7f', '\x17', '\x1b[3~'];
-    assert.deepEqual(f.bytes, editing === 'claude' ? [...base, '\x1f', '\n'] : base, editing);
+    assert.deepEqual(f.bytes, [...base, ...extra[editing]], editing); assert.equal(f.gamepad.profile, editing);
     // Another controller's sticks and a paused controller send nothing.
     const before = f.bytes.length;
     f.emit({ type: 'axis', device: 2, axis: 'leftx', value: full });
@@ -95,15 +102,17 @@ test('A3 exact bytes: no control sends Enter, and newline/undo are Claude Code o
   }
 });
 
-test('A4 inside Padcode contexts the left stick is the D-pad and the right stick pages', async () => {
-  const f = fixture(undefined, { automaticHandoff: true, editing: 'claude' }); const wait = () => new Promise(r => setTimeout(r, 275));
-  await f.gamepad.start(new AbortController().signal); f.advance(); await wait();
-  const seen = []; f.gamepad.capture(button => seen.push(button), 'MENU / test');
-  const axis = (axis, value) => f.emit({ type: 'axis', device: 1, axis, value });
-  axis('lefty', full); axis('lefty', 0); axis('lefty', -full); axis('lefty', 0); axis('leftx', full); axis('leftx', 0);
-  axis('righty', -full); axis('righty', 0); axis('righty', full); axis('righty', 0); axis('rightx', full); axis('rightx', 0); axis('right_trigger', full);
-  f.press('west');
-  assert.deepEqual(seen, ['dpad_down', 'dpad_up', 'dpad_right', 'left_shoulder', 'right_shoulder', 'west']);
-  assert.deepEqual(f.bytes, [], 'a Padcode context leaked editing keys to the Agent');
-  await f.gamepad.stop();
+test('A3/A4 inside Padcode contexts the left stick is the D-pad and the right stick pages', async () => {
+  for (const editing of ['claude', 'codex']) {
+    const f = fixture(undefined, { automaticHandoff: true, editing }); const wait = () => new Promise(r => setTimeout(r, 275));
+    await f.gamepad.start(new AbortController().signal); f.advance(); await wait();
+    const seen = []; f.gamepad.capture(button => seen.push(button), 'MENU / test');
+    const axis = (axis, value) => f.emit({ type: 'axis', device: 1, axis, value });
+    axis('lefty', full); axis('lefty', 0); axis('lefty', -full); axis('lefty', 0); axis('leftx', full); axis('leftx', 0);
+    axis('righty', -full); axis('righty', 0); axis('righty', full); axis('righty', 0); axis('rightx', full); axis('rightx', 0); axis('right_trigger', full);
+    f.press('west');
+    assert.deepEqual(seen, ['dpad_down', 'dpad_up', 'dpad_right', 'left_shoulder', 'right_shoulder', 'west']);
+    assert.deepEqual(f.bytes, [], 'a Padcode context leaked editing keys to the Agent');
+    await f.gamepad.stop();
+  }
 });

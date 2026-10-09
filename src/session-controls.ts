@@ -20,7 +20,7 @@ export interface ControlEffects {
   insert?(text: string): void;
   canUndo?(): boolean;
   undo?(rerecord: boolean): void;
-  mapProfile?(): { claude: boolean; voice: boolean };
+  mapProfile?(): Pick<MapView, 'agent' | 'voice'>;
 }
 export const menuItems = ['Resume Agent controls', 'Pause gamepad mapping', 'Browse history', 'Send interrupt (Esc)', 'Clear input', 'Controller map', 'End session...'];
 const menuIds = ['resume', 'pause', 'history', 'interrupt', 'clear', 'map', 'end'] as const;
@@ -54,7 +54,7 @@ export class SessionControls {
   }
   private endIndex(): number { return this.entries().findIndex(entry => entry.id === 'end'); }
   private view(): MenuView {
-    if (this.context === 'map') return { title: 'CONTROLLER MAP / {padName}', items: ['Back to menu'], selected: 0, hint: '{back} / Esc back   {confirm} / {menu} close', map: this.fx.mapProfile?.() ?? { claude: false, voice: false } };
+    if (this.context === 'map') return { title: 'CONTROLLER MAP / {padName}', items: ['Back to menu'], selected: 0, hint: '{back} / Esc back   {confirm} / {menu} close', map: this.fx.mapProfile?.() ?? { agent: 'basic', voice: false } };
     if (this.context === 'draft') return { title: 'VOICE DRAFT', items: draftItems, selected: this.selected, hint: '{confirm} / Enter choose   {back} / Esc keep draft', body: this.draftText ?? '' };
     return this.context === 'confirm'
       ? { title: 'END SESSION?', items: confirmItems, selected: this.selected, hint: '{confirm} / Enter confirm   {back} / Esc back' }

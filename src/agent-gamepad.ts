@@ -3,7 +3,7 @@ import { ControllerProbe, identityMatch, type InputDevice } from './probe.js';
 import type { MenuFeed } from './menu-controller.js';
 import type { Config } from './config.js';
 import type { Button, Event } from './protocol.js';
-import { agentOnly, editKeys, StickInput, type EditAction } from './stick-input.js';
+import { editKeys, profileKeys, StickInput, type AgentProfile, type EditAction } from './stick-input.js';
 import { formatGlyphs, type Glyphs } from './glyphs.js';
 
 export const terminalKeys: Partial<Record<Button, string>> = {
@@ -16,8 +16,8 @@ export interface AgentGamepadOptions {
   feedStarted?: boolean;
   automaticHandoff?: boolean;
   trace?: (event: string, generation: number, device?: number) => void;
-  // 'claude' adds Claude Code's newline (R2) and undo (R3); other Agents keep them unbound.
-  editing?: 'basic' | 'claude';
+  // Selects the Agent-specific R2/R3 keys; 'basic' (the default) leaves them unbound.
+  editing?: AgentProfile;
 }
 export type ControlEvent = 'menu' | 'lost';
 export interface ControllerSource {
@@ -52,6 +52,7 @@ export class AgentGamepad implements ControllerSource {
     this.factory = settings.factory ?? (() => new ControllerProbe());
     this.now = settings.now ?? Date.now;
   }
+  get profile(): AgentProfile { return this.settings.editing ?? 'basic'; }
   private trace(event: string, device?: number): void { this.settings.trace?.(event, this.generation, device); }
   // Names for the controller in use: its reported family, else the saved one, else a standard gamepad.
   glyphs(): Glyphs {
@@ -68,8 +69,8 @@ export class AgentGamepad implements ControllerSource {
       return;
     }
     if (!this.active || this.failed) return;
-    if (agentOnly.includes(action) && this.settings.editing !== 'claude') return;
-    this.events.emit('keys', Buffer.from(editKeys[action]));
+    const bytes = action === 'r2' || action === 'r3' ? profileKeys[this.profile][action] : editKeys[action];
+    if (bytes) this.events.emit('keys', Buffer.from(bytes));
   }
   subscribe(keys: (bytes: Buffer) => void, status: (text: string) => void, cancel: () => void): () => void {
     this.events.on('keys', keys); this.events.on('status', status); this.events.on('cancel', cancel);

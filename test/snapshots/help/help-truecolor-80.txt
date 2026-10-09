@@ -22,7 +22,7 @@
   \e[1;38;2;0;215;255mSQ / X          \e[0m  \e[38;2;220;224;232mBackspace\e[0m
   \e[1;38;2;0;215;255mTRI / Y         \e[0m  \e[38;2;220;224;232mDelete word\e[0m
   \e[1;38;2;0;215;255mL3 / LS         \e[0m  \e[38;2;220;224;232mDelete\e[0m
-  \e[1;38;2;0;215;255mR2 / RT, R3 / RS\e[0m  \e[38;2;220;224;232mNewline / undo (Claude Code)\e[0m
+  \e[1;38;2;0;215;255mR2 / RT, R3 / RS\e[0m  \e[38;2;220;224;232mNewline / undo (Claude Code), newline / transcript (Codex)\e[0m
   \e[1;38;2;0;215;255mCtrl+]          \e[0m  \e[38;2;220;224;232mEnd the session\e[0m
 
 \e[38;2;128;134;150m──\e[0m \e[1;38;2;220;224;232mFLAGS\e[0m \e[38;2;128;134;150m──────────────────────────────────────────────────────────────────────\e[0m

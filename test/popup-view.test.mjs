@@ -32,7 +32,7 @@ test('S2 popup rows match the tmux height formula: title, rule, [body, blank], i
   assert.match(stripAnsi(renderPopup({ ...menu, items: ['x'.repeat(80)], selected: 0 }, mono, 12)[2]), /…$/);
 });
 test('S3 map popup: title, map, blank, hint; long maps say how many lines are hidden', () => {
-  const view = { t: 'menu', title: 'CONTROLLER MAP / DUALSHOCK 4', items: ['Back to menu'], selected: 0, hint: 'O / Esc back', map: { claude: true, voice: true, family: 'playstation' } };
+  const view = { t: 'menu', title: 'CONTROLLER MAP / DUALSHOCK 4', items: ['Back to menu'], selected: 0, hint: 'O / Esc back', map: { agent: 'claude', voice: true, family: 'playstation' } };
   const wide = caps({ color: 0, width: mapWidth + 4 });
   const full = renderPopup(view, wide, 40);
   assert.equal(full.length, renderControllerMap(view.map, mapWidth + 2, wide).length + 3);
@@ -43,6 +43,6 @@ test('UI-4 snapshots', () => {
   for (const [mode, c] of Object.entries({ truecolor, mono, ascii })) {
     snapshot(`session/popup-${mode}.txt`, renderPopup(menu, c, 14));
     snapshot(`session/panel-${mode}.txt`, ['ACTIVE / Options to pause', 'PAUSED / Options to enable', 'DISCONNECTED / Reconnect then Options', 'MENU / Choose'].flatMap(status => renderPanel(status, { ...c, width: 100 }, 2)));
-    snapshot(`session/map-${mode}.txt`, renderPopup({ t: 'menu', title: 'CONTROLLER MAP / XBOX WIRELESS CONTROLLER', items: ['Back'], selected: 0, hint: 'B / Esc back', map: { claude: true, voice: false, family: 'xbox' } }, { ...c, width: mapWidth + 4 }, 30));
+    snapshot(`session/map-${mode}.txt`, renderPopup({ t: 'menu', title: 'CONTROLLER MAP / XBOX WIRELESS CONTROLLER', items: ['Back'], selected: 0, hint: 'B / Esc back', map: { agent: 'claude', voice: false, family: 'xbox' } }, { ...c, width: mapWidth + 4 }, 30));
   }
 });
