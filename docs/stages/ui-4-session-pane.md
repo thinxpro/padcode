@@ -1,6 +1,6 @@
 # UI-4: Session status pane, controls popup and controller map
 
-Status: implemented; automated acceptance passes locally; DualShock 4 session check and display review pending. This plan, its acceptance criteria and test matrix were committed before implementation.
+Status: merged (PR #31); automated acceptance passes; maintainer reported the DualShock 4 session check. This plan, its acceptance criteria and test matrix were committed before implementation.
 
 Stacked on [UI-3](ui-3-controller-lab.md) (`feature/ui-controller-lab`, PR #30) and the earlier UI stages (#25-#27); none is merged yet. This PR targets `feature/ui-controller-lab` and is retargeted as prerequisites merge.
 
@@ -55,6 +55,6 @@ Plan commit: `0b4828e`. On macOS 27.0.1 arm64 with Node 24.21.0, `npm run check`
 - S2-S3: `test/popup-view.test.mjs` and `test/controller-map.test.mjs` (Unicode outline closes, inner boxes, unchanged legend, theme colours), with 9 snapshots in `test/snapshots/session/`.
 - S4: `panel_pty.py` (real tmux session: activation, Options menu, stick navigation, short-terminal map, Xbox names, voice, draft, insert, escape, terminate, crash, fallback) and `menu-pty.py` pass.
 
-### Merge decision
+### Maintainer physical report
 
-On 2026-10-09 the maintainer asked to merge this PR ("合并") before reporting the DualShock 4 session check (H1-H2) or the display review. It was merged on that instruction; H1-H2 and the display review are not recorded as passed. The local test build installed for the maintainer contains this change, so the check can still be done and recorded later.
+On 2026-10-09 the maintainer reported "UI-4 测过了" (UI-4 has been tested) with the local test build that contains this change, after the requested DualShock 4 session steps (status pane for ACTIVE / PAUSED / DISCONNECTED, Options popup navigation, controller map, O to close). The report arrived while the merge requested by the maintainer was already running; an earlier note in this file, written before the report, said the check had not been done and is replaced by this one. No `NO_COLOR` / `PADCODE_ASCII` display results were given.
