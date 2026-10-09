@@ -1,0 +1,19 @@
+╭─ CONTROLLER LAB ────────────────────────────────────────╮
+│ ● PLAYER READY  //  Test Pad                            │
+│ DEVICES 1    BUTTON EDGES 4            LIVE / SDL INPUT │
+├─────────────────────────────────────────────────────────┤
+│ DPAD  ▲  ▼ [◀] ▶                                        │
+│ FACE [A] B  X  Y                                        │
+│ SHLD [LB] RB  VIEW  MENU  LS [RS]                       │
+│ LT   ░░░░░░░░  RT   █████▋░░                            │
+│ LS   X -1.00 ██████  Y +1.00 ██████                     │
+│ RS   X +0.50 ███░░░  Y +0.00 ░░░░░░                     │
+│ HELD SOUTH DPAD_LEFT LEFT_SHOULDER RIGHT_STICK          │
+├─────────────────────────────────────────────────────────┤
+│ RECENT INPUT                                            │
+│ DOWN RIGHT_STICK [1]                                    │
+│ DOWN LEFT_SHOULDER [1]                                  │
+│ DOWN DPAD_LEFT [1]                                      │
+│ DOWN SOUTH [1]                                          │
+╰─────────────────────────────────────────────────────────╯
+  HOLD B 1S / Q BACK   |   CTRL+C QUIT

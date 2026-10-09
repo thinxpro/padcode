@@ -1,0 +1,9 @@
+╭─ CONTROLLER LAB ─────────────────────────────────────────────╮
+│ ▲ INSERT CONTROLLER  //  waiting for connection              │
+│ DEVICES 0    BUTTON EDGES 0           DEMO / SYNTHETIC INPUT │
+├──────────────────────────────────────────────────────────────┤
+│                                                              │
+│ Connect a controller with a USB data cable or over Bluetoot… │
+│ No agent is launched. No input is injected.                  │
+╰──────────────────────────────────────────────────────────────╯
+  B / Q BACK   |   DEMO - NOT HARDWARE EVIDENCE
