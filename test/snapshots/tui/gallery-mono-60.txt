@@ -1,0 +1,26 @@
+           P A D C O D E   T U I   G A L L E R Y           
+
+── TONES ──────────────────────────────────────────────────
+brand  accent  ok  warn  danger  info  text  muted
+
+── KEYCAPS + STEPPER ──────────────────────────────────────
+[X] [O] [TRI] [SQ]   MISSION 2/5 ●●○○○
+
+╭─ STATUS CARD ────────────────────────────────────────╮
+│ ● PLAYER 1   linked                                  │
+│ ▲ INPUT      unverified                              │
+│ ○ VOICE      off                                     │
+│ ✕ HELPER     missing                                 │
+│ ◆ SESSION    live                                    │
+├──────────────────────────────────────────────────────┤
+│ Unicode data: 한국어 カタカナ 🎮 keeps its width     │
+╰──────────────────────────────────────────────────────╯
+
+░░░░░░░░░░░░ 0.00   RIGHT COLUMN
+████░░░░░░░░ 0.33   stacks below the meters
+██████░░░░░░ 0.50   when the terminal is narrow
+██████████▌░ 0.88
+████████████ 1.00
+
+───────────────────────────────────────────────────────────
+[X] SELECT   [O] BACK   [D-PAD] MOVE   [OPTIONS] MENU

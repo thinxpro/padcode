@@ -14,11 +14,12 @@ Confirmed decisions are product constraints. Proposed decisions require technica
 | npm as the first installation channel | Proposed; local tarball tested | Validate one complete installation path first |
 | macOS + DualShock 4, Bluetooth first | Confirmed | Explicit user requirement; USB remains an alternative and Bluetooth belongs in terminal onboarding |
 | Optional voice, desktop mode and structured adapters | Confirmed | Avoid extra base installation and agent-selection requirements |
-| Padcode name | Provisional | Package ownership and public naming require confirmation |
+| Padcode name | Confirmed | Maintainer confirmed on 2026-10-08; unscoped npm name was unclaimed at that date |
 | Open-source license | Confirmed | Maintainer selected MIT; see LICENSE; dependencies retain their own licenses |
 | npm publishing account | Available | Maintainer has an account; verify login and package ownership before release |
 | Initial public release date | Open | Repository remains private until the maintainer decides otherwise |
 | English repository and PR content | Confirmed | Prepare for public collaboration; applies to future contributions |
+| Unicode interface chrome | Confirmed | Maintainer chose Unicode frames, blocks and symbols for the [UI overhaul](stages/ui-0-tui-foundation.md); `PADCODE_ASCII=1` and non-UTF-8 locales fall back to ASCII. User data keeps its own Unicode handling |
 
 ## Superseded approaches
 

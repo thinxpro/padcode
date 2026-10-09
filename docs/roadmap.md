@@ -2,6 +2,10 @@
 
 The current priority is [P0-4 continuous controller sessions and voice drafts](stages/p0-4-continuous-controller-and-voice.md). The user reports losing controller control after entering Codex; diagnosis and seamless handoff come before voice. P0-2 compatibility and P0-3 physical acceptance remain pending, following Bluetooth-first setup and the user-confirmed dev.5 scan regression. Check items only after their full acceptance criteria pass; simulated tests do not replace physical validation.
 
+## Interface overhaul
+
+The maintainer requested a full visual overhaul of the CLI, delivered in stages UI-0 to UI-4 (see [UI-0](stages/ui-0-tui-foundation.md#program)): a shared terminal UI layer, a welcome screen merged with Player Hub, the setup wizard, Controller Lab, and the session pane and popup.
+
 ## P0: Technical validation
 
 ### P0-1: Controller input
