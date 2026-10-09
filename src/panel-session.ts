@@ -168,7 +168,7 @@ export async function runPanelAgent(agent: Agent, options: PanelOptions): Promis
       const most = Math.max(8, rows - 2);
       const height = popupKind === 'map'
         // Size with the view the worker will draw (it carries the controller family).
-        ? Math.min(most, renderControllerMap(sendView(view).map!, width - 4, false, most - 5).length + 5)
+        ? Math.min(most, renderControllerMap(sendView(view).map!, width - 4, { color: 0, unicode: true, motion: false, width: width - 4, height: most }, most - 5).length + 5)
         : Math.min(most, view.items.length + 6 + (popupKind === 'body' ? wrapText(view.body!, width - 4).length + 1 : 0));
       popup = spawn(tmux.binary, tmux.args(['display-popup', '-c', name, '-E', '-w', String(width), '-h', String(height), '-x', 'C', '-y', 'C', `${shell(node)} ${shell(paneMenu)}`]), { stdio: 'ignore', env: clientEnv(env) });
       popup.on('error', () => {});

@@ -1,36 +1,15 @@
 // Internal controls popup. It renders coordinator menu state and reports keyboard actions; the coordinator owns all state.
 import { joinSession, type ToMenu } from './session-ipc.js';
-import { colorEnabled, safeLabel } from './ui.js';
-import { wrapText } from './text-width.js';
-import { renderControllerMap } from './controller-map.js';
+import { renderPopup } from './popup-view.js';
+import { detectCaps } from './tui/index.js';
 
 const path = process.env.PADCODE_IPC, session = process.env.PADCODE_SESSION;
 if (!path || !session) throw new Error('Controls popup requires its private session channel.');
 const input = process.stdin, output = process.stdout;
-const color = colorEnabled(process.env, Boolean(output.isTTY));
 let view: Extract<ToMenu, { t: 'menu' }> | undefined;
-const paint = (style: string, text: string) => color ? `${style}${text}\x1b[0m` : text;
 const draw = () => {
   if (!view) return;
-  const width = Math.max(10, (output.columns || 40) - 2);
-  const fit = (text: string) => safeLabel(text).slice(0, width);
-  const rows = output.rows || 12;
-  // The controller map shows no item list (its hint says how to leave): title, map, blank, hint.
-  if (view.map) {
-    const map = renderControllerMap(view.map, width, color, Math.max(1, rows - 3));
-    const shown = map.length > rows - 3 ? [...map.slice(0, Math.max(0, rows - 4)), paint('\x1b[2;37m', fit(`... ${map.length - rows + 4} more lines`))] : map;
-    const lines = [paint('\x1b[1;96m', fit(view.title)), ...shown, '', paint('\x1b[2;37m', fit(view.hint))];
-    output.write(`\x1b[?25l\x1b[H${lines.map(line => ` ${line}\x1b[K`).join('\r\n')}\x1b[J`);
-    return;
-  }
-  // Title, blank, body, blank, items, blank, hint: five rows besides the body and items.
-  const bodyRoom = Math.max(1, rows - view.items.length - 5);
-  // Draft text keeps its Unicode; only the menu chrome is ASCII.
-  const wrapped = view.body === undefined ? [] : wrapText(view.body, width);
-  const body = wrapped.length > bodyRoom ? [...wrapped.slice(0, bodyRoom - 1), paint('\x1b[2;37m', fit(`... ${wrapped.length - bodyRoom + 1} more lines`))] : wrapped;
-  const lines = [paint('\x1b[1;96m', fit(view.title)), '', ...body, ...(body.length ? [''] : []),
-    ...view.items.map((item, index) => index === view!.selected ? paint('\x1b[1;95m', fit(`> [${index + 1}] ${item}`)) : fit(`  [${index + 1}] ${item}`)),
-    '', paint('\x1b[2;37m', fit(view.hint))];
+  const lines = renderPopup(view, detectCaps(process.env, output), output.rows || 12);
   output.write(`\x1b[?25l\x1b[H${lines.map(line => ` ${line}\x1b[K`).join('\r\n')}\x1b[J`);
 };
 const peer = await joinSession(path, session, 'menu');

@@ -6,7 +6,6 @@ export function safeLabel(text: string): string { return text.replace(/[^\x20-\x
 export function safeText(text: string): string {
   return text.replace(/[\x00-\x1f\x7f-\x9f\u200e\u200f\u202a-\u202e\u2066-\u2069]/g, ' ').replace(/\p{Cs}/gu, '?');
 }
-export function colorEnabled(env: NodeJS.ProcessEnv, tty: boolean): boolean { return tty && env.NO_COLOR === undefined && env.TERM !== 'dumb'; }
 const commands: Array<[string, string]> = [
   ['padcode', 'Player Hub (first run: setup)'],
   ['padcode config', 'Edit Bluetooth + Agent loadout'],
