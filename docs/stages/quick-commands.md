@@ -1,6 +1,6 @@
 # Quick commands: slash commands and mentions from the controller
 
-Status: implemented in 0.1.0-rc.10; automated acceptance passes and physical acceptance is pending. This plan was committed before runtime changes. Targets `main`.
+Status: implemented in 0.1.0-rc.10; automated acceptance and user-reported physical acceptance (H1-H4) pass. This plan was committed before runtime changes. Targets `main`.
 
 ## Request
 
@@ -70,4 +70,8 @@ Plan commit: `5dd136c`. `npm run check` passed 205 tests with zero failures or s
 - A6: `test/controller-map.test.mjs` height invariants for 16-40 terminal rows; snapshots updated.
 - A7: `panel_pty.py` `commands()` in real tmux: Share opens QUICK COMMANDS, item 1 writes exactly `/`, a custom command writes exactly its bytes with no Enter and shows the TYPED notice, the touchpad writes `@`, Share/O close without typing, keyboard `4` picks, Options > Quick commands returns to the menu on O, and nothing else reaches the Agent.
 
-Artifacts `padcode-0.1.0-rc.10.tgz` (SHA-1 `688aeb200de9dcfb18143c13955cbe4b27747530`) and `padcode-darwin-0.1.0-rc.10.tgz` (SHA-1 `b468198e5afe1ec88c2665070dc9271285ba7327`), ad-hoc signed. H1-H4 are pending.
+Artifacts `padcode-0.1.0-rc.10.tgz` (SHA-1 `688aeb200de9dcfb18143c13955cbe4b27747530`) and `padcode-darwin-0.1.0-rc.10.tgz` (SHA-1 `b468198e5afe1ec88c2665070dc9271285ba7327`), ad-hoc signed.
+
+### User-reported physical acceptance
+
+On 2026-10-09 the maintainer installed the rc.10 tarballs into their Node 23.5 global install and reported, item by item, that H1 (`/clear`, `/compact`, `/model`, `/resume` in Claude Code), H2 (the `/` command picker), H3 (touchpad `@` file picker) and H4 (Codex `/clear` and `$`) passed. Whether dictation was used to filter the `@` picker was not reported separately.
