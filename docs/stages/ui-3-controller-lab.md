@@ -1,6 +1,6 @@
 # UI-3: Controller Lab
 
-Status: implemented; automated acceptance passes locally; DualShock 4 acceptance and display review pending. This plan, its acceptance criteria and test matrix were committed before implementation.
+Status: implemented; automated acceptance passes locally; maintainer reported DualShock 4 acceptance (H1, H2); H3 needs other hardware. This plan, its acceptance criteria and test matrix were committed before implementation.
 
 Stacked on [UI-2](ui-2-setup-wizard.md) (`feature/setup-wizard`, PR #27), which is stacked on UI-1 (#26) and UI-0 (#25); none is merged yet. This PR targets `feature/setup-wizard` and is retargeted as prerequisites merge. (The branch is `feature/ui-controller-lab`; `feature/controller-lab` is the merged P0-1 branch.)
 
@@ -62,4 +62,6 @@ Plan commit: `738c0cb`. On macOS 27.0.1 arm64 with Node 24.21.0, the second comp
 - L4: 10 snapshots in `test/snapshots/lab/`.
 - L5: Hub navigation (lab hold-O, demo), onboarding demo and `pty_check.py` suites pass unchanged.
 
-DualShock 4 acceptance H1-H2 and the display review are pending.
+### Maintainer physical report
+
+On 2026-10-09 the maintainer tested Controller Lab with a DualShock 4 on the local test build (UI-0 to UI-3 with PRs #28 and #29; not published), following the requested steps (every button, both sticks and stick presses, L2/R2, the touchpad, hold O to return), and reported "测试可以" (the test is fine). This records H1 and H2 as reported by the maintainer. H3 (Xbox or Nintendo hardware) remains open; narrow-terminal and `NO_COLOR` / `PADCODE_ASCII` display results were not reported.
