@@ -1,6 +1,6 @@
 # Quick commands: slash commands and mentions from the controller
 
-Status: plan committed before runtime changes. Targets `main`.
+Status: implemented in 0.1.0-rc.10; automated acceptance passes and physical acceptance is pending. This plan was committed before runtime changes. Targets `main`.
 
 ## Request
 
@@ -52,3 +52,22 @@ Checked against the installed Claude Code 2.1.295 and codex-cli 0.161.0, the Cla
 
 - Discovering skills or custom commands from the Agent's directories.
 - Remapping buttons; the palette is not configurable beyond `agent.commands`.
+
+## Implementation notes
+
+- The popup now scrolls: when the items exceed the rows inside the popup, it shows a window around the selection with "... N more above/below" rows. The first attempt reserved one row too many and clipped lists that fit; the end-to-end test caught it, and a unit test now proves lists that fit the coordinator's popup are never clipped.
+- The Controller map legend gained one row (TOUCH and Share/View), so the full drawing is 16 lines and the compact legend 9; the compact legend fits from 16 terminal rows (was 15). On controllers without a touchpad the TOUCH row says `@` is in Quick commands.
+- The status pane legend adds `[SHARE] COMMANDS`; it is dropped first on narrow panes like the other trailing hints.
+- Keeping the Agent in `padcode config` keeps its custom commands; choosing another Agent starts without them, because commands are Agent-specific.
+
+## Validation record
+
+Plan commit: `5dd136c`. `npm run check` passed 205 tests with zero failures or skips on macOS 27.0.1 arm64, Node 24.21.0.
+
+- A1, A4, A5: `test/quick-commands.test.mjs` (palette per Agent kind, custom limits, config round-trip and rejections, scrolling for 24 items at several heights, no clipping for lists that fit, 24-item IPC). `test/onboarding.test.mjs` covers keeping custom commands.
+- A2: the Quick commands button matrix and menu/Share/keyboard paths in `test/quick-commands.test.mjs`; the controls menu tests now include the new item.
+- A3: `test/agent-gamepad.test.mjs` (touchpad `@`, Share `/` in transparent mode) and the routing test in `test/quick-commands.test.mjs` (no effect while captured or paused).
+- A6: `test/controller-map.test.mjs` height invariants for 16-40 terminal rows; snapshots updated.
+- A7: `panel_pty.py` `commands()` in real tmux: Share opens QUICK COMMANDS, item 1 writes exactly `/`, a custom command writes exactly its bytes with no Enter and shows the TYPED notice, the touchpad writes `@`, Share/O close without typing, keyboard `4` picks, Options > Quick commands returns to the menu on O, and nothing else reaches the Agent.
+
+Artifacts `padcode-0.1.0-rc.10.tgz` (SHA-1 `688aeb200de9dcfb18143c13955cbe4b27747530`) and `padcode-darwin-0.1.0-rc.10.tgz` (SHA-1 `b468198e5afe1ec88c2665070dc9271285ba7327`), ad-hoc signed. H1-H4 are pending.

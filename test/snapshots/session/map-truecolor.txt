@@ -15,5 +15,6 @@
 \e[1;38;2;0;215;255m R STICK \e[0m\e[38;2;220;224;232mWord <->, line start ^ end v   \e[0m\e[1;38;2;0;215;255m(Y)     \e[0m\e[38;2;220;224;232mDelete word, hold\e[0m
 \e[1;38;2;0;215;255m RS      \e[0m\e[38;2;220;224;232mUndo                           \e[0m\e[1;38;2;0;215;255mMENU    \e[0m\e[38;2;220;224;232mPadcode menu\e[0m
 \e[1;38;2;0;215;255m LT      \e[0m\e[38;2;220;224;232mVoice off (Hub > Voice settings\e[0m\e[1;38;2;0;215;255mCTRL+]  \e[0m\e[38;2;220;224;232mEnds the session (keyboard)\e[0m
+\e[1;38;2;0;215;255m TOUCH   \e[0m\e[38;2;220;224;232m@ is in Quick commands         \e[0m\e[1;38;2;0;215;255mVIEW    \e[0m\e[38;2;220;224;232mQuick commands (/)\e[0m
 
 \e[38;2;128;134;150mB / Esc back\e[0m

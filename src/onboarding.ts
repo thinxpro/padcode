@@ -137,7 +137,8 @@ async function chooseAgent(io: PromptPort, services: SetupServices, initial: Con
     const candidate = selection === 'keep' ? initial!.agent!.command : selection === 'custom' ? await io.ask('Executable path or command (no arguments):') : found[Number(selection)]?.command ?? '';
     const command = await services.resolve(candidate);
     if (!command) { io.say('Executable not found. Install/login with your preferred Agent separately, or choose later.'); continue; }
-    if (selection === 'keep') return { command, args: [...initial!.agent!.args] };
+    // Custom quick commands belong to the kept Agent; choosing another Agent starts without them.
+    if (selection === 'keep') { const kept = initial!.agent!; return { command, args: [...kept.args], ...(kept.commands ? { commands: [...kept.commands] } : {}) }; }
     const args: string[] = [];
     if (selection === 'custom') {
       io.say('Arguments are literal values, never a shell script. Enter one per line; empty finishes.');

@@ -15,5 +15,6 @@ CONTROLLER MAP / XBOX WIRELESS CONTROLLER
  R STICK Word <->, line start ^ end v   (Y)     Delete word, hold
  RS      Undo                           MENU    Padcode menu
  LT      Voice off (Hub > Voice settingsCTRL+]  Ends the session (keyboard)
+ TOUCH   @ is in Quick commands         VIEW    Quick commands (/)
 
 B / Esc back

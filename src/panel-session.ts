@@ -17,6 +17,7 @@ import { previewText, wrapText } from './text-width.js';
 import { basename } from 'node:path';
 import { mapWidth, renderControllerMap } from './controller-map.js';
 import { clientEnv, ControlClient, PrivateTmux } from './tmux.js';
+import { agentKind, quickCommands } from './quick-commands.js';
 
 type Agent = NonNullable<Config['agent']>;
 type Output = Writable & { isTTY?: boolean; columns?: number; rows?: number };
@@ -225,6 +226,7 @@ export async function runPanelAgent(agent: Agent, options: PanelOptions): Promis
       toPanel({ t: 'notice', text: result.ok ? undoRerecord ? 'VOICE INSERT UNDONE / Hold {l2} to record again' : 'VOICE INSERT UNDONE'
         : 'UNDO UNAVAILABLE / The input changed after the voice insert' });
     });
+    const palette = quickCommands(agentKind(agent.command), agent.commands ?? []);
     const controls = new SessionControls({
       insert: text => insertText(text),
       canUndo: () => inserted !== undefined,
@@ -233,6 +235,12 @@ export async function runPanelAgent(agent: Agent, options: PanelOptions): Promis
       notice: text => toPanel({ t: 'notice', text }),
       mapProfile: () => ({ claude: basename(agent.command) === 'claude', voice: Boolean(voice) }),
       play: () => voice?.play(),
+      commands: () => palette,
+      type: keys => {
+        ipc.send('agent', { t: 'keys', data: Buffer.from(keys).toString('base64') });
+        toPanel({ t: 'notice', text: keys.startsWith('/') ? `TYPED ${keys} / {confirm} runs it at the start of an empty input`
+          : `TYPED ${keys} / Type or hold {l2} to dictate, {confirm} picks` });
+      },
       capture: (handler, status) => gamepad?.capture(handler, status),
       release: resume => gamepad?.releaseCapture(resume),
       // Esc stops the running task in Claude Code; Ctrl+C there clears input and a second one exits.
@@ -244,7 +252,9 @@ export async function runPanelAgent(agent: Agent, options: PanelOptions): Promis
       end: () => terminate(130),
     });
     ipc.on('action', action => { if (action.name === 'pick') controls.key('confirm', action.index); else controls.key(action.name); });
-    gamepad?.onControl(event => { if (event === 'menu') controls.openMenu(); else { voice?.cancel(); controls.lost(); } });
+    gamepad?.onControl(event => {
+      if (event === 'menu') controls.openMenu(); else if (event === 'commands') controls.openCommands(); else { voice?.cancel(); controls.lost(); }
+    });
     let modes = Promise.resolve();
     live.onMode(pane => {
       if (pane !== agentPane) return;

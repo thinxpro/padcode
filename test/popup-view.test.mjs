@@ -13,7 +13,8 @@ const draft = { ...menu, title: 'VOICE DRAFT', items: ['Insert into the Agent', 
 
 test('S2 popup rows match the tmux height formula: title, rule, [body, blank], items, blank, hint', () => {
   for (const c of [truecolor, mono, ascii]) for (const rows of [8, 12, 20, 40]) {
-    assert.equal(renderPopup(menu, c, rows).length, menu.items.length + 4, `menu ${rows}`);
+    // Lists longer than the popup scroll in a window of at least three rows.
+    assert.equal(renderPopup(menu, c, rows).length, Math.min(menu.items.length, Math.max(3, rows - 4)) + 4, `menu ${rows}`);
     const lines = renderPopup(draft, c, rows), room = Math.max(1, rows - draft.items.length - 5);
     assert.ok(lines.length <= draft.items.length + 5 + room, `draft ${rows}`);
     assert.ok(lines.every(line => visibleWidth(line) <= c.width - 2));
