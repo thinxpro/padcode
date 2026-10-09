@@ -1,6 +1,6 @@
 # Fix: microphone check fails once with "configuration changed"
 
-Status: implemented; automated acceptance passes locally, physical acceptance H1-H3 pending. This plan, its acceptance criteria and test matrix were committed before implementation.
+Status: implemented; automated acceptance passes locally; maintainer reported H1, H2 and session recording working; mid-recording disconnection not reported. This plan, its acceptance criteria and test matrix were committed before implementation.
 
 Independent of the UI overhaul stack and of the Bluetooth permission fix (PR #28); branched from `main`.
 
@@ -45,4 +45,6 @@ Plan commit: `9198f73`. On macOS 27.0.1 arm64 with Node 24.21.0, `npm run check`
 - M1: `test/native.test.mjs` compiles `test/fixtures/recording-harness.c` and checks the ten states.
 - M2: native audio tests (synthetic WAV, stop, cancel, EOF, SIGTERM, cap, diagnose) and voice suites pass; a synthetic 1-second recording still produces 32,044 bytes.
 
-Physical acceptance H1-H3 is pending.
+### Maintainer physical report
+
+On 2026-10-09 the maintainer tested the local test build (0.1.0-rc.9 with this fix, PR #28 and UI-0 to UI-2; not published) after granting microphone access again, following the requested steps: the built-in microphone check, a Bluetooth headset microphone check and hold-to-record in a session. The report was "测试，没问题" (tested, no problem). Disconnecting a microphone mid-recording was not mentioned and is not claimed.
