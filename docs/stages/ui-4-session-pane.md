@@ -55,4 +55,6 @@ Plan commit: `0b4828e`. On macOS 27.0.1 arm64 with Node 24.21.0, `npm run check`
 - S2-S3: `test/popup-view.test.mjs` and `test/controller-map.test.mjs` (Unicode outline closes, inner boxes, unchanged legend, theme colours), with 9 snapshots in `test/snapshots/session/`.
 - S4: `panel_pty.py` (real tmux session: activation, Options menu, stick navigation, short-terminal map, Xbox names, voice, draft, insert, escape, terminate, crash, fallback) and `menu-pty.py` pass.
 
-DualShock 4 session check H1-H2 and the display review are pending.
+### Merge decision
+
+On 2026-10-09 the maintainer asked to merge this PR ("合并") before reporting the DualShock 4 session check (H1-H2) or the display review. It was merged on that instruction; H1-H2 and the display review are not recorded as passed. The local test build installed for the maintainer contains this change, so the check can still be done and recorded later.
