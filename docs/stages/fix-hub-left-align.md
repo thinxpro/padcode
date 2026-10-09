@@ -1,6 +1,6 @@
 # Fix: Player Hub jumps between centre and left
 
-Status: implemented; automated acceptance passes locally, manual check pending. This plan, its acceptance criteria and test matrix were committed before implementation.
+Status: merged on the maintainer's instruction; automated acceptance passes; manual check not reported. This plan, its acceptance criteria and test matrix were committed before implementation.
 
 ## Request
 
@@ -37,4 +37,6 @@ On macOS 27.0.1 arm64 with Node 24.21.0, `npm run check` passed 198 tests with z
 - A1-A2: `test/hub-view.test.mjs` (Hub starts at column 0 at 100, 120 and 200 columns; `contentWidth` values; Hub frame and setup banner have equal width at 80, 100 and 120 columns).
 - A3: only the six 100x40 and 120x40 Hub snapshots changed, and only by removed leading spaces (checked by comparing them with leading spaces stripped).
 
-The inline screens now wrap at up to 78 columns instead of 72 in wide terminals. The manual check is pending.
+The inline screens now wrap at up to 78 columns instead of 72 in wide terminals.
+
+On 2026-10-09 the maintainer asked to merge ("合并") after the fix was installed in the local test build; no separate result for the manual check was reported, so it is not recorded as passed.
