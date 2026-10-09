@@ -1,6 +1,6 @@
 # UI-3: Controller Lab
 
-Status: planned. This plan, its acceptance criteria and test matrix are committed before implementation.
+Status: implemented; automated acceptance passes locally; DualShock 4 acceptance and display review pending. This plan, its acceptance criteria and test matrix were committed before implementation.
 
 Stacked on [UI-2](ui-2-setup-wizard.md) (`feature/setup-wizard`, PR #27), which is stacked on UI-1 (#26) and UI-0 (#25); none is merged yet. This PR targets `feature/setup-wizard` and is retargeted as prerequisites merge. (The branch is `feature/ui-controller-lab`; `feature/controller-lab` is the merged P0-1 branch.)
 
@@ -45,6 +45,21 @@ Fourth stage of the interface overhaul. The maintainer accepted UI-1 and UI-2 an
 
 Display review: the drawing at full width, about 60 and 40 columns, `NO_COLOR=1` and `PADCODE_ASCII=1`.
 
+## Implementation notes
+
+- `src/lab-view.ts` replaces `render` in `ui.ts` (removed); `session.ts` passes `detectCaps` with the output size. The lab unit cases moved from `test/ui.test.mjs` to `test/lab-view.test.mjs`.
+- The drawing is one layout for every family (D-pad left, face buttons right, sticks below); names, the touchpad (PlayStation) or HOME label, and the PS button follow the family. The offset-stick drawing remains in the session controller map (UI-4 scope).
+- The full drawing needs 64 columns and about 22 rows; otherwise the compact rows are used, then no frame below 40 columns. The footer is kept on the last row in every size.
+- A trigger past half lights its name; the meter itself is drawn cell by cell on the canvas so its colours survive.
+- `DIVIDER` is now typed `unique symbol` so row arrays built with spreads type-check.
+- The first full gate failed once in `gamepad-agent-pty.py` (`press('south')` reached the Agent during the 250 ms settle window). That suite does not use the lab code; it passed five isolated runs and the complete rerun. Recorded as an intermittent timing failure, not fixed here.
+
 ## Validation record
 
-Pending.
+Plan commit: `738c0cb`. On macOS 27.0.1 arm64 with Node 24.21.0, the second complete `npm run check` passed 191 tests with zero failures or skips (the first had the intermittent failure above); `lab-view.js` and `canvas.js` have 100% line coverage. CI is disabled by the maintainer's decision, so Linux was not exercised.
+
+- L1-L3: `test/lab-view.test.mjs`.
+- L4: 10 snapshots in `test/snapshots/lab/`.
+- L5: Hub navigation (lab hold-O, demo), onboarding demo and `pty_check.py` suites pass unchanged.
+
+DualShock 4 acceptance H1-H2 and the display review are pending.

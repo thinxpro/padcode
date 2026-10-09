@@ -2,7 +2,8 @@ import { spawn } from 'node:child_process';
 import { helperPath } from './process.js';
 import { EventDecoder, type Event } from './protocol.js';
 import { createState, reduce } from './state.js';
-import { colorEnabled, render } from './ui.js';
+import { renderLab } from './lab-view.js';
+import { detectCaps } from './tui/index.js';
 import type { MenuInput } from './menu-controller.js';
 
 export interface SessionOptions { demo: boolean; json: boolean; helper?: string; helperArgs?: string[]; back?: MenuInput; holdMs?: number }
@@ -65,7 +66,7 @@ export async function session(options: SessionOptions): Promise<number> {
     };
     const draw = () => {
       if (!interactive || !dirty || blocked || finished) return;
-      const picture = render(state, output.columns || 80, output.rows || 30, colorEnabled(process.env, true));
+      const picture = renderLab(state, { ...detectCaps(process.env, output), width: output.columns || 80, height: output.rows || 30 }).join('\n');
       dirty = false;
       if (!terminalControl && picture === lastPlain) return;
       lastPlain = picture;

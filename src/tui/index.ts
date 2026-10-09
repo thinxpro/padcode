@@ -5,3 +5,4 @@ export * from './box.js';
 export * from './widgets.js';
 export * from './screen.js';
 export * from './logo.js';
+export * from './canvas.js';

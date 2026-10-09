@@ -12,7 +12,7 @@ const borders: Record<BorderName, Border> = {
 export const border = (caps: Caps, name: BorderName = 'round') => borders[caps.unicode ? name : 'ascii'];
 
 // A row that draws a horizontal divider inside a frame.
-export const DIVIDER = Symbol('divider');
+export const DIVIDER: unique symbol = Symbol('divider');
 export type Row = string | typeof DIVIDER;
 export interface FrameOptions { width: number; caps: Caps; title?: string; tone?: Tone; padding?: number; border?: BorderName }
 
