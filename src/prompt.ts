@@ -5,7 +5,7 @@ import { askHint, askPrompt, renderBanner, renderMenu, renderMessage, selectLine
 import { formatGlyphs } from './glyphs.js';
 import type { MenuInput, MenuAction } from './menu-controller.js';
 import type { Glyphs } from './glyphs.js';
-import { detectCaps, Screen, type Caps } from './tui/index.js';
+import { contentWidth, detectCaps, Screen, type Caps } from './tui/index.js';
 
 export interface Choice { label: string; value: string }
 // What a full-screen menu frame needs; `shine` is set while the intro sweep plays.
@@ -31,7 +31,7 @@ export class TerminalPrompt implements PromptPort {
   private caps(): Caps { return detectCaps(process.env, process.stdout); }
   // Button names follow the connected controller ({confirm}, {back}, {menu}...).
   private names(text: string): string { return formatGlyphs(text, this.gamepad?.glyphs?.() ?? { family: 'standard' }); }
-  private width(): number { return Math.max(12, Math.min(72, (process.stdout.columns || 80) - 1)); }
+  private width(): number { return contentWidth(process.stdout.columns || 80); }
   private clean(text: string): string { return safeText(this.names(text)); }
   banner(title: string, progress?: Progress): void {
     process.stdout.write(renderBanner(this.clean(title), this.caps(), this.width(), progress).join('\n') + '\n');

@@ -3,7 +3,7 @@ import type { ScreenView } from './prompt.js';
 import { formatGlyphs } from './glyphs.js';
 import { safeText } from './ui.js';
 import {
-  center, dot, DIVIDER, fit, frame, hintBar, logo, logoArt, logoVariant, paint, rule, truncate, visibleWidth,
+  center, contentWidth, dot, DIVIDER, fit, frame, hintBar, logo, logoArt, logoVariant, paint, rule, truncate, visibleWidth,
   type Caps, type DotState, type LogoVariant, type Row,
 } from './tui/index.js';
 
@@ -93,7 +93,8 @@ function compact(model: HubModel, view: ScreenView, width: number): string[] {
 }
 export function renderHub(model: HubModel, view: ScreenView): string[] {
   const cols = Math.max(1, view.caps.width - 1), rows = view.caps.height;
-  const width = Math.min(cols, 78), margin = ' '.repeat(Math.floor((cols - width) / 2));
+  // Left-aligned like the shell and the inline screens, so moving between them never shifts the interface.
+  const width = Math.min(cols, contentWidth(view.caps.width));
   let lines: string[] | undefined;
   if (width >= 40) {
     const best = logoVariant(view.caps, width - 6);
@@ -108,5 +109,5 @@ export function renderHub(model: HubModel, view: ScreenView): string[] {
       if (candidate.length <= rows) { lines = candidate; break; }
     }
   }
-  return (lines ?? compact(model, view, width)).map(line => margin + line);
+  return lines ?? compact(model, view, width);
 }
