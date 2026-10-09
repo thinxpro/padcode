@@ -1,10 +1,11 @@
 import { glyph, type Family, type Glyphs, type Role } from './glyphs.js';
+import { paint, type Caps, type Style } from './tui/index.js';
 
-// Game-style controls screen. ASCII only: box-drawing and shape symbols are ambiguous-width and render
-// two columns wide in many CJK terminal setups, breaking the drawing.
+// Game-style controls screen. Names and actions are ASCII; the outline uses rounded box drawing with Unicode
+// and the ASCII outline otherwise (PADCODE_ASCII=1 or a non-UTF-8 locale).
 export interface MapProfile { claude: boolean; voice: boolean; family?: Family; swap?: boolean }
 type Segment = [kind: 'label' | 'art' | 'text' | 'dim', text: string];
-const styles = { label: '\x1b[1;96m', art: '\x1b[2;37m', text: '\x1b[0;37m', dim: '\x1b[2;37m' };
+const styles: Record<Segment[0], Style> = { label: { tone: 'brand', bold: true }, art: { tone: 'muted' }, text: { tone: 'text' }, dim: { tone: 'muted' } };
 const pad = (text: string, width: number) => text.length >= width ? text.slice(0, width) : text + ' '.repeat(width - text.length);
 
 function actions(profile: MapProfile) {
@@ -49,8 +50,16 @@ function place(row: Place[], glyphs: Glyphs): string {
   for (const [column, text] of row) line = pad(line, column) + names(text, glyphs);
   return line;
 }
-function frame(profile: MapProfile): string[] {
+function frame(profile: MapProfile, unicode: boolean): string[] {
   const rows = drawings[(profile.family ?? 'playstation') === 'playstation' ? 'symmetric' : 'offset'].map(row => place(row, printed(profile)));
+  // Inner boxes (touchpad, home) follow the outline's character set.
+  const boxes = (row: string) => row.replace(/\.(-+)\./g, (_, line: string) => `╭${'─'.repeat(line.length)}╮`)
+    .replace(/'(-+)'/g, (_, line: string) => `╰${'─'.repeat(line.length)}╯`).replace(/\|( +(?:TOUCHPAD|HOME) +)\|/g, '│$1│');
+  if (unicode) return [
+    `  ╭${'─'.repeat(inner)}╮`,
+    ...rows.map(row => `  │${pad(boxes(row), inner)}│`),
+    `  ╰${'─'.repeat(13)}╯  L STICK   ╰${'─'.repeat(9)}╯  R STICK   ╰${'─'.repeat(inner - 50)}╯`,
+  ];
   return [
     `   ${'_'.repeat(inner)}`,
     ...rows.map((row, index) => `  ${index === 0 ? '/' : '|'}${pad(row, inner)}${index === 0 ? '\\' : '|'}`),
@@ -111,15 +120,15 @@ function narrow(profile: MapProfile): Segment[][] {
 }
 export const mapWidth = 78, compactHeight = 8;
 // Picks the richest layout that fits: the drawing, then a two-column legend, then a single list.
-export function renderControllerMap(profile: MapProfile, width: number, color: boolean, height = Infinity): string[] {
-  const drawn = [...shoulders(profile), ...frame(profile).map(line => highlight(line, profile)), ...legend(profile, 40)];
+export function renderControllerMap(profile: MapProfile, width: number, caps: Caps, height = Infinity): string[] {
+  const drawn = [...shoulders(profile), ...frame(profile, caps.unicode).map(line => highlight(line, profile)), ...legend(profile, 40)];
   const rows = width < mapWidth ? narrow(profile) : height >= drawn.length ? drawn : [...shoulders(profile), ...legend(profile, 40)];
   return rows.map(segments => {
     let used = 0, line = '';
     for (const [kind, text] of segments) {
       const room = Math.max(0, width - used), part = text.slice(0, room);
       used += part.length;
-      line += color && part.trim() ? `${styles[kind]}${part}\x1b[0m` : part;
+      line += part.trim() ? paint(caps, part, styles[kind]) : part;
     }
     return line;
   });

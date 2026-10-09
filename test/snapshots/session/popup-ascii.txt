@@ -1,0 +1,9 @@
+PADCODE CONTROLS
+--------------------------------------------
+  1  Resume gamepad
+> 2  Pause gamepad mapping
+  3  Scroll history
+  4  Controller map
+  5  End session...
+
+X / Enter confirm   O / Esc close

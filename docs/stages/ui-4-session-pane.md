@@ -1,6 +1,6 @@
 # UI-4: Session status pane, controls popup and controller map
 
-Status: planned. This plan, its acceptance criteria and test matrix are committed before implementation.
+Status: implemented; automated acceptance passes locally; DualShock 4 session check and display review pending. This plan, its acceptance criteria and test matrix were committed before implementation.
 
 Stacked on [UI-3](ui-3-controller-lab.md) (`feature/ui-controller-lab`, PR #30) and the earlier UI stages (#25-#27); none is merged yet. This PR targets `feature/ui-controller-lab` and is retargeted as prerequisites merge.
 
@@ -39,6 +39,20 @@ Last stage of the interface overhaul. The maintainer reported UI-3 working with 
 - H2: Options opens the controls popup; D-pad moves `▶`; the controller map opens and is drawn with a closed outline; O closes.
 - Display review with `NO_COLOR=1` and `PADCODE_ASCII=1`.
 
+## Implementation notes
+
+- `src/popup-view.ts` is the pure popup renderer; `pane-menu.ts` only reads input and writes frames. `colorEnabled` in `ui.ts` had no remaining callers and was removed (its cases in `ui.test.mjs` went with it; `detectCaps` is tested in `tui.test.mjs`).
+- Popup item labels are sanitised to ASCII before the marker is added; the first draft ran the Unicode marker through `safeLabel` and printed `?`.
+- With Unicode, the map's inner boxes (touchpad, HOME) also use rounded box drawing; the legend rows are byte-identical to the ASCII map.
+- `renderControllerMap` takes capabilities instead of a colour flag; `panel-session.ts` sizes the popup with a monochrome Unicode profile, which has the same row count as before.
+- **Plan amendment (S4).** Besides the planned popup-selection token, two more `panel_pty.py` checks follow the new look, for the same reason (new visual format, not a relaxed check): the Xbox legend check now looks for the padded key caps (`MENU  MENU`, ` A  ENTER`, ` LB  TAB`), and the `menu_pick` helper parses items as `▶ 2  Label` / `  3  Label` instead of `[2] Label`. The scenarios, actions and assertions are otherwise unchanged.
+
 ## Validation record
 
-Pending.
+Plan commit: `0b4828e`. On macOS 27.0.1 arm64 with Node 24.21.0, `npm run check` passed 194 tests with zero failures or skips; `popup-view.js` and `controller-map.js` have 100% line and branch coverage, `panel.js` 100% lines. CI is disabled by the maintainer's decision, so Linux was not exercised.
+
+- S1: `test/panel.test.mjs` (12 states, five widths, one and two rows, three modes) and `test/families.test.mjs` (Xbox legend).
+- S2-S3: `test/popup-view.test.mjs` and `test/controller-map.test.mjs` (Unicode outline closes, inner boxes, unchanged legend, theme colours), with 9 snapshots in `test/snapshots/session/`.
+- S4: `panel_pty.py` (real tmux session: activation, Options menu, stick navigation, short-terminal map, Xbox names, voice, draft, insert, escape, terminate, crash, fallback) and `menu-pty.py` pass.
+
+DualShock 4 session check H1-H2 and the display review are pending.

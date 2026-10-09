@@ -303,7 +303,8 @@ def insert():
     def menu_pick(s, label):
         s.until(lambda: 'GAMEPAD ACTIVE' in s.panel(), message='controller not active before opening the menu')
         mark = len(s.output); s.press('start'); s.until(lambda: label.encode() in s.output[mark:], message=f'{label} missing from the menu')
-        items = re.findall(rb'\[(\d)\] ([^\r\n\x1b]+)', s.output[mark:])
+        # Popup items read '▶ 2  Label' (current) or '  3  Label' since UI-4.
+        items = re.findall(rb'(?:\xe2\x96\xb6| |>) (\d)  ([^\r\n\x1b]+)', s.output[mark:])
         index = next(int(n) for n, text in items if text.decode(errors='ignore').startswith(label))
         for _ in range(index - 1): s.press('dpad_down'); s.quiet(.05)
         s.press('south')
@@ -378,7 +379,7 @@ def sticks():
         # In the controls menu the left stick moves the selection and nothing reaches the Agent.
         mark = len(s.output); s.press('start'); s.until(lambda: b'PADCODE CONTROLS' in s.output[mark:])
         axis('lefty', 32767); s.quiet(.1); axis('lefty', 0); s.quiet(.2)
-        s.until(lambda: b'> [2] Pause gamepad mapping' in s.output[mark:], message='stick did not move the menu selection')
+        s.until(lambda: '▶ 2  Pause gamepad mapping'.encode() in s.output[mark:], message='stick did not move the menu selection')
         s.press('start'); s.until(lambda: 'GAMEPAD ACTIVE' in s.panel())
         assert s.received() == expected, 'menu stick input reached the Agent'
         no_popup(s); os.write(s.master, b'exit!'); finish(s, 23)
@@ -389,7 +390,8 @@ def xbox_names():
     s = Session('lines', extra={'PADCODE_FIXTURE_FAMILY': 'xbox'})
     try:
         s.ready(); s.until(lambda: 'GAMEPAD ACTIVE' in s.panel(), message='xbox session not active')
-        s.until(lambda: 'MENU MENU' in s.panel() and 'A ENTER' in s.panel() and 'LB TAB' in s.panel(), message='status pane not using Xbox names')
+        # Legend keys are padded key caps in colour since UI-4, so the pane text reads ' A  ENTER'.
+        s.until(lambda: 'MENU  MENU' in s.panel() and ' A  ENTER' in s.panel() and ' LB  TAB' in s.panel(), message='status pane not using Xbox names')
         assert 'OPTIONS' not in s.panel() and 'SQ ' not in s.panel()
         mark = len(s.output); s.press('start'); s.until(lambda: b'PADCODE CONTROLS' in s.output[mark:])
         s.until(lambda: 'A CONFIRM, B BACK' in s.panel(), message='menu status not using Xbox names')

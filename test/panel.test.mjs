@@ -7,6 +7,7 @@ import { connect } from 'node:net';
 import { once } from 'node:events';
 import { SessionServer, joinSession, LineReader, parseHello, parseToAgent, parseToPanel, parseFromAgent } from '../dist/session-ipc.js';
 import { renderPanel } from '../dist/panel.js';
+import { stripAnsi } from '../dist/tui/index.js';
 import { chooseDisplay, supportedTmux, clientEnv } from '../dist/tmux.js';
 import { tmuxConfig } from '../dist/panel-session.js';
 import { confirmAgent } from '../dist/agent-session.js';
@@ -74,25 +75,35 @@ test('C2-A1 session server rejects stale, duplicate, malformed and wrong-role pe
   } finally { await s.close(); }
 });
 
-test('C2-A2 status pane renders every state within narrow widths and without color', () => {
-  const states = ['ACTIVE / Options to pause', 'ARMING / Release buttons', 'PAUSED / Options to enable', 'HISTORY / Wheel or q returns; gamepad held',
-    'DISCONNECTED / Reconnect then Options', 'RECONNECTED / Options to enable', 'INPUT LOST / Keyboard available', 'UNAVAILABLE / Keyboard available'];
-  for (const status of states) {
+test('C2-A2 / UI-4 S1 status pane renders every state within narrow widths, with its symbol, in every mode', () => {
+  const mono = { color: 0, unicode: true, motion: false, width: 80, height: 2 }, ascii = { ...mono, unicode: false }, truecolor = { ...mono, color: 24 };
+  const states = [['ACTIVE / Options to pause', '●', '*'], ['ARMING / Release buttons', '▲', '!'], ['PAUSED / Options to enable', '▲', '!'], ['HISTORY / Wheel or q returns; gamepad held', '▲', '!'],
+    ['DISCONNECTED / Reconnect then Options', '✕', 'x'], ['RECONNECTED / Options to enable', '▲', '!'], ['INPUT LOST / Keyboard available', '✕', 'x'], ['UNAVAILABLE / Keyboard available', '✕', 'x'],
+    ['MENU / Choose', '◆', '+'], ['REC / Release to stop', '◆', '+'], ['END SESSION? / Confirm', '✕', 'x'], ['STARTING / Waiting', '○', 'o']];
+  for (const [status, symbol, asciiSymbol] of states) {
     const state = status.split(' / ')[0];
-    for (const width of [20, 32, 48, 80, 140]) {
-      const lines = renderPanel(status, width, 2, false);
-      assert.equal(lines.length, 2);
-      for (const line of lines) assert.ok(line.length <= width, `${status} at ${width}: ${line}`);
-      assert.ok(lines[0].includes(state), `${state} truncated at ${width}`);
-      if (width >= 48) assert.ok(lines[0].startsWith('PADCODE // GAMEPAD'));
+    for (const c of [mono, ascii, truecolor]) for (const width of [20, 32, 48, 80, 140]) for (const rows of [1, 2]) {
+      const lines = renderPanel(status, { ...c, width }, rows);
+      assert.equal(lines.length, rows);
+      for (const line of lines) assert.ok(stripAnsi(line).length <= width, `${status} at ${width}: ${line}`);
+      const first = stripAnsi(lines[0]);
+      assert.ok(first.includes(`GAMEPAD ${state}`) || (width < 32 && first.includes('GAMEPAD')), `${state} at ${width}: ${first}`);
+      assert.ok(first.includes(c.unicode ? symbol : asciiSymbol), `${state} symbol`);
+      if (width >= 48) { assert.ok(first.startsWith('PADCODE '), first); assert.ok(first.endsWith('CTRL+] END'), first); }
+      if (!c.color) assert.ok(!lines.join('').includes('\x1b'));
+      if (c === ascii) assert.ok(/^[\x20-\x7e]*$/.test(lines.join('')));
     }
-    const colored = renderPanel(status, 80, 2, true);
-    assert.ok(colored[0].includes('\x1b['));
-    assert.equal(colored.join('').replace(/\x1b\[[0-9;]*m/g, ''), renderPanel(status, 80, 2, false).join(''));
+    // GAMEPAD <STATE> is one span in colour, so pane captures and searches still match it.
+    assert.ok(renderPanel(status, { ...truecolor, width: 80 }, 2)[0].includes(`GAMEPAD ${state}`));
+    assert.equal(stripAnsi(renderPanel(status, { ...truecolor, width: 80 }, 2)[0]), renderPanel(status, { ...mono, width: 80 }, 2)[0]);
   }
-  assert.equal(renderPanel('ACTIVE / Options to pause', 80, 1, false).length, 1);
-  assert.match(renderPanel('ACTIVE / x', 200, 2, false)[1], /D-PAD ARROWS {2}X ENTER {2}O ESC {2}L1 TAB {2}R1 SHIFT\+TAB {2}OPTIONS MENU {2}STICKS CURSOR {2}SQ BKSP {2}WHEEL HISTORY/);
-  assert.ok(!renderPanel('ACTIVE / \x1b]0;evil\x07', 80, 2, false).join('').includes('\x1b'));
+  // CTRL+] END outlasts the detail.
+  assert.match(renderPanel('ACTIVE / Options to pause', { ...mono, width: 40 }, 1)[0], /GAMEPAD ACTIVE +CTRL\+\] END$/);
+  assert.match(renderPanel('ACTIVE / Options to pause', { ...mono, width: 80 }, 1)[0], /OPTIONS TO PAUSE │ CTRL\+\] END$/);
+  assert.match(renderPanel('ACTIVE / x', { ...ascii, width: 200 }, 2)[1], /\[D-PAD\] ARROWS {2}\[X\] ENTER {2}\[O\] ESC {2}\[L1\] TAB {2}\[R1\] SHIFT\+TAB {2}\[OPTIONS\] MENU {2}\[STICKS\] CURSOR {2}\[SQ\] BKSP {2}\[WHEEL\] HISTORY/);
+  assert.match(renderPanel('ACTIVE / x', { ...truecolor, width: 200 }, 2)[1], /\x1b\[1;7;38;2;128;134;150m X \x1b\[0m/);
+  assert.match(renderPanel('ACTIVE / x', { ...mono, width: 80 }, 2, 'VOICE / Draft inserted')[1], /^▲ VOICE \| DRAFT INSERTED$/);
+  assert.ok(!renderPanel('ACTIVE / \x1b]0;evil\x07', { ...mono, width: 80 }, 2).join('').includes('\x1b'));
 });
 
 test('C2-A3 display selection falls back with recovery text and never installs tmux', async () => {

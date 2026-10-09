@@ -1,0 +1,9 @@
+\e[1;38;2;0;215;255mPADCODE CONTROLS\e[0m
+\e[38;2;128;134;150m────────────────────────────────────────────\e[0m
+\e[38;2;220;224;232m  1  Resume gamepad\e[0m
+\e[1;38;2;255;95;215m▶ 2  Pause gamepad mapping\e[0m
+\e[38;2;220;224;232m  3  Scroll history\e[0m
+\e[38;2;220;224;232m  4  Controller map\e[0m
+\e[38;2;220;224;232m  5  End session...\e[0m
+
+\e[38;2;128;134;150mX / Enter confirm   O / Esc close\e[0m

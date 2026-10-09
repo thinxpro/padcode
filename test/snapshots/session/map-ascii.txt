@@ -1,0 +1,19 @@
+CONTROLLER MAP / XBOX WIRELESS CONTROLLER
+ [LT] Voice off (Hub > Voice settings)   [RT] New line (no send)
+ [LB] Tab                                [RB] Shift+Tab (mode)
+   _________________________________________________________
+  /   ( LS )         VIEW            MENU           (Y)     \
+  |                      .--------.             (X)     (B) |
+  |      _               |  HOME  |                 (A)     |
+  |    _| |_             '--------'    ( RS )               |
+  |   |_ + _|  D-PAD                                        |
+  |     |_|                                                 |
+  \_____________/  L STICK   \_________/  R STICK   \_______/
+ D-PAD   Arrows: menus, choices         (A)     Enter / send
+ L STICK Cursor by char / line, hold    (B)     Esc / back
+ LS      Delete forward                 (X)     Backspace, hold
+ R STICK Word <->, line start ^ end v   (Y)     Delete word, hold
+ RS      Undo                           MENU    Padcode menu
+ LT      Voice off (Hub > Voice settingsCTRL+]  Ends the session (keyboard)
+
+B / Esc back
