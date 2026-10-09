@@ -4,6 +4,7 @@
 #import <CoreAudio/CoreAudio.h>
 #import <Speech/Speech.h>
 #import "permission.h"
+#import "recording.h"
 #include <fcntl.h>
 #include <math.h>
 #include <signal.h>
@@ -278,51 +279,70 @@ static int record(NSArray<NSString *> *args) {
         AVAudioEngine *engine = [AVAudioEngine new];
         recorder.engine = engine;
         AVAudioInputNode *node = engine.inputNode;
-        if (AudioUnitSetProperty(node.audioUnit, kAudioOutputUnitProperty_CurrentDevice, kAudioUnitScope_Global, 0, &device, sizeof(device)) != noErr) {
-            unlink(path.fileSystemRepresentation); close(fd); return failure(@"no-device", @"Cannot open the selected microphone.");
-        }
-        AVAudioFormat *source = [node inputFormatForBus:0];
         AVAudioFormat *target = [[AVAudioFormat alloc] initWithCommonFormat:AVAudioPCMFormatInt16 sampleRate:kRate channels:1 interleaved:YES];
-        AVAudioConverter *converter = source.sampleRate > 0 && source.channelCount > 0 ? [[AVAudioConverter alloc] initFromFormat:source toFormat:target] : nil;
-        if (!converter) { unlink(path.fileSystemRepresentation); close(fd); return failure(@"no-device", @"The selected microphone reports no usable input format."); }
-        AVAudioNodeTapBlock tap = ^(AVAudioPCMBuffer *buffer, AVAudioTime *when) {
-            (void)when;
-            AVAudioFrameCount capacity = (AVAudioFrameCount)ceil(buffer.frameLength * kRate / source.sampleRate) + 64;
-            AVAudioPCMBuffer *converted = [[AVAudioPCMBuffer alloc] initWithPCMFormat:target frameCapacity:capacity];
-            __block BOOL supplied = NO; NSError *error = nil;
-            [converter convertToBuffer:converted error:&error withInputFromBlock:^AVAudioBuffer *(AVAudioPacketCount count, AVAudioConverterInputStatus *status) {
-                (void)count;
-                if (supplied) { *status = AVAudioConverterInputStatus_NoDataNow; return nil; }
-                supplied = YES; *status = AVAudioConverterInputStatus_HaveData; return buffer;
-            }];
-            if (error || !converted.frameLength) return;
-            NSData *copy = [NSData dataWithBytes:converted.int16ChannelData[0] length:converted.frameLength * 2];
-            dispatch_async(recorder.queue, ^{ [recorder append:copy.bytes count:copy.length / 2]; });
-        };
-        BOOL tapped = YES;
+        // Builds the whole input chain for the device's current format; runs again after a configuration change.
+        NSString *(^attach)(void) = ^NSString *(void) {
+            AudioDeviceID selected = device;
+            if (AudioUnitSetProperty(node.audioUnit, kAudioOutputUnitProperty_CurrentDevice, kAudioUnitScope_Global, 0, &selected, sizeof(selected)) != noErr) return @"Cannot open the selected microphone.";
+            AVAudioFormat *source = [node inputFormatForBus:0];
+            AVAudioConverter *converter = source.sampleRate > 0 && source.channelCount > 0 ? [[AVAudioConverter alloc] initFromFormat:source toFormat:target] : nil;
+            if (!converter) return @"The selected microphone reports no usable input format.";
+            AVAudioNodeTapBlock tap = ^(AVAudioPCMBuffer *buffer, AVAudioTime *when) {
+                (void)when;
+                AVAudioFrameCount capacity = (AVAudioFrameCount)ceil(buffer.frameLength * kRate / source.sampleRate) + 64;
+                AVAudioPCMBuffer *converted = [[AVAudioPCMBuffer alloc] initWithPCMFormat:target frameCapacity:capacity];
+                __block BOOL supplied = NO; NSError *error = nil;
+                [converter convertToBuffer:converted error:&error withInputFromBlock:^AVAudioBuffer *(AVAudioPacketCount count, AVAudioConverterInputStatus *status) {
+                    (void)count;
+                    if (supplied) { *status = AVAudioConverterInputStatus_NoDataNow; return nil; }
+                    supplied = YES; *status = AVAudioConverterInputStatus_HaveData; return buffer;
+                }];
+                if (error || !converted.frameLength) return;
+                NSData *copy = [NSData dataWithBytes:converted.int16ChannelData[0] length:converted.frameLength * 2];
+                dispatch_async(recorder.queue, ^{ [recorder append:copy.bytes count:copy.length / 2]; });
+            };
+            BOOL tapped = YES;
 #if defined(__MAC_27_0) && __MAC_OS_X_VERSION_MAX_ALLOWED >= __MAC_27_0
-        if (@available(macOS 27.0, *)) tapped = [node installTapOnBus:0 bufferSize:1024 format:source error:nil block:tap];
-        else
+            if (@available(macOS 27.0, *)) tapped = [node installTapOnBus:0 bufferSize:1024 format:source error:nil block:tap];
+            else
 #endif
-        {
+            {
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
-            [node installTapOnBus:0 bufferSize:1024 format:source block:tap];
+                [node installTapOnBus:0 bufferSize:1024 format:source block:tap];
 #pragma clang diagnostic pop
-        }
-        if (!tapped) { unlink(path.fileSystemRepresentation); close(fd); return failure(@"io", @"Cannot attach to the microphone input."); }
+            }
+            if (!tapped) return @"Cannot attach to the microphone input.";
+            NSError *error = nil;
+            [engine prepare];
+            return [engine startAndReturnError:&error] ? nil : @"Cannot start microphone capture.";
+        };
+        NSString *problem = attach();
+        if (problem) { unlink(path.fileSystemRepresentation); close(fd); return failure([problem hasPrefix:@"Cannot start"] || [problem hasPrefix:@"Cannot attach"] ? @"io" : @"no-device", problem); }
         AudioObjectPropertyAddress alive = {kAudioDevicePropertyDeviceIsAlive, kAudioObjectPropertyScopeGlobal, kAudioObjectPropertyElementMain};
         AudioObjectAddPropertyListenerBlock(device, &alive, recorder.queue, ^(UInt32 count, const AudioObjectPropertyAddress *addresses) {
             (void)count; (void)addresses;
             UInt32 value = 1, size = sizeof(value);
             if (AudioObjectGetPropertyData(device, &alive, 0, NULL, &size, &value) != noErr || !value) [recorder fail:@"device-lost" message:@"The microphone was disconnected."];
         });
+        // Starting capture often changes the device format (a Bluetooth headset switching to its call profile,
+        // or the first capture after a privacy grant). Before audio is live, rebuild the chain instead of failing.
+        __block int restarts = 0;
         [[NSNotificationCenter defaultCenter] addObserverForName:AVAudioEngineConfigurationChangeNotification object:engine queue:nil usingBlock:^(NSNotification *note) {
-            (void)note; dispatch_async(recorder.queue, ^{ [recorder fail:@"device-lost" message:@"The microphone configuration changed during recording."]; });
+            (void)note;
+            dispatch_async(recorder.queue, ^{
+                if (recorder.finished) return;
+                if (padcodeConfigChangeAction(recorder.live, restarts) == PadcodeConfigFail) {
+                    [recorder fail:@"device-lost" message:@"The microphone configuration changed during recording."];
+                    return;
+                }
+                ++restarts;
+                [engine stop];
+                [node removeTapOnBus:0];
+                NSString *again = attach();
+                if (again) [recorder fail:@"device-lost" message:again];
+            });
         }];
-        NSError *error = nil;
-        [engine prepare];
-        if (![engine startAndReturnError:&error]) { unlink(path.fileSystemRepresentation); close(fd); return failure(@"io", @"Cannot start microphone capture."); }
         event(@"started", @{@"name": chosen[@"name"]});
     }
     dispatch_resume(meter);
