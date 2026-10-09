@@ -1,6 +1,6 @@
 # UI-2: Setup wizard and inline prompts
 
-Status: implemented; automated acceptance passes locally, manual display review pending. This plan, its acceptance criteria and test matrix were committed before implementation.
+Status: implemented; automated acceptance passes locally; maintainer accepted the display. This plan, its acceptance criteria and test matrix were committed before implementation.
 
 Stacked on [UI-1](ui-1-welcome-hub.md) (`feature/welcome-hub`, PR #26), which is stacked on UI-0 (PR #25); neither is merged yet. This PR targets `feature/welcome-hub` and is retargeted after its prerequisites merge.
 
@@ -63,4 +63,6 @@ Plan commit: `38c32f7`. On macOS 27.0.1 arm64 with Node 24.21.0, `npm run check`
 - C4: `test/onboarding.test.mjs` checks progress `[n, 5]` without voice support and `[n, 6]` with it, matching each mission number.
 - C5: onboarding, Hub navigation, Hub agent, agent session (including `agent_pty.py`), voice, draft and panel suites pass; `TERM=dumb` still produces no escape bytes.
 
-Manual display review is pending.
+### Maintainer review
+
+On 2026-10-08 the maintainer ran setup with this styling (first from the `ui` worktree, then from a local test build) and reported "界面没问题" (the interface is fine). No terminal-by-terminal or `NO_COLOR` / `PADCODE_ASCII` results were given.
