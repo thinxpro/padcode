@@ -4,6 +4,7 @@ import { configPath, discoverAgents, loadConfig, resolveExecutable, saveConfig, 
 import { NativeBluetooth, type BluetoothPort } from './bluetooth.js';
 import { identityMatch, type ProbePort } from './probe.js';
 import { TerminalPrompt, type PromptPort } from './prompt.js';
+import type { Progress } from './prompt-view.js';
 import { session } from './session.js';
 import { GamepadMenus, type MenuFeed } from './menu-controller.js';
 import { mergeDeviceChoices, scanDeviceChoices } from './bluetooth-picker.js';
@@ -31,8 +32,8 @@ const systemWhisper: WhisperTools = { findWhisper: () => findWhisper(), findMode
 let introPlayed = false;
 const cleanName = (text: string) => text.replace(/[\x00-\x1f\x7f]/g, '').slice(0, 512);
 
-async function linkController(io: PromptPort, services: SetupServices, signal: AbortSignal, initial?: Config): Promise<Config['controller']> {
-  io.banner('MISSION 01 / LINK CONTROLLER');
+async function linkController(io: PromptPort, services: SetupServices, signal: AbortSignal, initial: Config | undefined, total: number): Promise<Config['controller']> {
+  io.banner('MISSION 01 / LINK CONTROLLER', [1, total]);
   let mode = await io.choose('Connection route', [
     { label: 'Bluetooth / recommended', value: 'bluetooth' },
     { label: 'USB cable', value: 'usb' },
@@ -91,8 +92,8 @@ async function linkController(io: PromptPort, services: SetupServices, signal: A
   }
 }
 
-async function verifyInput(io: PromptPort, services: SetupServices, controller: Config['controller'], signal: AbortSignal): Promise<Config['controller']> {
-  io.banner('MISSION 02 / INPUT CHECK');
+async function verifyInput(io: PromptPort, services: SetupServices, controller: Config['controller'], signal: AbortSignal, total: number): Promise<Config['controller']> {
+  io.banner('MISSION 02 / INPUT CHECK', [2, total]);
   for (;;) {
     const action = await io.choose('Pairing and input readiness are checked separately', [
       { label: 'Test a controller button now', value: 'test' }, { label: 'Skip for now / mark input unverified', value: 'skip' },
@@ -122,8 +123,8 @@ async function verifyInput(io: PromptPort, services: SetupServices, controller: 
   }
 }
 
-async function chooseAgent(io: PromptPort, services: SetupServices, initial?: Config): Promise<Config['agent']> {
-  io.banner('MISSION 03 / CHOOSE YOUR AGENT');
+async function chooseAgent(io: PromptPort, services: SetupServices, initial: Config | undefined, total: number): Promise<Config['agent']> {
+  io.banner('MISSION 03 / CHOOSE YOUR AGENT', [3, total]);
   io.say('Use your own installed Agent and account. Discovery does not launch any program.');
   const found = await services.agents();
   for (;;) {
@@ -162,9 +163,9 @@ async function microphoneReady(io: PromptPort, audio: AudioPort): Promise<boolea
   return false;
 }
 // Voice stays off unless the user picks a microphone after reading what capture does.
-async function chooseVoice(io: PromptPort, audio: AudioPort | undefined, signal: AbortSignal, initial?: Config, title = 'MISSION 05 / VOICE (optional)', whisper = systemWhisper): Promise<Config['voice']> {
+async function chooseVoice(io: PromptPort, audio: AudioPort | undefined, signal: AbortSignal, initial?: Config, title = 'MISSION 05 / VOICE (optional)', whisper = systemWhisper, progress?: Progress): Promise<Config['voice']> {
   if (!audio) return initial?.voice ?? null;
-  io.banner(title);
+  io.banner(title, progress);
   if (!audio.supported) { io.say('Voice capture currently requires macOS. Voice stays off.'); return null; }
   const current = initial?.voice;
   const first = await io.choose('Voice input (hold {l2} to record in an Agent session)', [
@@ -335,16 +336,18 @@ async function chooseConfirm(io: PromptPort, controller: Config['controller'], i
 }
 
 export async function setup(io: PromptPort, services: SetupServices, signal: AbortSignal, initial?: Config): Promise<Config | null> {
-  const linked = await linkController(io, services, signal, initial);
+  // Voice is a mission only where capture is supported (macOS), so the total is 6 or 5.
+  const total = services.audio ? 6 : 5;
+  const linked = await linkController(io, services, signal, initial, total);
   if (linked.address || linked.transport === 'usb') await services.activateMenus?.(linked);
-  const verified = await verifyInput(io, services, linked, signal);
+  const verified = await verifyInput(io, services, linked, signal, total);
   const controller = await chooseConfirm(io, { ...verified, ...(initial?.controller.family && !verified.family ? { family: initial.controller.family } : {}) }, initial);
-  const agent = await chooseAgent(io, services, initial);
-  io.banner('MISSION 04 / LOADOUT');
+  const agent = await chooseAgent(io, services, initial, total);
+  io.banner('MISSION 04 / LOADOUT', [4, total]);
   await io.choose('Key profile', [{ label: 'Terminal basic / D-pad arrows, {confirm} Enter, {back} Escape, {l1} Tab / {r1} Shift+Tab', value: 'terminal-basic' }]);
-  const voice = await chooseVoice(io, services.audio, signal, initial, undefined, services.whisper);
+  const voice = await chooseVoice(io, services.audio, signal, initial, undefined, services.whisper, [5, total]);
   const config: Config = { version: 2, controller, agent, profile: 'terminal-basic', voice };
-  io.banner(services.audio ? 'MISSION 06 / SAVE POINT' : 'MISSION 05 / SAVE POINT');
+  io.banner(services.audio ? 'MISSION 06 / SAVE POINT' : 'MISSION 05 / SAVE POINT', [total, total]);
   io.say(`LINK    ${controller.transport.toUpperCase()} / ${controller.name ?? 'not selected'}`);
   io.say(`INPUT   ${controller.inputVerified ? 'verified during this setup' : 'UNVERIFIED'}`);
   io.say(`AGENT   ${agent?.command ?? 'not selected'}`);

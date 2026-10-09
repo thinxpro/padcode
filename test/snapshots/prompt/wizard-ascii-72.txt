@@ -1,0 +1,29 @@
+
++- PADCODE ------------------------------------------------------------+
+|  MISSION 01 / LINK CONTROLLER                            #----- 1/6  |
++----------------------------------------------------------------------+
+  Checking Bluetooth. macOS may ask for Bluetooth permission for
+  padcode-bluetooth.
+  PAIRING  PS4: hold SHARE + PS. PS5: hold CREATE + PS. Wait for the
+           light to flash quickly.
+  + SCANNING... keep pairing mode active (20-second scan).
+  * Select a device, or discover a new controller
+    1  Scan nearby / put the controller in pairing mode first
+  > 2  Wireless Controller / aa:bb:cc:dd:ee:ff / connected
+    3  Use USB instead
+  * GAMEPAD READY / D-pad up/down, X confirm, O back/cancel.
+  > Select [2] (q to cancel):
+  * INPUT CHECK PASSED / south
+  x INPUT NOT VERIFIED: No input device matches the selected
+    transport/device.
+  ! Input remains UNVERIFIED.
+  + DOWNLOAD 40%  (Ctrl+C cancels)  ########............
+  [KEYBOARD] Type text here; gamepad buttons do not enter text.
+  > Executable path or command (no arguments): 
+
++- PADCODE ------------------------------------------------------------+
+|  MISSION 06 / SAVE POINT                                 ###### 6/6  |
++----------------------------------------------------------------------+
+  LINK    BLUETOOTH / Wireless Controller
+  VOICE   off
+  * SAVE COMPLETE

@@ -1,7 +1,7 @@
 import { createInterface } from 'node:readline/promises';
 import { emitKeypressEvents, type Key } from 'node:readline';
-import { colorEnabled, safeText } from './ui.js';
-import { wrapText } from './text-width.js';
+import { safeText } from './ui.js';
+import { askHint, askPrompt, renderBanner, renderMenu, renderMessage, selectLine, type Progress } from './prompt-view.js';
 import { formatGlyphs } from './glyphs.js';
 import type { MenuInput, MenuAction } from './menu-controller.js';
 import type { Glyphs } from './glyphs.js';
@@ -21,38 +21,33 @@ interface SelectView {
   jump?: boolean;
 }
 export interface PromptPort {
-  banner(title: string): void;
+  banner(title: string, progress?: Progress): void;
   say(text: string): void;
   ask(message: string): Promise<string>;
   choose(message: string, choices: Choice[], selected?: number): Promise<string>;
 }
 export class TerminalPrompt implements PromptPort {
-  private color = colorEnabled(process.env, Boolean(process.stdout.isTTY));
   constructor(private signal: AbortSignal, private cancel: () => void, private gamepad?: MenuInput) {}
+  private caps(): Caps { return detectCaps(process.env, process.stdout); }
   // Button names follow the connected controller ({confirm}, {back}, {menu}...).
   private names(text: string): string { return formatGlyphs(text, this.gamepad?.glyphs?.() ?? { family: 'standard' }); }
   private width(): number { return Math.max(12, Math.min(72, (process.stdout.columns || 80) - 1)); }
-  private wrap(text: string): string[] {
-    // Wrap by terminal columns so Chinese and emoji keep their characters and line up.
-    const lines = wrapText(safeText(this.names(text)), this.width());
-    return lines.length ? lines : [''];
+  private clean(text: string): string { return safeText(this.names(text)); }
+  banner(title: string, progress?: Progress): void {
+    process.stdout.write(renderBanner(this.clean(title), this.caps(), this.width(), progress).join('\n') + '\n');
   }
-  banner(title: string): void {
-    this.say('');
-    process.stdout.write(this.color ? '\x1b[1;96m' : '');
-    this.say('='.repeat(this.width())); this.say(`P A D C O D E  //  ${title}`); this.say('='.repeat(this.width()));
-    process.stdout.write(this.color ? '\x1b[0m' : '');
-  }
-  say(text: string): void { process.stdout.write(this.wrap(text).join('\n') + '\n'); }
+  // Wraps by terminal columns so Korean, kana and emoji keep their characters and line up.
+  say(text: string): void { process.stdout.write(renderMessage(this.clean(text), this.caps(), this.width()).join('\n') + '\n'); }
   async ask(message: string): Promise<string> {
     this.signal.throwIfAborted();
-    this.say('KEYBOARD INPUT / Type text here; gamepad buttons do not enter text.');
+    const caps = this.caps();
+    process.stdout.write(askHint(caps, this.width()).join('\n') + '\n');
     const lines = createInterface({ input: process.stdin, output: process.stdout, terminal: process.env.TERM !== 'dumb' });
     let answered = false;
     lines.on('SIGINT', this.cancel);
     lines.on('close', () => { if (!answered) this.cancel(); });
     try {
-      const answer = await lines.question(`${this.color ? '\x1b[95m' : ''}> ${safeText(this.names(message))}${this.color ? '\x1b[0m' : ''} `, { signal: this.signal });
+      const answer = await lines.question(askPrompt(this.clean(message), caps), { signal: this.signal });
       answered = true; return answer;
     } finally { answered = true; lines.close(); process.stdin.pause(); }
   }
@@ -61,9 +56,10 @@ export class TerminalPrompt implements PromptPort {
     let rows = 0;
     const render = (index: number, status: string) => {
       if (ansi && rows) process.stdout.write(`\r\x1b[${rows}A\x1b[0J`);
-      const lines = [message, ...choices.map((choice, i) => `  ${i === index ? '>' : ' '} [${i + 1}] ${choice.label}`), status, `> Select [${index + 1}] (q to cancel):`].flatMap(text => this.wrap(text));
+      const caps = this.caps();
+      const lines = [...renderMenu(this.clean(message), choices.map(choice => this.clean(choice.label)), index, safeText(status), caps, this.width()), selectLine(index, caps)];
       rows = lines.length;
-      process.stdout.write(lines.map(line => this.color && line.startsWith('  >') ? `\x1b[1;96m${line}\x1b[0m` : line).join('\n') + '\n');
+      process.stdout.write(lines.join('\n') + '\n');
     };
     return this.select(choices, selected, {
       draw: render,
