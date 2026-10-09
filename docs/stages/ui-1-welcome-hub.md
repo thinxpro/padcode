@@ -73,3 +73,7 @@ Plan commit: `623e583`. On macOS 27.0.1 arm64 with Node 24.21.0, `npm run check`
 ### Maintainer review
 
 On 2026-10-08 the maintainer reviewed UI-1 and reported "UI-1 可以" (UI-1 is acceptable). No terminal-by-terminal results were given, and the report did not mention the DualShock 4, so the DualShock 4 Hub navigation check (D-pad, X, O) remains pending.
+
+### Merge decision
+
+On 2026-10-09 the maintainer authorized merging the PRs that are reasonably ready. UI-1 was merged on that basis without a separate DualShock 4 Hub navigation report. Supporting evidence: during UI-3 acceptance the maintainer entered Controller Lab from the Hub and returned to it by holding O with the DualShock 4, and the Hub's menu input is the shared loop covered by the Hub PTY suites. An explicit D-pad/X/O walk through the Hub menu is still not recorded as passed.
