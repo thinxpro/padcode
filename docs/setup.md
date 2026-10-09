@@ -156,7 +156,7 @@ In the menu, D-pad moves, X confirms, O or Options closes. The keyboard works to
 
 ## Voice capture (dev.14, macOS)
 
-Voice is off until you turn it on: in Player Hub choose **Voice / microphone settings** (dev.15), or use step **VOICE (optional)** of `padcode config`. Choosing a microphone shows what capture does, asks macOS for microphone access for **Padcode Audio**, lists your input devices and offers a 3-second check that plays back with `afplay`. If access is denied, allow Padcode Audio in System Settings > Privacy & Security > Microphone and choose Retry.
+Voice is off until you turn it on: in Player Hub choose **Voice + microphone** (dev.15), or use step **VOICE (optional)** of `padcode config`. Choosing a microphone shows what capture does, asks macOS for microphone access for **Padcode Audio**, lists your input devices and offers a 3-second check that plays back with `afplay`. If access is denied, allow Padcode Audio in System Settings > Privacy & Security > Microphone and choose Retry.
 
 In an Agent session (controls pane mode), hold **L2** to record and release to stop; recordings stop at 60 seconds. The status pane first shows `MIC STARTING`; start speaking when it changes to `REC`. Bluetooth headset microphones take about a second to start and switch the headset to call quality, so a wired, USB or built-in microphone works best. Releasing L2 before `REC` (or after less than 0.3 s) discards the clip. While recording, the status pane shows `REC` with a level meter, controller buttons do nothing except **O**, which cancels. Afterwards, Options > **Play last recording** plays it back. Transcription is not available yet, so nothing is typed into the Agent.
 
@@ -164,7 +164,7 @@ Development builds are not signed with a Developer ID, so macOS treats every Pad
 
 ## Voice drafts (dev.18)
 
-In Player Hub > **Voice / microphone settings**, after the microphone, choose how clips become text:
+In Player Hub > **Voice + microphone**, after the microphone, choose how clips become text:
 
 | Option | Install | Notes |
 | --- | --- | --- |
@@ -186,7 +186,9 @@ After transcription the text is typed into the Agent's input box and **never sen
 
 ## Player Hub order
 
-Player Hub lists **Start agent session** first and selects it when the Hub opens, followed by Voice / microphone settings, Controller lab, Edit configuration, Preview arcade dashboard and Exit. The launch confirmation still defaults to Cancel, so one X never launches an Agent; O on the Hub still exits.
+Player Hub lists **Start agent session** first and selects it when the Hub opens, followed by Voice + microphone, Controller lab, Edit configuration, Arcade demo and Exit. The launch confirmation still defaults to Cancel, so one X never launches an Agent; O on the Hub still exits.
+
+Since [UI-1](stages/ui-1-welcome-hub.md) the Hub is a full-screen welcome screen: logo, controller/Agent/voice status, the menu and a controller footer. Arrow keys or the D-pad move, a digit jumps to that item, Enter or X confirms, Esc or O selects Exit, `q` cancels. The logo sweep plays once per run and stops on any input; it is off with `NO_COLOR`, `CI` or `PADCODE_NO_ANIM=1`.
 
 ## Editing with sticks and face buttons
 

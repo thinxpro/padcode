@@ -1,0 +1,39 @@
+  ██████╗  █████╗ ██████╗  ██████╗ ██████╗ ██████╗ ███████╗
+  ██╔══██╗██╔══██╗██╔══██╗██╔════╝██╔═══██╗██╔══██╗██╔════╝
+  ██████╔╝███████║██║  ██║██║     ██║   ██║██║  ██║█████╗  
+  ██╔═══╝ ██╔══██║██║  ██║██║     ██║   ██║██║  ██║██╔══╝  
+  ██║     ██║  ██║██████╔╝╚██████╗╚██████╔╝██████╔╝███████╗
+  ╚═╝     ╚═╝  ╚═╝╚═════╝  ╚═════╝ ╚═════╝ ╚═════╝ ╚══════╝
+  YOUR CONTROLLER. YOUR AGENT.  v0.1.0-rc.9
+
+── COMMANDS ───────────────────────────────────────────────────────────────────
+  padcode                     Player Hub (first run: setup)
+  padcode config              Edit Bluetooth + Agent loadout
+  padcode run                 Start your configured Agent in a PTY
+  padcode controllers         Open the live controller lab
+  padcode controllers --json  Stream raw controller events
+  padcode demo                Preview the arcade dashboard
+
+── IN A SESSION  (PlayStation / Xbox names) ───────────────────────────────────
+  OPTIONS / MENU    Controls menu: pause, history, interrupt, clear, map, end
+  Hold L2 / LT      Dictate (macOS, after Voice settings); typed, never sent
+  L stick           Cursor (hold to repeat)
+  R stick           Word / line start-end
+  SQ / X            Backspace
+  TRI / Y           Delete word
+  L3 / LS           Delete
+  R2 / RT, R3 / RS  Newline / undo (Claude Code)
+  Ctrl+]            End the session
+
+── FLAGS ──────────────────────────────────────────────────────────────────────
+  --help, -h  This command hub
+  --version   Build version
+
+── ENVIRONMENT ────────────────────────────────────────────────────────────────
+  NO_COLOR           Monochrome output
+  PADCODE_ASCII=1    ASCII frames and logo (for terminals that draw symbols
+                     double wide)
+  PADCODE_NO_ANIM=1  Skip the welcome sweep
+
+  Release candidate / private build.
+

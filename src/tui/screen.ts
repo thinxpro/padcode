@@ -5,8 +5,9 @@ export interface ExitHooks { once(event: 'exit', listener: () => void): unknown;
 export class Screen {
   private active = false;
   private readonly restore = () => this.leave();
-  constructor(private readonly out: ScreenStream, private readonly hooks: ExitHooks = process) {}
-  get tty(): boolean { return Boolean(this.out.isTTY); }
+  // `fullscreen` defaults to the stream being a TTY; pass false for TERM=dumb so no control sequences are sent.
+  constructor(private readonly out: ScreenStream, private readonly hooks: ExitHooks = process, private readonly fullscreen = Boolean(out.isTTY)) {}
+  get tty(): boolean { return this.fullscreen; }
   enter(): void {
     if (this.active || !this.tty) return;
     this.active = true;

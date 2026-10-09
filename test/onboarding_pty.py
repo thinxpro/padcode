@@ -42,6 +42,10 @@ class Terminal:
     def answer(self, text, default=1):
         self.expect(f'Select [{default}]')
         os.write(self.master, (text + '\n').encode())
+    def hub(self, text):
+        # The Player Hub is a full-screen menu: a digit moves the cursor, Enter confirms.
+        self.expect('MENU 1/')
+        os.write(self.master, (text + '\n').encode())
     def text(self, prompt, text):
         self.expect(prompt)
         os.write(self.master, (text + '\n').encode())
@@ -92,7 +96,7 @@ with tempfile.TemporaryDirectory(prefix='padcode-onboarding-') as directory:
         terminal.expect('VOICE   off')
         terminal.answer('1')  # Save.
         terminal.expect('SAVE COMPLETE')
-        terminal.answer('6')  # Hub exit.
+        terminal.hub('6')  # Hub exit.
         terminal.finish()
     finally: terminal.close()
     data = json.loads(config.read_text())
@@ -104,7 +108,7 @@ with tempfile.TemporaryDirectory(prefix='padcode-onboarding-') as directory:
     try:
         terminal.expect('PLAYER HUB')
         assert b'MISSION 01' not in terminal.output
-        terminal.answer('6'); terminal.finish()
+        terminal.hub('6'); terminal.finish()
     finally: terminal.close()
     terminal = Terminal(root, ['config'])
     try:
@@ -112,7 +116,7 @@ with tempfile.TemporaryDirectory(prefix='padcode-onboarding-') as directory:
         terminal.answer('1')  # Keep the saved command and args.
         terminal.answer('1'); terminal.voice(); terminal.answer('2')  # Cancel save.
         terminal.expect('No configuration changes saved.'); terminal.expect('PLAYER HUB')
-        terminal.answer('6'); terminal.finish()
+        terminal.hub('6'); terminal.finish()
     finally: terminal.close()
     assert config.read_bytes() == original, 'cancel modified existing configuration'
     terminal = Terminal(root, ['config'])
@@ -132,15 +136,15 @@ with tempfile.TemporaryDirectory(prefix='padcode-onboarding-') as directory:
     terminal = Terminal(root)
     try:
         terminal.expect('PLAYER HUB')
-        terminal.answer('5')
+        terminal.hub('5')
         terminal.expect('DEMO / SYNTHETIC')
         os.write(terminal.master, b'q'); terminal.expect('PLAYER HUB')  # The demo returns to the Hub.
-        terminal.answer('6'); terminal.finish()
+        terminal.hub('6'); terminal.finish()
     finally: terminal.close()
     terminal = Terminal(root, ['config'])
     try:
         terminal.answer('q'); terminal.expect('PLAYER HUB')  # Cancelling an edit keeps the saved file.
-        terminal.answer('6'); terminal.finish()
+        terminal.hub('6'); terminal.finish()
     finally: terminal.close()
     assert config.read_bytes() == original
     config.write_text('{broken')

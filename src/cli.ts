@@ -1,21 +1,23 @@
 #!/usr/bin/env node
-import { readFileSync } from 'node:fs';
 import { session } from './session.js';
-import { colorEnabled, help, safeLabel } from './ui.js';
+import { help, safeLabel } from './ui.js';
+import { detectCaps } from './tui/index.js';
+import { version } from './version.js';
 import { runConfiguredAgent } from './agent-session.js';
 import { onboarding } from './onboarding.js';
 
 async function main(): Promise<number> {
   const args = process.argv.slice(2);
   if ((!args.length && (!process.stdin.isTTY || !process.stdout.isTTY)) || (args.length === 1 && ['--help', '-h'].includes(args[0]!))) {
-    process.stdout.write(help(colorEnabled(process.env, Boolean(process.stdout.isTTY))));
+    const caps = detectCaps(process.env, process.stdout);
+    // Piped help stays plain ASCII for scripts.
+    process.stdout.write(help(process.stdout.isTTY ? caps : { ...caps, unicode: false }));
     return 0;
   }
   if (!args.length || (args.length === 1 && args[0] === 'config')) return onboarding(args[0] === 'config');
   if (args.length === 1 && args[0] === 'run') return runConfiguredAgent();
   if (args.length === 1 && args[0] === '--version') {
-    const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as { version: string };
-    process.stdout.write(`${pkg.version}\n`);
+    process.stdout.write(`${version()}\n`);
     return 0;
   }
   if ((args[0] === 'demo' && args.length === 1) || (args[0] === 'controllers' && (args.length === 1 || (args.length === 2 && args[1] === '--json')))) {

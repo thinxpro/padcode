@@ -1,10 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { snapshot } from './snapshot.mjs';
 import { EventEmitter } from 'node:events';
 import {
   detectCaps, sgr, paint, gradient, stripAnsi, visibleWidth, truncate, padEnd, padStart, center, fit, wrapAnsi,
-  frame, rule, DIVIDER, keycap, dot, stepper, meter, hintBar, columns, Screen,
+  frame, rule, DIVIDER, keycap, dot, stepper, meter, hintBar, columns, Screen, logo, logoArt, logoVariant,
 } from '../dist/tui/index.js';
 import { renderGallery } from '../dist/tui/gallery.js';
 
@@ -60,8 +60,8 @@ test('theme: gradient per depth keeps the visible text', () => {
   assert.equal(gradient(caps({ color: 16 }), text), '\x1b[1;96mPADCODE  SWEEP\x1b[0m');
   assert.equal(gradient(mono, text), text);
   assert.equal(gradient(truecolor, ''), '');
-  assert.notEqual(gradient(truecolor, text, undefined, 0), gradient(truecolor, text, undefined, 0.5), 'offset moves the sweep');
-  assert.equal(gradient(truecolor, text, undefined, 0), gradient(truecolor, text, undefined, 1), 'sweep wraps');
+  assert.notEqual(gradient(truecolor, text, { offset: 0 }), gradient(truecolor, text, { offset: 0.5 }), 'offset moves the sweep');
+  assert.equal(gradient(truecolor, text, { offset: 0 }), gradient(truecolor, text, { offset: 1 }), 'sweep wraps');
 });
 test('text: widths ignore ANSI and count wide characters', () => {
   assert.equal(stripAnsi('\x1b[1;96mA\x1b[0m\x1b]8;;http://x\x07B\x1b]8;;\x1b\\'), 'AB');
@@ -185,14 +185,36 @@ test('screen: non-TTY output has no control sequences', () => {
   assert.equal(hooks.listenerCount('exit'), 0);
 });
 
-// Golden files: SGR sequences stored as \e so diffs stay readable. UPDATE_SNAPSHOTS=1 rewrites them.
-const snapshots = new URL('./snapshots/tui/', import.meta.url);
-function snapshot(name, lines) {
-  const text = lines.join('\n').replaceAll('\x1b', '\\e') + '\n', file = new URL(name, snapshots);
-  if (process.env.UPDATE_SNAPSHOTS === '1') { mkdirSync(snapshots, { recursive: true }); writeFileSync(file, text); return; }
-  assert.ok(existsSync(file), `missing snapshot ${name}; run UPDATE_SNAPSHOTS=1 npm test`);
-  assert.equal(text, readFileSync(file, 'utf8'), name);
-}
+test('theme: shine band brightens only near its position', () => {
+  const text = 'X'.repeat(60), colours = out => out.match(/\x1b\[[0-9;]*m(?=X)/g) ?? [];
+  const base = gradient(truecolor, text);
+  for (const shine of [0, 0.25, 0.5, 1]) assert.equal(stripAnsi(gradient(truecolor, text, { shine })), text);
+  // At 0 and 1 the band sits fully outside the text.
+  assert.equal(gradient(truecolor, text, { shine: 0 }), base); assert.equal(gradient(truecolor, text, { shine: 1 }), base);
+  const mid = gradient(truecolor, text, { shine: 0.5 });
+  const rgb = code => code.match(/38;2;(\d+);(\d+);(\d+)/).slice(1).map(Number);
+  const sum = code => rgb(code).reduce((a, b) => a + b, 0);
+  const plain = [...base.matchAll(/(\x1b\[[0-9;]*m)?X/g)].map(m => m[1]), lit = [...mid.matchAll(/(\x1b\[[0-9;]*m)?X/g)].map(m => m[1]);
+  let current = plain[0], glow = lit[0]; const brighter = [];
+  plain.forEach((code, i) => { current = code ?? current; glow = lit[i] ?? glow; brighter.push(sum(glow) > sum(current)); });
+  assert.ok(brighter[30], 'centre is brighter'); assert.ok(!brighter[0] && !brighter[59], 'edges unchanged');
+  assert.ok(colours(mid).length > 0);
+  const sixteen = gradient(caps({ color: 16 }), text, { shine: 0.5 });
+  assert.match(sixteen, /\x1b\[1;97mX/); assert.match(sixteen, /^\x1b\[1;96mX/);
+  assert.equal(gradient(mono, text, { shine: 0.5 }), text);
+  assert.equal(stripAnsi(gradient(caps({ color: 256 }), text, { shine: 0.4, bold: false })), text);
+});
+test('logo variants', () => {
+  for (const [variant, lines] of Object.entries(logoArt)) assert.equal(new Set(lines.map(visibleWidth)).size, 1, variant);
+  assert.equal(visibleWidth(logoArt.full[0]), 57); assert.equal(visibleWidth(logoArt.ascii[0]), 42); assert.equal(visibleWidth(logoArt.wordmark[0]), 13);
+  assert.ok(logoArt.ascii.every(printableAscii));
+  assert.equal(logoVariant(truecolor, 57), 'full'); assert.equal(logoVariant(truecolor, 56), 'ascii');
+  assert.equal(logoVariant(ascii, 120), 'ascii'); assert.equal(logoVariant(truecolor, 41), 'wordmark'); assert.equal(logoVariant(ascii, 13), 'wordmark');
+  assert.deepEqual(logo(mono, 'full'), [...logoArt.full]);
+  for (const shine of [undefined, 0.3, 0.7]) assert.deepEqual(logo(truecolor, 'full', shine).map(stripAnsi), [...logoArt.full]);
+  assert.notDeepEqual(logo(truecolor, 'full', 0.5), logo(truecolor, 'full'));
+});
+
 test('gallery snapshots at 40, 60, 80 and 120 columns', () => {
   for (const [mode, c] of [['truecolor', truecolor], ['mono', mono], ['ascii', ascii]]) for (const width of [40, 60, 80, 120]) {
     const lines = renderGallery({ ...c, width });
@@ -200,6 +222,6 @@ test('gallery snapshots at 40, 60, 80 and 120 columns', () => {
     // User data keeps its Unicode in ASCII mode; only the chrome must be ASCII.
     if (mode === 'ascii') assert.ok(lines.filter(line => !line.includes('Unicode data')).every(printableAscii), `${mode} ${width}`);
     if (mode !== 'truecolor') assert.ok(lines.every(line => !line.includes('\x1b')), `${mode} ${width}`);
-    snapshot(`gallery-${mode}-${width}.txt`, lines);
+    snapshot(`tui/gallery-${mode}-${width}.txt`, lines);
   }
 });

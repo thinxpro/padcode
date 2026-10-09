@@ -85,4 +85,4 @@ Plan commit: `4ff8059`. On macOS 27.0.1 arm64 with Node 24.21.0, `npm run check`
 - A7: twelve golden files in `test/snapshots/tui/` (40/60/80/120 columns x truecolor/monochrome/ASCII).
 - A8: all existing suites pass unchanged; no existing screen imports `src/tui/` yet.
 
-Manual display review is pending: the maintainer has not yet run `npm run gallery` in the listed terminals.
+On 2026-10-08 the maintainer approved continuing to UI-1 after this stage was presented; no per-terminal display results were reported, so the terminal-by-terminal review stays open.

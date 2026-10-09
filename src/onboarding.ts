@@ -8,11 +8,13 @@ import { session } from './session.js';
 import { GamepadMenus, type MenuFeed } from './menu-controller.js';
 import { mergeDeviceChoices, scanDeviceChoices } from './bluetooth-picker.js';
 import { NativeAudio, type AudioPort } from './audio.js';
-import { familyFromName, pairingHints } from './glyphs.js';
+import { familyFromName, formatGlyphs, pairingHints } from './glyphs.js';
+import { renderHub, type HubModel } from './hub-view.js';
+import { version } from './version.js';
 import { downloadModel, findModels, findWhisper, modelDirectory, transcribe, whisperModels, whisperSource, whisperTranscriber, writeSilentWav } from './transcribe.js';
 import { rm } from 'node:fs/promises';
 import { voiceDirectory } from './voice-session.js';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 
 export interface SetupServices {
   activateMenus?: (controller: Config['controller']) => Promise<void>;
@@ -26,6 +28,7 @@ export interface SetupServices {
 }
 export interface WhisperTools { findWhisper: () => Promise<string | null>; findModels: () => Promise<string[]> }
 const systemWhisper: WhisperTools = { findWhisper: () => findWhisper(), findModels: () => findModels() };
+let introPlayed = false;
 const cleanName = (text: string) => text.replace(/[\x00-\x1f\x7f]/g, '').slice(0, 512);
 
 async function linkController(io: PromptPort, services: SetupServices, signal: AbortSignal, initial?: Config): Promise<Config['controller']> {
@@ -408,22 +411,26 @@ async function hubStep(edit: boolean, menus: GamepadMenus, audio: AudioPort, not
       config = updated;
       io.say(`Configuration: ${configPath()}`);
     }
-    io.banner('PLAYER HUB');
-    if (notice) io.say(notice);
-    io.say(`LINK ${config.controller.transport.toUpperCase()} / ${config.controller.name ?? 'not selected'}`);
-    io.say(`INPUT ${config.controller.inputVerified ? 'last setup check passed (not a live connection status)' : 'UNVERIFIED'}`);
-    io.say(`AGENT ${config.agent?.command ?? 'not selected'}`);
-    io.say('AGENT CONTROLS / D-pad, {confirm}, {back}, {l1}, {r1}, sticks / {menu} opens the controls menu (pause in transparent mode).');
-    io.say(`VOICE ${config.voice ? `${cleanName(config.voice.microphone.name)} / ${config.voice.transcriber ? describeTranscriber(config.voice.transcriber) : 'record only'} / hold {l2}` : 'off'}`);
-    const action = await io.choose('Ready when you are', [
+    const agentName = config.agent ? basename(config.agent.command) : undefined;
+    const choices = [
       // Most used first; the cursor starts on Start agent session, whose confirmation defaults to Cancel.
-      ...(config.agent ? [{ label: 'Start agent session', value: 'run' }] : []),
-      { label: 'Voice / microphone settings', value: 'voice' },
-      { label: 'Controller lab / test live input (hold {back} to return)', value: 'controllers' },
-      { label: 'Edit configuration', value: 'config' },
-      { label: 'Preview arcade dashboard', value: 'demo' },
-      { label: 'Exit', value: 'quit' },
-    ]);
+      ...(config.agent ? [{ label: 'START AGENT SESSION', value: 'run', detail: `${agentName} in ${basename(process.cwd()) || process.cwd()}` }] : []),
+      { label: 'VOICE + MICROPHONE', value: 'voice', detail: config.voice ? 'change microphone or transcription' : 'set up dictation (macOS)' },
+      { label: 'CONTROLLER LAB', value: 'controllers', detail: 'test live input / hold {back} to return' },
+      { label: 'EDIT CONFIGURATION', value: 'config', detail: 'Bluetooth, agent and buttons' },
+      { label: 'ARCADE DEMO', value: 'demo', detail: 'preview with synthetic input' },
+      { label: 'EXIT', value: 'quit', detail: 'back to the shell' },
+    ];
+    const model: HubModel = {
+      version: version(), notice,
+      controller: { name: config.controller.name, transport: config.controller.transport, verified: Boolean(config.controller.inputVerified) },
+      agent: agentName,
+      voice: config.voice ? `${cleanName(config.voice.microphone.name)} / ${config.voice.transcriber ? describeTranscriber(config.voice.transcriber) : 'record only'} / hold {l2}` : undefined,
+      items: choices, tip: 'TIP  In a session, {menu} opens the controls menu.',
+    };
+    // The welcome sweep plays once per process, on the first Hub frame.
+    const action = await io.screen(choices, view => renderHub({ ...model, voice: model.voice && formatGlyphs(model.voice, view.glyphs) }, view), { intro: introPlayed ? 0 : 700 });
+    introPlayed = true;
     if (action === 'run' && config.agent) {
       const display = await chooseDisplay();
       if (!await confirmAgent(io, config.agent, process.cwd(), display)) return { action: 'hub', notice: 'LAUNCH CANCELLED / Back at Player Hub.' };
