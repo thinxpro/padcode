@@ -9,6 +9,8 @@ import { formatGlyphs, type Glyphs } from './glyphs.js';
 export const terminalKeys: Partial<Record<Button, string>> = {
   dpad_up: '\x1b[A', dpad_down: '\x1b[B', dpad_right: '\x1b[C', dpad_left: '\x1b[D',
   south: '\r', east: '\x1b', left_shoulder: '\t', right_shoulder: '\x1b[Z',
+  // The touchpad types the mention sigil, which opens the Agent's file picker.
+  touchpad: '@',
 };
 export interface AgentGamepadOptions {
   factory?: () => MenuFeed;
@@ -19,7 +21,7 @@ export interface AgentGamepadOptions {
   // Selects the Agent-specific R2/R3 keys; 'basic' (the default) leaves them unbound.
   editing?: AgentProfile;
 }
-export type ControlEvent = 'menu' | 'lost';
+export type ControlEvent = 'menu' | 'commands' | 'lost';
 export interface ControllerSource {
   subscribe(keys: (bytes: Buffer) => void, status: (text: string) => void, cancel: () => void): () => void;
   start(signal: AbortSignal): Promise<void>;
@@ -205,6 +207,14 @@ export class AgentGamepad implements ControllerSource {
         if (this.active && this.menu) { this.events.emit('control', 'menu'); this.trace('menu', event.device); }
         else if (this.active) this.suspend();
         else { this.active = true; this.status(this.activeStatus()); this.trace('active', event.device); }
+      }
+      return;
+    }
+    // Share/View opens Quick commands; without the controls surface it types '/' for the Agent's own picker.
+    if (event.button === 'back') {
+      if (this.active && event.down) {
+        if (this.menu) { this.events.emit('control', 'commands'); this.trace('commands', event.device); }
+        else this.events.emit('keys', Buffer.from('/'));
       }
       return;
     }

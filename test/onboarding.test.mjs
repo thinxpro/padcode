@@ -144,3 +144,10 @@ test('UI-2 C4 setup banners carry mission progress matching their titles', async
     });
   }
 });
+test('QC-A4 keeping the Agent keeps its custom quick commands; choosing another Agent starts without them', async () => {
+  const initial = { version: 2, controller: { transport: 'bluetooth', inputVerified: true }, agent: { command: '/opt/original', args: ['a'], commands: ['/review'] }, profile: 'terminal-basic', voice: null };
+  const kept = harness(['later', 'skip', 'keep', 'terminal-basic', 'save']);
+  assert.deepEqual((await setup(kept.io, kept.services, signal, initial)).agent, { command: '/opt/original', args: ['a'], commands: ['/review'] });
+  const other = harness(['later', 'skip', '0', 'terminal-basic', 'save']);
+  assert.deepEqual((await setup(other.io, other.services, signal, initial)).agent, { command: '/opt/my-agent', args: [] });
+});

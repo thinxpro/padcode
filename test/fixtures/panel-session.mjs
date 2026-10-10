@@ -11,7 +11,7 @@ const { NativeAudio } = await import(pathToFileURL(join(root, 'dist/audio.js')))
 const transcriber = process.env.PADCODE_TRANSCRIBER ? { kind: 'command', command: process.execPath, args: [resolve('test/fixtures/fake-transcriber.mjs'), process.env.PADCODE_TRANSCRIBER, '{audio}'], language: 'zh' } : null;
 const voice = process.env.PADCODE_VOICE === '1' ? { voice: { microphone: { id: 'mic-1', name: 'Fixture Mic' }, transcriber, insert: process.env.PADCODE_INSERT ?? 'auto' }, audio: new NativeAudio({ command: process.execPath, args: [resolve('test/fixtures/audio-helper.mjs')], player: resolve('test/fixtures/fake-player.sh'), supported: true }) } : {};
 const [events, mode = 'basic'] = process.argv.slice(2);
-const agent = { command: process.env.PADCODE_PYTHON, args: [resolve('test/fixtures/pty-agent.py'), mode] };
+const agent = { command: process.env.PADCODE_PYTHON, args: [resolve('test/fixtures/pty-agent.py'), mode], ...(process.env.PADCODE_COMMANDS ? { commands: JSON.parse(process.env.PADCODE_COMMANDS) } : {}) };
 const gamepad = new AgentGamepad(
   { transport: 'bluetooth', address: 'aa:bb:cc:dd:ee:ff', inputVerified: true },
   { factory: () => new ControllerProbe(process.execPath, [resolve('test/fixtures/menu-helper.mjs'), events]), automaticHandoff: true, editing: process.env.PADCODE_EDITING ?? 'basic',

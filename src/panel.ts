@@ -8,7 +8,7 @@ const states: Record<string, [DotState, Tone]> = {
   MENU: ['active', 'accent'], REC: ['active', 'danger'], PLAYING: ['active', 'accent'],
   'END SESSION?': ['error', 'danger'], DISCONNECTED: ['error', 'danger'], 'INPUT LOST': ['error', 'danger'], UNAVAILABLE: ['error', 'danger'],
 };
-const hints = [['D-PAD', 'ARROWS'], ['{confirm}', 'ENTER'], ['{back}', 'ESC'], ['{l1}', 'TAB'], ['{r1}', 'SHIFT+TAB'], ['{menu}', 'MENU'], ['STICKS', 'CURSOR'], ['{west}', 'BKSP'], ['WHEEL', 'HISTORY']] as const;
+const hints = [['D-PAD', 'ARROWS'], ['{confirm}', 'ENTER'], ['{back}', 'ESC'], ['{l1}', 'TAB'], ['{r1}', 'SHIFT+TAB'], ['{menu}', 'MENU'], ['{view}', 'COMMANDS'], ['STICKS', 'CURSOR'], ['{west}', 'BKSP'], ['WHEEL', 'HISTORY']] as const;
 
 // Fit segments by priority; earlier segments survive narrower widths.
 function fit(parts: string[], width: number, gap: string): string[] {

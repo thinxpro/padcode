@@ -3,7 +3,7 @@
   | |_) / _ \ | | | | |  | | | | | | |  _|  
   |  __/ ___ \| |_| | |__| |_| | |_| | |___ 
   |_| /_/   \_\____/ \____\___/|____/|_____|
-  YOUR CONTROLLER. YOUR AGENT.  v0.1.0-rc.9
+  YOUR CONTROLLER. YOUR AGENT.  v0.1.0-rc.10
 
 -- COMMANDS -------------------------------------------------------------------
   padcode                     Player Hub (first run: setup)

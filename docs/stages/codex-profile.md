@@ -101,6 +101,10 @@ On macOS 27.0 arm64 with Node 23.5.0 and tmux 3.7c, `npm run check` passed 199 t
 
 H1-H6 were pending physical testing with Codex at that point.
 
+### Merge with quick commands (PR #36)
+
+PR #36 (quick commands) merged into `main` first and conflicted with this branch in the controls menu, controller map, README and PTY tests. Resolution: Quick commands is now controls-menu item 6 and Controller map item 7, so `codex_profile()` opens the map with six D-pad presses. The map keeps both the profile labels and the touchpad row. Quick commands has its own `agentKind` (`claude` / `codex` / `other`) in `quick-commands.ts`. That duplicates `agentProfile` and is left for a follow-up so this PR stays scoped. After the merge, on the same machine, `npm run check` passed 206 tests with zero failures or skips.
+
 ### User-reported physical acceptance and merge decision
 
 On 2026-10-10 the user reported that physical testing passed ("测过了") and authorized merging PR #35. The report did not break results down by H1-H6 and did not record the Codex version, terminal, display mode or controller transport, so those details are not claimed here.

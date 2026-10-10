@@ -48,14 +48,14 @@ test('A4 controller map: every control, all three profiles, voice states, widths
 
 test('the map picks the layout that fits the popup height, so nothing is cut off', () => {
   const profile = { agent: 'claude', voice: true };
-  assert.equal(renderControllerMap(profile, mapWidth, asciiCaps).length, 15);
-  assert.equal(renderControllerMap(profile, mapWidth, asciiCaps, 15).length, 15);
-  const compact = renderControllerMap(profile, mapWidth, asciiCaps, 14);
-  assert.equal(compact.length, 8); assert.ok(!compact.join('\n').includes('TOUCHPAD')); assert.ok(compact.join('\n').includes('Backspace'));
-  assert.equal(renderControllerMap(profile, 60, asciiCaps, 30).length, 14);
+  assert.equal(renderControllerMap(profile, mapWidth, asciiCaps).length, 16);
+  assert.equal(renderControllerMap(profile, mapWidth, asciiCaps, 16).length, 16);
+  const compact = renderControllerMap(profile, mapWidth, asciiCaps, 15);
+  assert.equal(compact.length, 9); assert.ok(!compact.join('\n').includes('TOUCHPAD')); assert.ok(compact.join('\n').includes('Backspace'));
+  assert.equal(renderControllerMap(profile, 60, asciiCaps, 30).length, 16);
   // Coordinator sizing (map lines + 5) gives the popup exactly the rows its layout needs, for any terminal height.
-  // From 15 terminal rows the compact legend fits; smaller terminals show a "more lines" indicator instead.
-  for (let rows = 15; rows <= 40; rows++) {
+  // From 16 terminal rows the compact legend fits; smaller terminals show a "more lines" indicator instead.
+  for (let rows = 16; rows <= 40; rows++) {
     const most = Math.max(8, rows - 2), lines = renderControllerMap(profile, mapWidth, asciiCaps, most - 5).length;
     const height = Math.min(most, lines + 5), available = height - 2 - 3;
     assert.equal(renderControllerMap(profile, mapWidth, asciiCaps, available).length, lines, `rows ${rows}`);
@@ -91,9 +91,9 @@ test('A2 map view IPC: flags are validated and cannot be combined with a body', 
 
 test('the full controls menu (all voice actions) fits one validated popup message', () => {
   const controls = new SessionControls({ capture() {}, release() {}, interrupt() {}, history() {}, end() {}, showMenu: view => { seen = view; },
-    hasRecording: () => true, canUndo: () => true });
+    hasRecording: () => true, canUndo: () => true, commands: () => [{ label: '/  Browse all commands', keys: '/' }] });
   let seen; controls.openDraft('x'); controls.key('back'); controls.openMenu();
-  assert.equal(seen.items.length, 11, seen.items.join(' | '));
+  assert.equal(seen.items.length, 12, seen.items.join(' | '));
   assert.deepEqual(parseToMenu(JSON.stringify({ t: 'menu', ...seen })).items, seen.items);
 });
 

@@ -6,7 +6,7 @@ Padcode is a local developer tool designed for terminal installation. You choose
 
 Controllers: DualShock 4 is tested; PlayStation DualSense, Xbox, Nintendo Switch Pro and other SDL gamepads are detected automatically and shown with their own button names, but are not yet tested on hardware.
 
-**Current status: private release candidate `0.1.0-rc.8` for macOS.** The full controller flow works end to end with a user-provided Agent (tested with Claude Code): Bluetooth setup, controller-operated menus, launching the Agent with automatic controller handoff, a tmux controls pane with an Options menu, and opt-in voice dictation that types into the Agent's input. Each stage's automated tests pass; physical acceptance so far rests on the maintainer's reports recorded in [`docs/stages`](docs/stages). npm publication, Developer ID signing and Linux/Windows controller support are not done. Padcode is a provisional name.
+**Current status: private release candidate `0.1.0-rc.10` for macOS.** The full controller flow works end to end with a user-provided Agent (tested with Claude Code): Bluetooth setup, controller-operated menus, launching the Agent with automatic controller handoff, a tmux controls pane with an Options menu, and opt-in voice dictation that types into the Agent's input. Each stage's automated tests pass; physical acceptance so far rests on the maintainer's reports recorded in [`docs/stages`](docs/stages). npm publication, Developer ID signing and Linux/Windows controller support are not done. Padcode is a provisional name.
 
 ## What you can do with a controller
 
@@ -14,7 +14,9 @@ Controllers: DualShock 4 is tested; PlayStation DualSense, Xbox, Nintendo Switch
 | --- | --- |
 | Player Hub and setup | D-pad moves, X confirms, O goes back. Every screen returns to the Hub. |
 | Agent session | D-pad arrows, X Enter, O Escape, L1 Tab, R1 Shift+Tab. Left stick moves the cursor, right stick jumps by word and to line start/end, Square backspace, Triangle delete word, L3 delete. R2 newline and R3 undo in Claude Code; R2 newline and R3 transcript in Codex (assumes each Agent's default keymap). Keyboard always works too. |
-| Options (with tmux) | Controls menu: resume, pause, browse history, send interrupt (Esc), clear input, controller map, voice undo/review, end session. |
+| Options (with tmux) | Controls menu: resume, pause, browse history, send interrupt (Esc), clear input, quick commands, controller map, voice undo/review, end session. |
+| Share / View | Quick commands: types `/` or `@` to open the Agent's own pickers, or a common slash command (`/clear`, `/compact`, `/model`, `/resume`, ...) for Claude Code and Codex. Nothing is sent; X runs it. Without tmux, Share types `/`. |
+| Touchpad click | Types `@` to open the Agent's file picker; hold L2 to dictate the file name. |
 | L2 (macOS, opt-in) | Hold to dictate, release to transcribe. The text is typed into the Agent's input and **never sent**; X sends it. Options > Undo voice insert removes it. |
 
 Voice transcription runs on your Mac: macOS on-device speech needs nothing installed; whisper.cpp (`brew install whisper-cpp`) is more accurate, and Padcode can download a pinned, checksum-verified model after you confirm; any command that prints text also works. Padcode never sends audio anywhere.
@@ -46,7 +48,7 @@ Padcode ships as two npm packages: `padcode` (JavaScript only) and `padcode-darw
 
 ```sh
 npm run package
-npm install -g ./artifacts/padcode-darwin-0.1.0-rc.9.tgz ./artifacts/padcode-0.1.0-rc.9.tgz
+npm install -g ./artifacts/padcode-darwin-0.1.0-rc.10.tgz ./artifacts/padcode-0.1.0-rc.10.tgz
 padcode
 ```
 
