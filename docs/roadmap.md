@@ -66,7 +66,7 @@ Acceptance: installation follows the documentation on a fresh environment withou
 
 ## P3: Public release
 
-Complete the [release checklist](distribution.md#public-release-checklist), then let the maintainer decide when to go public. Publish npm, Homebrew and installation scripts as needed; all three channels are not an initial release gate.
+Complete the [release checklist](distribution.md#public-release-checklist), following the [public release plan](stages/public-release.md), then let the maintainer decide when to go public. Publish npm, Homebrew and installation scripts as needed; all three channels are not an initial release gate.
 
 ## Testing strategy
 
