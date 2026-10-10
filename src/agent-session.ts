@@ -2,7 +2,6 @@ import { AgentGamepad, type ControllerSource } from './agent-gamepad.js';
 import { fileURLToPath } from 'node:url';
 import { hostChannel } from './host-channel.js';
 import { createRequire } from 'node:module';
-import { basename } from 'node:path';
 import type { Readable, Writable } from 'node:stream';
 import type { IPty } from 'node-pty';
 import { loadConfig, resolveExecutable, type Config } from './config.js';
@@ -14,6 +13,7 @@ import { chooseDisplay, type Display } from './tmux.js';
 import { PanelFallback, runPanelAgent } from './panel-session.js';
 import { NativeAudio } from './audio.js';
 import { locateRuntime } from './runtime.js';
+import { agentProfile } from './stick-input.js';
 
 type Agent = NonNullable<Config['agent']>;
 type Input = Readable & { isTTY?: boolean; isRaw?: boolean; setRawMode?: (raw: boolean) => unknown };
@@ -189,8 +189,8 @@ export async function launchConfigured(agent: Agent, controller: Config['control
   const trace = process.env.PADCODE_INPUT_TRACE === '1'
     ? (event: string, generation: number, device?: number) => { process.stderr.write(`PADCODE INPUT event=${event} generation=${generation}${device === undefined ? '' : ` device=${device}`}\n`); }
     : undefined;
-  // Claude Code gets its newline and undo keys on R2/R3; other Agents keep only universal editing keys.
-  const editing = basename(agent.command) === 'claude' ? 'claude' as const : 'basic' as const;
+  // Claude Code and Codex get their own R2/R3 keys; other Agents keep only universal editing keys.
+  const editing = agentProfile(agent.command);
   const gamepad = handedOff ? new AgentGamepad(controller, {
     factory: () => handedOff, feedStarted: true, automaticHandoff: true, editing, ...(trace ? { trace } : {}),
   }) : new AgentGamepad(controller, { editing, ...(trace ? { trace } : {}) });

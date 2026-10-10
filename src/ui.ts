@@ -22,7 +22,7 @@ const controls: Array<[string, string]> = [
   ['SQ / X', 'Backspace'],
   ['TRI / Y', 'Delete word'],
   ['L3 / LS', 'Delete'],
-  ['R2 / RT, R3 / RS', 'Newline / undo (Claude Code)'],
+  ['R2 / RT, R3 / RS', 'Newline / undo (Claude Code), newline / transcript (Codex)'],
   ['Ctrl+]', 'End the session'],
 ];
 const flags: Array<[string, string]> = [['--help, -h', 'This command hub'], ['--version', 'Build version']];

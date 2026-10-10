@@ -21,7 +21,7 @@ export interface ControlEffects {
   insert?(text: string): void;
   canUndo?(): boolean;
   undo?(rerecord: boolean): void;
-  mapProfile?(): { claude: boolean; voice: boolean };
+  mapProfile?(): Pick<MapView, 'agent' | 'voice'>;
   commands?(): QuickCommand[];
   type?(keys: string): void;
 }
@@ -61,7 +61,7 @@ export class SessionControls {
   }
   private endIndex(): number { return this.entries().findIndex(entry => entry.id === 'end'); }
   private view(): MenuView {
-    if (this.context === 'map') return { title: 'CONTROLLER MAP / {padName}', items: ['Back to menu'], selected: 0, hint: '{back} / Esc back   {confirm} / {menu} close', map: this.fx.mapProfile?.() ?? { claude: false, voice: false } };
+    if (this.context === 'map') return { title: 'CONTROLLER MAP / {padName}', items: ['Back to menu'], selected: 0, hint: '{back} / Esc back   {confirm} / {menu} close', map: this.fx.mapProfile?.() ?? { agent: 'basic', voice: false } };
     if (this.context === 'commands') return { title: 'QUICK COMMANDS', items: this.commandList().map(entry => entry.label), selected: this.selected, hint: '{confirm} / Enter type   {back} / Esc back' };
     if (this.context === 'draft') return { title: 'VOICE DRAFT', items: draftItems, selected: this.selected, hint: '{confirm} / Enter choose   {back} / Esc keep draft', body: this.draftText ?? '' };
     return this.context === 'confirm'

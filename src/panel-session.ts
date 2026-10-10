@@ -14,7 +14,6 @@ import { SessionControls, type HistoryCommand, type MenuView } from './session-c
 import { removeStaleVoice, voiceDirectory, VoiceCapture } from './voice-session.js';
 import type { AudioPort } from './audio.js';
 import { previewText, wrapText } from './text-width.js';
-import { basename } from 'node:path';
 import { mapWidth, renderControllerMap } from './controller-map.js';
 import { clientEnv, ControlClient, PrivateTmux } from './tmux.js';
 import { agentKind, quickCommands } from './quick-commands.js';
@@ -233,7 +232,8 @@ export async function runPanelAgent(agent: Agent, options: PanelOptions): Promis
       undo: rerecord => { if (inserted === undefined) return; undoRerecord = rerecord; ipc.send('agent', { t: 'undo', count: inserted }); },
       hasRecording: () => Boolean(voice?.last),
       notice: text => toPanel({ t: 'notice', text }),
-      mapProfile: () => ({ claude: basename(agent.command) === 'claude', voice: Boolean(voice) }),
+      // The map shows the same R2/R3 keys the controller sends.
+      mapProfile: () => ({ agent: gamepad?.profile ?? 'basic', voice: Boolean(voice) }),
       play: () => voice?.play(),
       commands: () => palette,
       type: keys => {

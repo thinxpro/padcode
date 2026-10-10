@@ -13,7 +13,7 @@ Controllers: DualShock 4 is tested; PlayStation DualSense, Xbox, Nintendo Switch
 | Where | Controls |
 | --- | --- |
 | Player Hub and setup | D-pad moves, X confirms, O goes back. Every screen returns to the Hub. |
-| Agent session | D-pad arrows, X Enter, O Escape, L1 Tab, R1 Shift+Tab. Left stick moves the cursor, right stick jumps by word and to line start/end, Square backspace, Triangle delete word, L3 delete, R2 newline and R3 undo (Claude Code). Keyboard always works too. |
+| Agent session | D-pad arrows, X Enter, O Escape, L1 Tab, R1 Shift+Tab. Left stick moves the cursor, right stick jumps by word and to line start/end, Square backspace, Triangle delete word, L3 delete. R2 newline and R3 undo in Claude Code; R2 newline and R3 transcript in Codex (assumes each Agent's default keymap). Keyboard always works too. |
 | Options (with tmux) | Controls menu: resume, pause, browse history, send interrupt (Esc), clear input, quick commands, controller map, voice undo/review, end session. |
 | Share / View | Quick commands: types `/` or `@` to open the Agent's own pickers, or a common slash command (`/clear`, `/compact`, `/model`, `/resume`, ...) for Claude Code and Codex. Nothing is sent; X runs it. Without tmux, Share types `/`. |
 | Touchpad click | Types `@` to open the Agent's file picker; hold L2 to dictate the file name. |
