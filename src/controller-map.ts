@@ -13,6 +13,7 @@ function actions(profile: MapProfile) {
     l2: profile.voice ? 'Hold to dictate' : 'Voice off (Hub > Voice settings)',
     r2: profile.claude ? 'New line (no send)' : 'Unused (Claude Code only)',
     r3: profile.claude ? 'Undo' : 'Unused (Claude Code only)',
+    touch: (profile.family ?? 'playstation') === 'playstation' ? 'Type @ (mention a file)' : '@ is in Quick commands',
   };
 }
 // Drawings use the names printed on the buttons; the legend follows the confirm setting.
@@ -94,6 +95,8 @@ function legend(profile: MapProfile, column: number): Segment[][] {
     ['R STICK', 'Word <->, line start ^ end v'],
     [glyph('r3', g), a.r3],
     [glyph('l2', g), a.l2],
+    // Only PlayStation pads have a touchpad; others reach @ through Quick commands.
+    ['TOUCH', a.touch],
   ];
   const right: [string, string][] = [
     [`(${glyph('south', g)})`, 'Enter / send'],
@@ -102,6 +105,7 @@ function legend(profile: MapProfile, column: number): Segment[][] {
     [`(${glyph('north', g)})`, 'Delete word, hold'],
     [glyph('menu', g), 'Padcode menu'],
     ['CTRL+]', 'Ends the session (keyboard)'],
+    [glyph('view', g), 'Quick commands (/)'],
   ];
   return left.map(([key, action], index) => {
     const [rightKey, rightAction] = right[index]!;
@@ -114,11 +118,11 @@ function narrow(profile: MapProfile): Segment[][] {
     [glyph('l2', g), a.l2], [`${glyph('l1', g)} / ${glyph('r1', g)}`, 'Tab / Shift+Tab'], [glyph('r2', g), a.r2], ['D-PAD', 'Arrows'],
     ['L STICK', 'Cursor, hold repeats'], [glyph('l3', g), 'Delete forward'], ['R STICK', 'Word, line start/end'], [glyph('r3', g), a.r3],
     [`(${glyph('south', g)})`, 'Enter / send'], [`(${glyph('east', g)})`, 'Esc / back'], [`(${glyph('west', g)})`, 'Backspace'], [`(${glyph('north', g)})`, 'Delete word'],
-    [glyph('menu', g), 'Padcode menu'], ['CTRL+]', 'End session'],
+    [glyph('menu', g), 'Padcode menu'], [glyph('view', g), 'Quick commands'], ['TOUCH', a.touch], ['CTRL+]', 'End session'],
   ];
   return rows.map(([key, action]) => [['label', ` ${pad(key, 8)}`], ['text', action]]);
 }
-export const mapWidth = 78, compactHeight = 8;
+export const mapWidth = 78, compactHeight = 9;
 // Picks the richest layout that fits: the drawing, then a two-column legend, then a single list.
 export function renderControllerMap(profile: MapProfile, width: number, caps: Caps, height = Infinity): string[] {
   const drawn = [...shoulders(profile), ...frame(profile, caps.unicode).map(line => highlight(line, profile)), ...legend(profile, 40)];

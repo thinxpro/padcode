@@ -235,7 +235,7 @@ def voice():
         # Options > Play last recording (inserted before End session).
         mark = len(s.output); s.press('start')
         s.until(lambda: b'Play last recording' in s.output[mark:], message='play item missing')
-        for _ in range(6): s.press('dpad_down'); s.quiet(.05)
+        for _ in range(7): s.press('dpad_down'); s.quiet(.05)
         s.press('south'); s.until(lambda: 'PLAYING' in s.panel()); active()
         s.until(lambda: os.path.exists(play_log) and open(play_log).read().strip().endswith(recordings[0]))
         # A new recording replaces the previous file; O cancels and keeps none.
@@ -273,7 +273,7 @@ def draft():
         assert s.received() == b'', 'draft review wrote to the Agent'
         mark = len(s.output); s.press('start')
         s.until(lambda: b'Review voice draft' in s.output[mark:], message='menu lacks Review voice draft')
-        for _ in range(6): s.press('dpad_down'); s.quiet(.05)
+        for _ in range(7): s.press('dpad_down'); s.quiet(.05)
         mark = len(s.output); s.press('south')
         s.until(lambda: 'VOICE DRAFT' in s.panel() and '帮我修复'.encode() in s.output[mark:])
         os.write(s.master, b'3'); s.until(lambda: 'DRAFT DISCARDED' in s.panel()); active()   # Popup keyboard: 3 = Discard.
@@ -395,7 +395,7 @@ def xbox_names():
         assert 'OPTIONS' not in s.panel() and 'SQ ' not in s.panel()
         mark = len(s.output); s.press('start'); s.until(lambda: b'PADCODE CONTROLS' in s.output[mark:])
         s.until(lambda: 'A CONFIRM, B BACK' in s.panel(), message='menu status not using Xbox names')
-        for _ in range(5): s.press('dpad_down'); s.quiet(.05)
+        for _ in range(6): s.press('dpad_down'); s.quiet(.05)
         mark = len(s.output); s.press('south')
         s.until(lambda: b'HOME' in s.output[mark:] and b'XBOX WIRELESS CONTROLLER' in s.output[mark:], message='controller map not the Xbox layout')
         assert b'TOUCHPAD' not in s.output[mark:]
@@ -409,7 +409,7 @@ def short_map():
     try:
         s.ready(); s.until(lambda: 'GAMEPAD ACTIVE' in s.panel())
         mark = len(s.output); s.press('start'); s.until(lambda: b'PADCODE CONTROLS' in s.output[mark:])
-        for _ in range(5): s.press('dpad_down'); s.quiet(.05)
+        for _ in range(6): s.press('dpad_down'); s.quiet(.05)
         mark = len(s.output); s.press('south'); s.until(lambda: 'CONTROLLER MAP' in s.panel())
         s.until(lambda: b'Delete word, hold' in s.output[mark:] and b'Ends the session' in s.output[mark:], message='compact map incomplete')
         s.quiet(.3); assert b'more lines' not in s.output[mark:], 'map cut off in a short terminal'
@@ -468,17 +468,50 @@ def controls():
         s.press('south'); s.quiet(.3); assert s.received() == expected
         s.press('start'); active()
         # C3-A4: End session needs the confirmation; the default keeps the session running.
-        choose(6); s.until(lambda: 'END SESSION?' in s.panel()); s.press('south'); s.until(lambda: 'MENU' in s.panel())
+        choose(7); s.until(lambda: 'END SESSION?' in s.panel()); s.press('south'); s.until(lambda: 'MENU' in s.panel())
         s.press('east'); active(); assert s.proc.poll() is None
         # Clear input sends exactly Ctrl+E Ctrl+U.
         choose(4); expected += b'\x05\x15'; s.until(lambda: s.received() == expected); active()
         # Controller map: the drawing appears, O returns to the menu, nothing reaches the Agent.
-        mark = len(s.output); choose(5); s.until(lambda: 'CONTROLLER MAP' in s.panel()); s.until(lambda: b'TOUCHPAD' in s.output[mark:] and b'L STICK' in s.output[mark:], message='controller map not drawn')
+        mark = len(s.output); choose(6); s.until(lambda: 'CONTROLLER MAP' in s.panel()); s.until(lambda: b'TOUCHPAD' in s.output[mark:] and b'L STICK' in s.output[mark:], message='controller map not drawn')
         s.press('east'); s.until(lambda: 'GAMEPAD MENU' in s.panel()); s.press('start'); active(); assert s.received() == expected
-        choose(6); s.until(lambda: 'END SESSION?' in s.panel()); s.press('dpad_down'); s.quiet(.05); s.press('south')
+        choose(7); s.until(lambda: 'END SESSION?' in s.panel()); s.press('dpad_down'); s.quiet(.05); s.press('south')
         finish(s, 130)
         assert s.received() == expected
     finally: s.close()
 
-for scenario in (normal, controls, sticks, short_map, xbox_names, voice, draft, insert, escape, terminate, crash, fallback): scenario()
-print('Panel PTY passed: controls menu, sticks, voice capture, voice drafts, voice insertion, exact keys, CPR, isolation, resize, history hold, worker respawn, exits, crash cleanup and fallback.')
+def commands():
+    """Quick commands: Share opens the palette, choices are typed without Enter, the touchpad types @."""
+    s = Session('lines', extra={'PADCODE_COMMANDS': json.dumps(['/review staged', '/frontend:component'])})
+    try:
+        s.ready(); s.until(lambda: 'GAMEPAD ACTIVE' in s.panel())
+        s.until(lambda: 'HISTORY LINE 199' in s.agent())
+        expected = s.received()
+        def active(): s.until(lambda: 'GAMEPAD ACTIVE' in s.panel())
+        def palette():
+            mark = len(s.output); s.press('back')
+            s.until(lambda: 'GAMEPAD COMMANDS' in s.panel() and b'QUICK COMMANDS' in s.output[mark:] and b'/review staged' in s.output[mark:], message='quick commands did not open')
+        # Item 1 types exactly '/', and palette presses never reach the Agent.
+        palette()
+        for button in ('left_shoulder', 'right_shoulder', 'north', 'west', 'touchpad', 'dpad_left'): s.press(button); s.quiet(.03)
+        s.press('south'); expected += b'/'; s.until(lambda: s.received() == expected, message='slash not typed'); active()
+        # A custom command is typed as keystrokes with no Enter, and the status pane says how to run it.
+        palette(); s.press('dpad_down'); s.quiet(.05); s.press('dpad_down'); s.quiet(.05); s.press('south')
+        expected += b'/review staged'; s.until(lambda: s.received() == expected, message='custom command not typed')
+        s.until(lambda: 'TYPED /REVIEW STAGED' in s.panel().upper(), message='typed notice missing'); active()
+        # The touchpad types @ directly.
+        s.press('touchpad'); expected += b'@'; s.until(lambda: s.received() == expected)
+        # Share again and O both close without typing; the keyboard number 4 picks the second custom command.
+        palette(); s.press('back'); active(); palette(); s.press('east'); active()
+        palette(); os.write(s.master, b'4'); expected += b'/frontend:component'; s.until(lambda: s.received() == expected); active()
+        # From the controls menu: Quick commands is item 6 and O returns to the menu.
+        mark = len(s.output); s.press('start'); s.until(lambda: b'Quick commands' in s.output[mark:])
+        for _ in range(5): s.press('dpad_down'); s.quiet(.05)
+        mark = len(s.output); s.press('south'); s.until(lambda: b'QUICK COMMANDS' in s.output[mark:])
+        s.press('east'); s.until(lambda: 'GAMEPAD MENU' in s.panel()); s.press('start'); active()
+        s.quiet(.3); assert s.received() == expected, 'palette navigation reached the Agent'
+        no_popup(s); os.write(s.master, b'exit!'); finish(s, 23)
+    finally: s.close()
+
+for scenario in (normal, controls, commands, sticks, short_map, xbox_names, voice, draft, insert, escape, terminate, crash, fallback): scenario()
+print('Panel PTY passed: controls menu, quick commands, sticks, voice capture, voice drafts, voice insertion, exact keys, CPR, isolation, resize, history hold, worker respawn, exits, crash cleanup and fallback.')

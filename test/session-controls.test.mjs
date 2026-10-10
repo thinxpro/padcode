@@ -53,7 +53,7 @@ test('C3 menu items: resume, pause, history, interrupt and confirmed end', () =>
   assert.deepEqual(pick(6).calls, ['capture:END SESSION?', 'menu:END SESSION?:0']);
   const h = at('confirm'); h.press('dpad_down'); h.reset(); h.press('south');
   assert.deepEqual(h.calls, ['menu:close', 'end']); assert.equal(h.controls.context, 'agent');
-  assert.equal(menuItems.length, 7); assert.equal(menuItems[4], 'Clear input'); assert.equal(menuItems[5], 'Controller map'); assert.deepEqual(confirmItems, ['Keep the session running', 'End the Agent session']);
+  assert.equal(menuItems.length, 8); assert.equal(menuItems[4], 'Clear input'); assert.equal(menuItems[5], 'Quick commands'); assert.equal(menuItems[6], 'Controller map'); assert.deepEqual(confirmItems, ['Keep the session running', 'End the Agent session']);
 });
 
 test('C3 popup keys, mouse history, history exits and lost contexts', () => {
@@ -108,10 +108,10 @@ test('C3-A7 menu IPC accepts only bounded menu views and known actions', () => {
   const view = { t: 'menu', title: 'PADCODE CONTROLS', items: menuItems, selected: 0, hint: 'x' };
   assert.deepEqual(parseToMenu(JSON.stringify(view)), view);
   assert.deepEqual(parseToMenu('{"t":"close"}'), { t: 'close' });
-  for (const bad of [{ ...view, selected: menuItems.length }, { ...view, items: [] }, { ...view, items: Array(17).fill('x') }, { ...view, title: 'x'.repeat(65) }, { ...view, extra: 1 }, { t: 'status', text: 'x' }]) {
+  for (const bad of [{ ...view, selected: menuItems.length }, { ...view, items: [] }, { ...view, items: Array(25).fill('x') }, { ...view, title: 'x'.repeat(65) }, { ...view, extra: 1 }, { t: 'status', text: 'x' }]) {
     assert.throws(() => parseToMenu(JSON.stringify(bad)));
   }
   for (const name of ['up', 'down', 'confirm', 'back']) assert.deepEqual(parseFromMenu(JSON.stringify({ t: 'action', name })), { t: 'action', name });
   assert.deepEqual(parseFromMenu('{"t":"action","name":"pick","index":3}'), { t: 'action', name: 'pick', index: 3 });
-  for (const bad of ['{"t":"action","name":"end"}', '{"t":"action","name":"pick","index":16}', '{"t":"action","name":"pick"}', '{"t":"keys","data":"AA=="}']) assert.throws(() => parseFromMenu(bad));
+  for (const bad of ['{"t":"action","name":"end"}', '{"t":"action","name":"pick","index":24}', '{"t":"action","name":"pick"}', '{"t":"keys","data":"AA=="}']) assert.throws(() => parseFromMenu(bad));
 });

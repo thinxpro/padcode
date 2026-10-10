@@ -4,11 +4,12 @@ import { homedir } from 'node:os';
 import { delimiter, dirname, isAbsolute, join, resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { isFamily, type Family } from './glyphs.js';
+import { maxCustom, validCustom } from './quick-commands.js';
 
 export interface Config {
   version: 2;
   controller: { transport: 'bluetooth' | 'usb'; name?: string; address?: string; inputVerified: boolean; family?: Family; confirm?: 'south' | 'east' };
-  agent: { command: string; args: string[] } | null;
+  agent: { command: string; args: string[]; commands?: string[] } | null;
   profile: 'terminal-basic';
   voice: VoiceSettings | null;
 }
@@ -38,6 +39,8 @@ export function validateConfig(value: unknown): Config {
   if (c.controller.family !== undefined && !isFamily(c.controller.family)) throw new Error('Invalid controller family.');
   if (c.controller.confirm !== undefined && c.controller.confirm !== 'south' && c.controller.confirm !== 'east') throw new Error('Invalid confirm button.');
   if (c.agent !== null && (!c.agent || !text(c.agent.command, 4096) || !isAbsolute(c.agent.command) || !Array.isArray(c.agent.args) || c.agent.args.length > 64 || !c.agent.args.every(a => text(a, 4096)))) throw new Error('Invalid Agent command or arguments.');
+  // Custom quick commands are optional; absent stays absent so older files round-trip unchanged.
+  if (c.agent && c.agent.commands !== undefined && (!Array.isArray(c.agent.commands) || c.agent.commands.length > maxCustom || !c.agent.commands.every(validCustom))) throw new Error('Invalid quick commands.');
   if (c.profile !== 'terminal-basic') throw new Error('Unsupported key profile.');
   // Strip unknown fields rather than persisting credentials or unrelated project settings.
   return { version: 2, controller: {
@@ -46,7 +49,7 @@ export function validateConfig(value: unknown): Config {
     ...(c.controller.address === undefined ? {} : { address: c.controller.address }),
     ...(c.controller.family === undefined ? {} : { family: c.controller.family }),
     ...(c.controller.confirm === undefined ? {} : { confirm: c.controller.confirm }),
-  }, agent: c.agent === null ? null : { command: c.agent.command, args: [...c.agent.args] }, profile: c.profile,
+  }, agent: c.agent === null ? null : { command: c.agent.command, args: [...c.agent.args], ...(c.agent.commands === undefined ? {} : { commands: [...c.agent.commands] }) }, profile: c.profile,
   voice: voice === null ? null : { microphone: { id: voice.microphone.id, name: voice.microphone.name },
     transcriber: transcriber === null ? null : transcriber.kind === 'system' ? { kind: 'system', language: transcriber.language }
       : { kind: 'command', command: transcriber.command, args: [...transcriber.args], language: transcriber.language }, insert } };

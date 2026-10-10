@@ -100,7 +100,7 @@ test('C2-A2 / UI-4 S1 status pane renders every state within narrow widths, with
   // CTRL+] END outlasts the detail.
   assert.match(renderPanel('ACTIVE / Options to pause', { ...mono, width: 40 }, 1)[0], /GAMEPAD ACTIVE +CTRL\+\] END$/);
   assert.match(renderPanel('ACTIVE / Options to pause', { ...mono, width: 80 }, 1)[0], /OPTIONS TO PAUSE │ CTRL\+\] END$/);
-  assert.match(renderPanel('ACTIVE / x', { ...ascii, width: 200 }, 2)[1], /\[D-PAD\] ARROWS {2}\[X\] ENTER {2}\[O\] ESC {2}\[L1\] TAB {2}\[R1\] SHIFT\+TAB {2}\[OPTIONS\] MENU {2}\[STICKS\] CURSOR {2}\[SQ\] BKSP {2}\[WHEEL\] HISTORY/);
+  assert.match(renderPanel('ACTIVE / x', { ...ascii, width: 200 }, 2)[1], /\[D-PAD\] ARROWS {2}\[X\] ENTER {2}\[O\] ESC {2}\[L1\] TAB {2}\[R1\] SHIFT\+TAB {2}\[OPTIONS\] MENU {2}\[SHARE\] COMMANDS {2}\[STICKS\] CURSOR {2}\[SQ\] BKSP {2}\[WHEEL\] HISTORY/);
   assert.match(renderPanel('ACTIVE / x', { ...truecolor, width: 200 }, 2)[1], /\x1b\[1;7;38;2;128;134;150m X \x1b\[0m/);
   assert.match(renderPanel('ACTIVE / x', { ...mono, width: 80 }, 2, 'VOICE / Draft inserted')[1], /^▲ VOICE \| DRAFT INSERTED$/);
   assert.ok(!renderPanel('ACTIVE / \x1b]0;evil\x07', { ...mono, width: 80 }, 2).join('').includes('\x1b'));

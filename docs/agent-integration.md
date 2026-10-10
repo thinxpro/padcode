@@ -42,6 +42,16 @@ The working directory defaults to the directory where `padcode` was invoked. All
 - Do not bypass the selected agent's confirmations, permissions or sandbox settings.
 - Authentication and permission handling stay in the agent's original interface.
 
+## Quick commands
+
+Share/View opens a palette that types `/`, `@`, an Agent-specific sigil or a common slash command into the Agent's input as keystrokes, never followed by Enter, so the Agent's own picker or command handles it. The Agent is recognised by its executable name: `claude` and `codex` get researched command lists (see [quick commands](stages/quick-commands.md)); other Agents get `/`, `@` and the custom list. Users add their own commands, such as skills, with `agent.commands` in `config.json`:
+
+```json
+"agent": { "command": "/opt/homebrew/bin/claude", "args": [], "commands": ["/review", "/frontend:component"] }
+```
+
+At most 8 entries, each starting with `/`, at most 60 bytes and without control characters. Padcode cannot see the input, so commands only run when typed at the start of an empty input.
+
 ## Future structured adapters
 
 Adapters declare capabilities such as task launch, interruption, streaming output and confirmation requests. The interface only offers supported actions.

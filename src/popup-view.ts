@@ -31,5 +31,14 @@ export function renderPopup(view: PopupView, caps: Caps, rows: number): string[]
     const text = truncate(`${index === view.selected ? marker : ' '} ${index + 1}  ${safeLabel(item)}`, width, caps.unicode ? '…' : '~');
     return paint(caps, text, index === view.selected ? { tone: 'accent', bold: true } : { tone: 'text' });
   });
+  // Long lists (Quick commands) scroll: a window around the selection, with the cut ends counted.
+  const itemRoom = Math.max(3, rows - 4 - (body.length ? body.length + 1 : 0));
+  if (items.length > itemRoom) {
+    const start = Math.max(0, Math.min(view.selected - Math.floor(itemRoom / 2), items.length - itemRoom));
+    const shown = items.slice(start, start + itemRoom), end = start + itemRoom;
+    if (start > 0) shown[0] = paint(caps, fit(`  ... ${start + 1} more above`), { tone: 'muted' });
+    if (end < items.length) shown[shown.length - 1] = paint(caps, fit(`  ... ${items.length - end + 1} more below`), { tone: 'muted' });
+    return [title, rule(width, caps), ...body, ...(body.length ? [''] : []), ...shown, '', hint];
+  }
   return [title, rule(width, caps), ...body, ...(body.length ? [''] : []), ...items, '', hint];
 }
