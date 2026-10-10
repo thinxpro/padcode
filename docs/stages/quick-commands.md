@@ -75,3 +75,5 @@ Artifacts `padcode-0.1.0-rc.10.tgz` (SHA-1 `688aeb200de9dcfb18143c13955cbe4b2774
 ### User-reported physical acceptance
 
 On 2026-10-09 the maintainer installed the rc.10 tarballs into their Node 23.5 global install and reported, item by item, that H1 (`/clear`, `/compact`, `/model`, `/resume` in Claude Code), H2 (the `/` command picker), H3 (touchpad `@` file picker) and H4 (Codex `/clear` and `$`) passed. Whether dictation was used to filter the `@` picker was not reported separately.
+
+On 2026-10-10 the maintainer asked to merge ("合并"). GitHub Actions produced no checks for this PR (recent runs on other branches fail within seconds, before any step runs), so the merge rests on the local `npm run check` gate and the physical acceptance above.
