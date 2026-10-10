@@ -1,6 +1,6 @@
 # Codex controller profile
 
-Status: implemented; automated acceptance passes locally and physical acceptance (H1-H6) is pending. This plan was committed before runtime changes (`0d6d727`). Branch `thinxpro/codex-mapping` from `main` at `85fb3d1`.
+Status: implemented and merged; automated acceptance passes locally; physical acceptance reported as passed by the user (see below). This plan was committed before runtime changes (`0d6d727`). Branch `thinxpro/codex-mapping` from `main` at `85fb3d1`.
 
 ## Request
 
@@ -99,4 +99,8 @@ On macOS 27.0 arm64 with Node 23.5.0 and tmux 3.7c, `npm run check` passed 199 t
 - A6: `test/panel_pty.py` `codex_profile()` in real tmux: R3 then R2 reach the Agent as exactly `\x14\n`, Square still sends `\x7f`, and the Controller map popup shows "Transcript on/off", "New line (no send)", "Tab (queue message)" and "Shift+Tab (collab mode)" with no Claude Code "Undo". Nothing from the menu or map reaches the Agent. The existing Claude `sticks()` scenario still passes.
 - A7: the `--help` snapshots changed only in the R2/R3 row.
 
-H1-H6 are pending physical testing with Codex.
+H1-H6 were pending physical testing with Codex at that point.
+
+### User-reported physical acceptance and merge decision
+
+On 2026-10-10 the user reported that physical testing passed ("测过了") and authorized merging PR #35. The report did not break results down by H1-H6 and did not record the Codex version, terminal, display mode or controller transport, so those details are not claimed here.
