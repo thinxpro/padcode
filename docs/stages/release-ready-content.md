@@ -1,6 +1,6 @@
 # R1: release-ready repository content
 
-Status: in progress. Implements step R1 of the [public release plan](public-release.md), plus a final English-only sweep requested by the maintainer on 2026-10-13 ("everything public should use plain English, with an open-source license that lets others download, modify and use the project").
+Status: implemented; automated acceptance passes. No hardware acceptance required. Implements step R1 of the [public release plan](public-release.md), plus a final English-only sweep requested by the maintainer on 2026-10-13 ("everything public should use plain English, with an open-source license that lets others download, modify and use the project").
 
 This PR is stacked on PR #37 (`docs/public-release-plan`) because it implements that plan. It is retargeted to `main` after #37 merges. It does not change repository visibility, publish packages, rewrite history or merge anything.
 
@@ -53,4 +53,10 @@ No hardware acceptance is required: no runtime behavior changes.
 
 ## Validation evidence
 
-To be recorded below when the PR is ready.
+- Plan committed before changes: `ccb1b91`.
+- L1: `git grep -P '[\x{3400}-\x{4DBF}\x{4E00}-\x{9FFF}]'` over tracked files is empty. Fixtures use Korean, kana, emoji and accented Latin; the voice-insert sentence stays 21 code points so the undo count (21 Backspaces) is unchanged.
+- L2: PR #32 description edited on 2026-10-13; all 37 PR titles and descriptions and all PR comments and reviews contain no Chinese text. No issues or Releases exist. All commit messages on all branches are English.
+- L6: SDL review done against the compiled objects of `padcode-controller` (223 SDL objects). Notices added for HIDAPI (BSD), Sun libm, yuv2rgb (BSD-3) and qsort (zlib, Gareth McCaughan); dlmalloc and `SDL_strtokr.c` are CC0; `imKStoUCS.c` is empty on macOS.
+- L7: `test/package.test.mjs` asserts `license`, `author`, `homepage`, `bugs`, `repository` (and `keywords` for `padcode`) in both staged manifests.
+- L9: `npm run check` on macOS 27.0.1 arm64, Node 24.21.0: 206 tests, 206 pass, 0 fail, 0 skipped. Relative Markdown links and anchors resolve (script check over all tracked Markdown).
+- Not done here (maintainer, R3): enable *Keep my email addresses private*, full-history secret scan, repository settings and visibility. A local-only branch with a non-English name exists in the maintainer's checkout; it was never pushed.
