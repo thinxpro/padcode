@@ -62,4 +62,5 @@ Environment: macOS 27.0.1 arm64 (M4 Pro), Node 24.21.0, npm 11.19.0.
 - A5: the workflow file test passes.
 - A6: changed files contain no Chinese text; relative links resolve.
 - Mutation checks (each reverted): flipping the dist-tag choice, comparing numeric prerelease identifiers as text, ignoring `private` manifests, treating a registry error as "not published", and reverting reuse to `padcode-darwin@latest` each make at least one test fail.
+- First CI run after the repository went public (2026-10-14, image `macos-26-arm64`): Ubuntu passed; macOS failed only the existing P6 reuse test. Its "damaged helper" flipped a byte 64 bytes before the end of the file, inside signature padding that macOS 27 rejects but macOS 26 accepts. Since the release workflow runs the same gate on `macos-latest`, the test now flips a byte one page into the first architecture slice, which page hashes cover on every version.
 - Implementation note: npm answers E404 both for an unpublished package and for an unpublished version of a published package; the release check relies on that. The stub registry runs inside the test process, so tests spawn npm and the scripts asynchronously.

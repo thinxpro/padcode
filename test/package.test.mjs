@@ -129,7 +129,12 @@ test('P6 reuse: unchanged helpers are copied byte for byte from a previous packa
   assert.match(pack('o1', '--reuse', changed).stdout, /Helpers: built fresh \(native sources changed since /);
   const team = await variant('team', edit(value => { value.native.signer = 'ABCDE12345'; }));
   assert.match(pack('o2', '--reuse', team).stdout, /Helpers: built fresh \(.* was signed by ABCDE12345, now adhoc\)/);
-  const damaged = await variant('damaged', async dir => { const path = join(dir, 'bin/padcode-audio'), data = await readFile(path); data[data.length - 64] ^= 0xff; await writeFile(path, data); });
+  // Flip a byte one page into the first slice: page hashes cover it on every macOS version, unlike signature padding.
+  const damaged = await variant('damaged', async dir => {
+    const path = join(dir, 'bin/padcode-audio'), data = await readFile(path);
+    const offset = Number(/offset (\d+)/.exec(spawnSync('lipo', ['-detailed_info', path], { encoding: 'utf8' }).stdout)[1]);
+    data[offset + 0x1000] ^= 0xff; await writeFile(path, data);
+  });
   assert.match(pack('o3', '--reuse', damaged).stdout, /Helpers: built fresh \(.* failed verification: padcode-audio/);
   const missing = pack('o4', '--reuse', join(root, 'no-such-package.tgz'));
   assert.match(missing.stdout, /Helpers: built fresh \(.*no-such-package\.tgz is not available/);
