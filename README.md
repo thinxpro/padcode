@@ -32,10 +32,10 @@ Requirements: macOS 13 or later (Apple silicon or Intel), Node.js 22.14 or later
 Once published, install the current release candidate with:
 
 ```sh
-npm install -g padcode@next
+npm install -g padcode-cli@next
 ```
 
-`npm install -g padcode` installs the latest stable version once `0.1.0` is out. The `padcode-darwin` platform package (prebuilt, universal helpers) is installed automatically. No Xcode, CMake or compiler is needed and no install scripts run.
+The npm package is `padcode-cli` (npm reserves `padcode` as too close to an existing package); the command it installs is `padcode`. `npm install -g padcode-cli` installs the latest stable version once `0.1.0` is out. The `padcode-darwin` platform package (prebuilt, universal helpers) is installed automatically. No Xcode, CMake or compiler is needed and no install scripts run.
 
 Then open a project and start:
 
@@ -49,8 +49,8 @@ First launch walks you through pairing the controller, choosing your Agent and a
 ### Upgrade
 
 ```sh
-npm install -g padcode@next     # release candidates
-npm install -g padcode@latest   # stable releases
+npm install -g padcode-cli@next     # release candidates
+npm install -g padcode-cli@latest   # stable releases
 ```
 
 Helpers are reused byte for byte when native code has not changed, so macOS keeps Bluetooth, microphone and speech permissions across those upgrades.
@@ -58,7 +58,7 @@ Helpers are reused byte for byte when native code has not changed, so macOS keep
 ### Uninstall
 
 ```sh
-npm uninstall -g padcode
+npm uninstall -g padcode-cli
 ```
 
 Configuration (`~/.config/padcode`) and downloaded whisper models (`~/.local/share/padcode`) are kept; delete them to remove everything. See [data handling](docs/distribution.md#data-handling).
@@ -68,7 +68,7 @@ Configuration (`~/.config/padcode`) and downloaded whisper models (`~/.local/sha
 | Problem | What to try |
 | --- | --- |
 | "Prebuilt Padcode helpers are only packaged for macOS so far" | Linux and Windows are not supported yet; you can [build from source](#build-from-source). |
-| "macOS helpers (padcode-darwin) are not installed" or "does not match Padcode" | Reinstall with `npm install -g padcode@next` without `--omit=optional`, so both packages have the same version. |
+| "macOS helpers (padcode-darwin) are not installed" or "does not match Padcode" | Reinstall with `npm install -g padcode-cli@next` without `--omit=optional`, so both packages have the same version. |
 | Controller not found during setup | Put it in pairing mode (DualShock 4: hold SHARE + PS until the light bar flashes quickly) and scan again, or connect it with a USB cable. Allow **padcode-bluetooth** in System Settings > Privacy & Security > Bluetooth. |
 | Buttons do nothing in the Agent | Check the status pane: if it shows PAUSED, press Options (plain mode) or choose Resume in the Options menu. After closing a menu, release all buttons; input resumes after 250 ms. `padcode controllers` shows live input. |
 | No controls pane | Install tmux 3.2 or later. The launch confirmation says which display mode is used and why. |
@@ -112,11 +112,11 @@ See the [terminal setup guide](docs/setup.md) for the complete flow and macOS pe
 
 ### Local npm packages
 
-Padcode ships as two npm packages: `padcode` (JavaScript only) and `padcode-darwin` (prebuilt helpers and the PTY runtime, universal for Apple silicon and Intel, macOS 13 or later). Installing them needs Node.js 22.14+ and npm, not Xcode, CMake or a compiler, and runs no install scripts. After `npm run check`, build both packages locally; no npm account is needed and nothing is published. Local packages stay `private` so they cannot be published by accident; only the [release workflow](docs/distribution.md#release-procedure) packages with `--release`:
+Padcode ships as two npm packages: `padcode-cli` (JavaScript only, provides the `padcode` command) and `padcode-darwin` (prebuilt helpers and the PTY runtime, universal for Apple silicon and Intel, macOS 13 or later). Installing them needs Node.js 22.14+ and npm, not Xcode, CMake or a compiler, and runs no install scripts. After `npm run check`, build both packages locally; no npm account is needed and nothing is published. Local packages stay `private` so they cannot be published by accident; only the [release workflow](docs/distribution.md#release-procedure) packages with `--release`:
 
 ```sh
 npm run package
-npm install -g ./artifacts/padcode-darwin-0.1.0-rc.10.tgz ./artifacts/padcode-0.1.0-rc.10.tgz
+npm install -g ./artifacts/padcode-darwin-0.1.0-rc.10.tgz ./artifacts/padcode-cli-0.1.0-rc.10.tgz
 padcode
 ```
 

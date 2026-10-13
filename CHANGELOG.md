@@ -6,7 +6,7 @@ All notable changes to Padcode are documented here. The format is based on [Keep
 
 ## [0.1.0-rc.10] - 2026-10-14
 
-First public release candidate, published to npm under the `next` tag: `npm install -g padcode@next`. macOS 13 or later (Apple silicon and Intel), Node.js 22.14 or later. It collects these private development builds, each documented in [`docs/stages`](docs/stages):
+First public release candidate, published to npm under the `next` tag: `npm install -g padcode-cli@next` (the npm package is `padcode-cli`; the command is `padcode`). macOS 13 or later (Apple silicon and Intel), Node.js 22.14 or later. It collects these private development builds, each documented in [`docs/stages`](docs/stages):
 
 ### Added
 

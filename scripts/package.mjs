@@ -1,4 +1,4 @@
-// Stages and packs the two npm packages: `padcode` (JavaScript) and `padcode-darwin` (prebuilt helpers
+// Stages and packs the two npm packages: `padcode-cli` (JavaScript, the `padcode` command) and `padcode-darwin` (prebuilt helpers
 // and PTY runtime). Never publishes. Usage: node scripts/package.mjs [--out DIR] [--reuse SPEC | --fresh] [--release]
 // Manifests stay `private` (unpublishable) unless --release is given; the release workflow passes it.
 // PADCODE_SIGN_IDENTITY: codesign identity (default ad-hoc). PADCODE_SIGN_TIMESTAMP=off skips the secure timestamp.
@@ -115,7 +115,7 @@ function published() {
 const origin = fresh ? { reason: '--fresh' } : reuseSpec ? { spec: reuseSpec } : published();
 const reuse = origin.spec ? await previous(origin.spec) : origin;
 
-const stage = resolve('build/release'), darwin = join(stage, 'padcode-darwin'), main = join(stage, 'padcode');
+const stage = resolve('build/release'), darwin = join(stage, 'padcode-darwin'), main = join(stage, root.name);
 await rm(stage, { recursive: true, force: true });
 await mkdir(join(darwin, 'bin'), { recursive: true });
 await mkdir(main, { recursive: true });
@@ -128,7 +128,7 @@ for (const helper of helpers) {
 }
 await bundlePty(join(darwin, 'pty'), { 'darwin-arm64': join(ptySource, 'prebuilds/darwin-arm64'), 'darwin-x64': join(ptySource, 'prebuilds/darwin-x64') });
 for (const file of ['LICENSE', 'THIRD_PARTY_NOTICES.md']) await cp(file, join(darwin, file));
-await writeFile(join(darwin, 'README.md'), `# padcode-darwin\n\nPrebuilt macOS helpers (gamepad, Bluetooth, microphone and speech) and the PTY runtime for [Padcode](https://github.com/thinxpro/padcode) ${version}. Universal (Apple silicon and Intel), macOS ${minos} or later. Installed automatically with \`padcode\`; not meant to be used directly.\n`);
+await writeFile(join(darwin, 'README.md'), `# padcode-darwin\n\nPrebuilt macOS helpers (gamepad, Bluetooth, microphone and speech) and the PTY runtime for [Padcode](https://github.com/thinxpro/padcode) ${version}. Universal (Apple silicon and Intel), macOS ${minos} or later. Installed automatically with \`padcode-cli\`; not meant to be used directly.\n`);
 const common = { version, license: root.license, ...(root.private && !release ? { private: true } : {}), author: root.author, homepage: root.homepage, bugs: root.bugs, repository: root.repository };
 await writeFile(join(darwin, 'package.json'), JSON.stringify({
   name: 'padcode-darwin', ...common, description: `Prebuilt macOS helpers for Padcode ${version}`,
