@@ -112,7 +112,7 @@ See the [terminal setup guide](docs/setup.md) for the complete flow and macOS pe
 
 ### Local npm packages
 
-Padcode ships as two npm packages: `padcode` (JavaScript only) and `padcode-darwin` (prebuilt helpers and the PTY runtime, universal for Apple silicon and Intel, macOS 13 or later). Installing them needs Node.js 22.14+ and npm, not Xcode, CMake or a compiler, and runs no install scripts. After `npm run check`, build both packages locally; no npm account is needed and nothing is published:
+Padcode ships as two npm packages: `padcode` (JavaScript only) and `padcode-darwin` (prebuilt helpers and the PTY runtime, universal for Apple silicon and Intel, macOS 13 or later). Installing them needs Node.js 22.14+ and npm, not Xcode, CMake or a compiler, and runs no install scripts. After `npm run check`, build both packages locally; no npm account is needed and nothing is published. Local packages stay `private` so they cannot be published by accident; only the [release workflow](docs/distribution.md#release-procedure) packages with `--release`:
 
 ```sh
 npm run package
@@ -120,7 +120,7 @@ npm install -g ./artifacts/padcode-darwin-0.1.0-rc.10.tgz ./artifacts/padcode-0.
 padcode
 ```
 
-Helpers are ad-hoc signed by default. Set `PADCODE_SIGN_IDENTITY` to a codesign identity (for example an Apple Development or Developer ID Application certificate) to sign them with hardened runtime and their microphone/Bluetooth entitlements; `PADCODE_SIGN_TIMESTAMP=off` skips the secure timestamp for offline development signing. With a stable identity, macOS keeps microphone permission across rebuilds. Without one, packaging reuses the previous release's helpers byte for byte (`padcode-darwin@latest`, or `--reuse <tarball>`; `--fresh` to skip) when nothing under `native/` changed and the signer is the same, so users are asked for microphone, speech or Bluetooth permission again only after releases that change the native helpers. The [prebuilt packages stage](docs/stages/prebuilt-packages.md) records the checks. Other operating systems are not packaged yet.
+Helpers are ad-hoc signed by default. Set `PADCODE_SIGN_IDENTITY` to a codesign identity (for example an Apple Development or Developer ID Application certificate) to sign them with hardened runtime and their microphone/Bluetooth entitlements; `PADCODE_SIGN_TIMESTAMP=off` skips the secure timestamp for offline development signing. With a stable identity, macOS keeps microphone permission across rebuilds. Without one, packaging reuses the previous release's helpers byte for byte (the newest `padcode-darwin` on any npm dist-tag, or `--reuse <tarball>`; `--fresh` to skip) when nothing under `native/` changed and the signer is the same, so users are asked for microphone, speech or Bluetooth permission again only after releases that change the native helpers. The [prebuilt packages stage](docs/stages/prebuilt-packages.md) records the checks. Other operating systems are not packaged yet.
 
 ## Design documents
 

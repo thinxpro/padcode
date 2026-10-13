@@ -1,6 +1,6 @@
 # Public release: open source on GitHub and publish to npm
 
-Status: plan approved by the maintainer on 2026-10-10. No implementation has started.
+Status: plan approved by the maintainer on 2026-10-10. R1 is merged ([release-ready content](release-ready-content.md), PR #38). R2 is implemented in the [release workflow stage](release-workflow.md). R3 and R4 are maintainer steps and have not started; nothing is published.
 
 ## Request
 
@@ -21,7 +21,7 @@ Confirmed by the maintainer:
 
 - The repository `thinxpro/padcode` is private. Repository, Release and npm package visibility are managed separately.
 - The root `package.json` is `private: true`. `scripts/package.mjs` copies `private` into both staged manifests, so neither tarball can be published as is. The staged manifests already carry `repository` (needed for provenance).
-- `scripts/package.mjs` reuses helpers from `padcode-darwin@latest`. If rc versions go to `next`, the `latest` tag either does not exist yet or points at an older version, so reuse would compare against the wrong package.
+- `scripts/package.mjs` reuses helpers from `padcode-darwin@latest`. If rc versions go to `next`, the `latest` tag either does not exist yet or points at an older version, so reuse would compare against the wrong package. (Resolved in R2: reuse now picks the highest version on any dist-tag.)
 - npm trusted publishing (OIDC from GitHub Actions) needs npm CLI 11.5.1 or later, `id-token: write`, a GitHub-hosted runner and a public repository for provenance. It is configured per package on npmjs.com, which may require the package to exist first.
 - README still calls Padcode a provisional name; the current version is `0.1.0-rc.10`.
 - Missing public-project files: `SECURITY.md`, `CHANGELOG.md`, issue templates. `THIRD_PARTY_NOTICES.md` still lists "review which SDL component notices apply" as an open release task.

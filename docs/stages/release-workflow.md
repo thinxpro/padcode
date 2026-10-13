@@ -1,6 +1,6 @@
 # R2: release workflow
 
-Status: plan committed before implementation. Implements step R2 of the [public release plan](public-release.md). This stage adds the tooling only: it does not publish anything, change repository visibility, enable the workflow on npm, or create tags.
+Status: implemented; automated acceptance passes locally. CI and the first real workflow run are pending (CI is disabled until the repository is public; the first run is R4). Plan committed before implementation: `bcef159`. Implements step R2 of the [public release plan](public-release.md). This stage adds the tooling only: it does not publish anything, change repository visibility, enable the workflow on npm, or create tags.
 
 ## Scope
 
@@ -53,4 +53,13 @@ None in this stage. The first real run of the workflow is part of R4 (first npm 
 
 ## Validation evidence
 
-Recorded with the implementation.
+Environment: macOS 27.0.1 arm64 (M4 Pro), Node 24.21.0, npm 11.19.0.
+
+- A1: `npm run check` passed 213 tests with zero failures or skips. CI is disabled, so Linux and the GitHub-hosted macOS runner were not exercised.
+- A2: without `--release` both manifests are `private: true`; with `--release` neither is, metadata and the exact `padcode-darwin` pin are kept, and `npm publish --dry-run --tag next` succeeds for both tarballs against the stub registry.
+- A3: SemVer ordering is checked pairwise over 12 versions. With `latest` on a non-reusable package and `next` on a newer reusable one, packaging reuses `padcode-darwin@0.0.10-rc.2`; with nothing published it builds fresh and prints the E404 reason.
+- A4: the release check passes for a prerelease (`next`, writes `$GITHUB_OUTPUT` and the notes), a stable version (`latest`) and the recovery case (`publish-darwin=false`), and fails with a specific message for each broken case in the criteria, an unreachable registry, and missing arguments.
+- A5: the workflow file test passes.
+- A6: changed files contain no Chinese text; relative links resolve.
+- Mutation checks (each reverted): flipping the dist-tag choice, comparing numeric prerelease identifiers as text, ignoring `private` manifests, treating a registry error as "not published", and reverting reuse to `padcode-darwin@latest` each make at least one test fail.
+- Implementation note: npm answers E404 both for an unpublished package and for an unpublished version of a published package; the release check relies on that. The stub registry runs inside the test process, so tests spawn npm and the scripts asynchronously.
