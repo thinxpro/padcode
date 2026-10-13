@@ -6,7 +6,7 @@ import { validateConfig } from '../dist/config.js';
 import { cleanTranscript } from '../dist/transcribe.js';
 
 test('C6-A1 inserted text is one cleaned line that cannot contain Enter or escape bytes', () => {
-  assert.equal(insertionLine('帮我修复 bug\n\n然后运行测试'), '帮我修复 bug 然后运行测试');
+  assert.equal(insertionLine('이 bug 고쳐 줘\n\n그다음 테스트'), '이 bug 고쳐 줘 그다음 테스트');
   assert.equal(insertionLine('  a \n  b  '), 'a b');
   for (const raw of ['ok\r\n\x1b[201~\x1b]52;c;evil\x07rm -rf\u0085\n', '\x1b[200~x\x1b[201~\r', 'line\nline\rline']) {
     const line = insertionLine(cleanTranscript(raw));
@@ -15,12 +15,12 @@ test('C6-A1 inserted text is one cleaned line that cannot contain Enter or escap
 });
 
 test('C6-A2 short-answer guard holds tiny or yes/no-like transcripts for review', () => {
-  for (const text of ['1', 'y', 'N', '是', 'OK', '2.', ' 12 ', '1, 2', 'yes'.slice(0, 1), '！？', '3。']) assert.equal(shortAnswer(text), true, text);
-  for (const text of ['帮我修复登录页面', 'run the tests', 'yes please continue', '修复 bug']) assert.equal(shortAnswer(text), false, text);
+  for (const text of ['1', 'y', 'N', '네', 'OK', '2.', ' 12 ', '1, 2', 'yes'.slice(0, 1), '！？', '3。']) assert.equal(shortAnswer(text), true, text);
+  for (const text of ['로그인 화면 고쳐', 'run the tests', 'yes please continue', '수정 bug']) assert.equal(shortAnswer(text), false, text);
 });
 
 test('C6 IPC: paste chunks, undo and undo results are bounded and control-free', () => {
-  assert.deepEqual(parseToAgent(JSON.stringify({ t: 'paste-part', text: '帮我 🎮' })), { t: 'paste-part', text: '帮我 🎮' });
+  assert.deepEqual(parseToAgent(JSON.stringify({ t: 'paste-part', text: '안녕 🎮' })), { t: 'paste-part', text: '안녕 🎮' });
   assert.deepEqual(parseToAgent('{"t":"paste-end"}'), { t: 'paste-end' });
   assert.deepEqual(parseToAgent('{"t":"undo","count":21}'), { t: 'undo', count: 21 });
   for (const bad of [{ t: 'paste-part', text: '' }, { t: 'paste-part', text: 'a\rb' }, { t: 'paste-part', text: '\x1b[201~' }, { t: 'paste-part', text: 'x'.repeat(1025) }, { t: 'paste-end', x: 1 }, { t: 'undo', count: 0 }, { t: 'undo', count: 1.5 }, { t: 'undo', count: 70000 }]) {

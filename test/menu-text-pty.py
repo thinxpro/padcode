@@ -26,7 +26,7 @@ with tempfile.TemporaryDirectory(prefix='padcode-menu-text-') as root:
         else:
             press('south'); expect('Literal text:')
             press('south'); press('east'); press('dpad_down'); time.sleep(.08)
-            os.write(master, 'literal 帮我修复 🎮\n'.encode()); expect('TEXT RESULT: literal 帮我修复 🎮')  # Unicode survives the terminal prompt.
+            os.write(master, 'literal 고쳐 줘 🎮\n'.encode()); expect('TEXT RESULT: literal 고쳐 줘 🎮')  # Unicode survives the terminal prompt.
             expect('Return menu'); expect('Select [1]'); press('east'); expect('ACTION: back')
         deadline = time.monotonic() + 5
         while proc.poll() is None and time.monotonic() < deadline:

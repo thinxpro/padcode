@@ -267,7 +267,7 @@ def draft():
         trigger(32767); s.until(lambda: 'REC 00:0' in s.panel()); s.quiet(.3)
         mark = len(s.output); trigger(0)
         s.until(lambda: 'VOICE DRAFT' in s.panel(), message='draft review did not open')
-        s.until(lambda: '帮我修复登录页面的 bug'.encode() in s.output[mark:], message='draft text missing from the popup')
+        s.until(lambda: '로그인 bug 고치고'.encode() in s.output[mark:], message='draft text missing from the popup')
         for button in ('dpad_left', 'west', 'left_shoulder'): s.press(button); s.quiet(.05)
         s.press('east'); active()                                  # O keeps the draft.
         assert s.received() == b'', 'draft review wrote to the Agent'
@@ -275,7 +275,7 @@ def draft():
         s.until(lambda: b'Review voice draft' in s.output[mark:], message='menu lacks Review voice draft')
         for _ in range(7): s.press('dpad_down'); s.quiet(.05)
         mark = len(s.output); s.press('south')
-        s.until(lambda: 'VOICE DRAFT' in s.panel() and '帮我修复'.encode() in s.output[mark:])
+        s.until(lambda: 'VOICE DRAFT' in s.panel() and '로그인 bug'.encode() in s.output[mark:])
         os.write(s.master, b'3'); s.until(lambda: 'DRAFT DISCARDED' in s.panel()); active()   # Popup keyboard: 3 = Discard.
         mark = len(s.output); s.press('start'); s.until(lambda: b'PADCODE CONTROLS' in s.output[mark:]); s.quiet(.3)
         assert b'Review voice draft' not in s.output[mark:], 'discarded draft still offered'
@@ -308,7 +308,7 @@ def insert():
         index = next(int(n) for n, text in items if text.decode(errors='ignore').startswith(label))
         for _ in range(index - 1): s.press('dpad_down'); s.quiet(.05)
         s.press('south')
-    sentence = '帮我修复登录页面的 bug，然后运行测试。'.encode()
+    sentence = '로그인 bug 고치고，테스트도 실행해。'.encode()
     s = Session('paste', extra={'PADCODE_VOICE': '1', 'PADCODE_TRANSCRIBER': 'ok'})
     try:
         s.ready(); s.until(lambda: 'GAMEPAD ACTIVE' in s.panel(), message='insert step 2')
@@ -343,8 +343,8 @@ def insert():
     s = Session('lines', extra={'PADCODE_VOICE': '1', 'PADCODE_TRANSCRIBER': 'mixed'})
     try:
         s.ready(); s.until(lambda: 'GAMEPAD ACTIVE' in s.panel(), message='insert step 13')
-        record(s); s.until(lambda: s.received() == 'fix 🎮 登录 第二行 é'.encode(), message='plain insertion was not one cleaned line')
-        s.quiet(.3); assert s.received() == 'fix 🎮 登录 第二行 é'.encode()
+        record(s); s.until(lambda: s.received() == 'fix 🎮 로그인 둘째 줄 é'.encode(), message='plain insertion was not one cleaned line')
+        s.quiet(.3); assert s.received() == 'fix 🎮 로그인 둘째 줄 é'.encode()
         no_popup(s); os.write(s.master, b'exit!'); finish(s, 23)
     finally: s.close()
     # A one-character transcript opens the draft popup; X inserts it from there.
