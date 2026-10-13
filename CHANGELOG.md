@@ -4,7 +4,9 @@ All notable changes to Padcode are documented here. The format is based on [Keep
 
 ## [Unreleased]
 
-Nothing has been published to npm yet. The first public version will be `0.1.0` (release candidates under the npm `next` tag first). It is the result of these private development builds, each documented in [`docs/stages`](docs/stages):
+## [0.1.0-rc.10] - 2026-10-14
+
+First public release candidate, published to npm under the `next` tag: `npm install -g padcode@next`. macOS 13 or later (Apple silicon and Intel), Node.js 22.14 or later. It collects these private development builds, each documented in [`docs/stages`](docs/stages):
 
 ### Added
 
@@ -21,4 +23,5 @@ Nothing has been published to npm yet. The first public version will be `0.1.0` 
 - Redesigned terminal interface: welcome screen, Player Hub, setup wizard, Controller Lab and session pane, with `NO_COLOR`, `PADCODE_ASCII` and narrow-terminal support (`rc.9`).
 - Quick commands on Share/View and `@` on the touchpad, and a Codex controller profile (`rc.10`).
 
-[Unreleased]: https://github.com/thinxpro/padcode/commits/main
+[Unreleased]: https://github.com/thinxpro/padcode/compare/v0.1.0-rc.10...HEAD
+[0.1.0-rc.10]: https://github.com/thinxpro/padcode/releases/tag/v0.1.0-rc.10
