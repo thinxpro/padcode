@@ -1,6 +1,8 @@
 # Contributing
 
-Read the [development rules](AGENTS.md), README, architecture and roadmap before implementation. Prioritize P0. Use one PR per clearly scoped task, with multiple commits as needed. Commit the stage implementation plan, acceptance criteria and test matrix before writing code.
+Thanks for your interest in Padcode. Bug reports, controller and terminal compatibility reports, and pull requests are welcome. By participating you agree to follow the [Code of Conduct](CODE_OF_CONDUCT.md). Report security issues privately as described in [SECURITY.md](SECURITY.md), not in public issues.
+
+Read the [development rules](AGENTS.md), README, architecture and roadmap before implementation. Use one PR per clearly scoped task, with multiple commits as needed. Commit the stage implementation plan, acceptance criteria and test matrix before writing code.
 
 ## Language
 
@@ -16,10 +18,14 @@ Use English for all maintained repository content: documentation, code comments,
 
 ## Git and PRs
 
-Initial documentation lives on `main`. Use short-lived branches and PRs targeting `main`; this repository does not use SensForge's `dev` convention. Suggested prefixes are `feature/`, `fix/` and `docs/`. For dependencies on unmerged work, follow the documented stacked PR exception in AGENTS.md.
+Use short-lived branches and PRs targeting `main`; there is no separate `dev` branch. Suggested prefixes are `feature/`, `fix/` and `docs/`. For dependencies on unmerged work, follow the documented stacked PR exception in AGENTS.md.
 
 Use the repository PR template. Describe the concrete change, user behavior, validation methods, results and limitations. All automated tests must pass. Explicitly identify unrun hardware tests and leave incomplete checks unchecked; keep hardware-dependent PRs draft. Do not merge without user authorization.
 
 ## Validation
 
 For documentation changes, check links, examples and status claims. The full automated gate is `npm run check`: type checking, TypeScript/native builds, unit/subprocess/PTY/SDL virtual-device tests and coverage. Run `npm ci --ignore-scripts` first. Input routing, lifecycle and installation artifacts must meet their stage acceptance criteria; record physical hardware validation separately.
+
+## License
+
+By contributing, you agree that your contributions are licensed under the project's [MIT License](LICENSE).

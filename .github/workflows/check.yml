@@ -1,7 +1,7 @@
-name: Controller lab checks
+name: Checks
 on:
   push:
-    branches: [main, feature/controller-lab]
+    branches: [main]
   pull_request:
 permissions:
   contents: read
