@@ -57,11 +57,11 @@ jobs:
         run: npm install -g npm@^11.5.1 && npm --version
       - name: Publish padcode-darwin
         if: needs.build.outputs.publish-darwin == 'true'
-        run: npm publish "artifacts/padcode-darwin-${GITHUB_REF_NAME#v}.tgz" --tag "$DIST_TAG" --access public
+        run: npm publish "./artifacts/padcode-darwin-${GITHUB_REF_NAME#v}.tgz" --tag "$DIST_TAG" --access public
         env:
           DIST_TAG: ${{ needs.build.outputs.dist-tag }}
       - name: Publish padcode
-        run: npm publish "artifacts/padcode-${GITHUB_REF_NAME#v}.tgz" --tag "$DIST_TAG" --access public
+        run: npm publish "./artifacts/padcode-${GITHUB_REF_NAME#v}.tgz" --tag "$DIST_TAG" --access public
         env:
           DIST_TAG: ${{ needs.build.outputs.dist-tag }}
       - name: GitHub Release
