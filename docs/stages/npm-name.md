@@ -36,4 +36,15 @@ The maintainer chose the unscoped name `padcode-cli`. See the decision in the [p
 
 ## Validation evidence
 
-Recorded with the implementation.
+Environment: macOS 27.0.1 arm64, Node 24.21.0, npm 11.19.0.
+
+- N1, N2, N3, N5 (local): `npm run check` passed 213 tests with zero failures or skips. The run includes:
+  - packaging under the new name;
+  - the offline install from tarballs, with the `padcode` command from `padcode-cli` and the installed-copy scenarios;
+  - the release-check cases;
+  - the workflow test. A5 now also checks the GitHub Release attachments.
+
+  CI is recorded on the PR.
+- `npm run package -- --release` reused the helpers from the published `padcode-darwin@0.1.0-rc.10` byte for byte. Against the real registry, the release check reported: `Release 0.1.0-rc.10 is ready: npm dist-tag next; padcode-darwin@0.1.0-rc.10 is already published and will be skipped.`
+- N4: README, changelog and distribution documents updated.
+- N6: pending until the maintainer publishes.

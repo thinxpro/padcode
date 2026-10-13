@@ -35,10 +35,10 @@ const check = (cwd, args, env) => new Promise(done => execFile(process.execPath,
 
 async function fixture(root, version, { manifests = {}, changelog = true } = {}) {
   const dir = join(root, version); await mkdir(join(dir, 'artifacts'), { recursive: true });
-  await writeFile(join(dir, 'package.json'), JSON.stringify({ name: 'padcode', version, private: true }));
+  await writeFile(join(dir, 'package.json'), JSON.stringify({ name: 'padcode-cli', version, private: true }));
   await writeFile(join(dir, 'CHANGELOG.md'), changelog ? `# Changelog\n\n## [${version}] - 2026-10-13\n\n- Notes for ${version}.\n` : '# Changelog\n');
-  const defaults = { 'padcode-darwin': { name: 'padcode-darwin', version }, padcode: { name: 'padcode', version, optionalDependencies: { 'padcode-darwin': version } } };
-  for (const name of ['padcode-darwin', 'padcode']) {
+  const defaults = { 'padcode-darwin': { name: 'padcode-darwin', version }, 'padcode-cli': { name: 'padcode-cli', version, optionalDependencies: { 'padcode-darwin': version } } };
+  for (const name of ['padcode-darwin', 'padcode-cli']) {
     if (manifests[name] === null) continue;
     const pkg = join(dir, 'stage', name, 'package'); await mkdir(pkg, { recursive: true });
     await writeFile(join(pkg, 'package.json'), JSON.stringify({ ...defaults[name], ...manifests[name] }));
@@ -50,7 +50,7 @@ async function fixture(root, version, { manifests = {}, changelog = true } = {})
 test('A4 release check accepts valid releases and rejects each kind of broken one', { timeout: 120000 }, async t => {
   const root = await mkdtemp(join(tmpdir(), 'padcode-release-')); t.after(() => rm(root, { recursive: true, force: true }));
   const registry = await startRegistry({
-    padcode: { 'dist-tags': { next: '0.1.0-rc.12' }, versions: { '0.1.0-rc.12': '/dev/null' } },
+    'padcode-cli': { 'dist-tags': { next: '0.1.0-rc.12' }, versions: { '0.1.0-rc.12': '/dev/null' } },
     'padcode-darwin': { 'dist-tags': { next: '0.1.0-rc.13' }, versions: { '0.1.0-rc.12': '/dev/null', '0.1.0-rc.13': '/dev/null' } },
   });
   t.after(() => registry.close());
@@ -79,16 +79,16 @@ test('A4 release check accepts valid releases and rejects each kind of broken on
     assert.equal(r.status, 1, `${tag}: ${r.stdout}`); assert.match(r.stderr, expected); assert.equal(r.stdout, '');
   };
   await fails(rc, 'v0.1.0-rc.10', /tag v0\.1\.0-rc\.10 does not match package\.json version 0\.1\.0-rc\.11/);
-  await fails(await fixture(join(root, 'missing'), '0.1.0-rc.11', { manifests: { padcode: null } }), 'v0.1.0-rc.11', /padcode: .*padcode-0\.1\.0-rc\.11\.tgz is missing/);
+  await fails(await fixture(join(root, 'missing'), '0.1.0-rc.11', { manifests: { 'padcode-cli': null } }), 'v0.1.0-rc.11', /padcode-cli: .*padcode-cli-0\.1\.0-rc\.11\.tgz is missing/);
   await fails(await fixture(join(root, 'skew'), '0.1.0-rc.11', { manifests: { 'padcode-darwin': { version: '0.1.0-rc.10' } } }), 'v0.1.0-rc.11', /padcode-darwin: manifest version 0\.1\.0-rc\.10, expected 0\.1\.0-rc\.11/);
-  await fails(await fixture(join(root, 'private'), '0.1.0-rc.11', { manifests: { padcode: { private: true } } }), 'v0.1.0-rc.11', /padcode: manifest is private; package with --release/);
-  await fails(await fixture(join(root, 'pin'), '0.1.0-rc.11', { manifests: { padcode: { optionalDependencies: { 'padcode-darwin': '^0.1.0-rc.11' } } } }), 'v0.1.0-rc.11', /optional dependency padcode-darwin is \^0\.1\.0-rc\.11, expected exactly 0\.1\.0-rc\.11/);
+  await fails(await fixture(join(root, 'private'), '0.1.0-rc.11', { manifests: { 'padcode-cli': { private: true } } }), 'v0.1.0-rc.11', /padcode-cli: manifest is private; package with --release/);
+  await fails(await fixture(join(root, 'pin'), '0.1.0-rc.11', { manifests: { 'padcode-cli': { optionalDependencies: { 'padcode-darwin': '^0.1.0-rc.11' } } } }), 'v0.1.0-rc.11', /optional dependency padcode-darwin is \^0\.1\.0-rc\.11, expected exactly 0\.1\.0-rc\.11/);
   await fails(await fixture(join(root, 'log'), '0.1.0-rc.11', { changelog: false }), 'v0.1.0-rc.11', /CHANGELOG\.md has no "## \[0\.1\.0-rc\.11\]" entry/);
-  await fails(await fixture(root, '0.1.0-rc.12'), 'v0.1.0-rc.12', /padcode@0\.1\.0-rc\.12 is already published/);
+  await fails(await fixture(root, '0.1.0-rc.12'), 'v0.1.0-rc.12', /padcode-cli@0\.1\.0-rc\.12 is already published/);
 
   // An unreachable registry is a problem, not "not published".
   const offline = await check(rc, ['--tag', 'v0.1.0-rc.11', '--dir', 'artifacts'], { ...env, npm_config_registry: 'http://127.0.0.1:9/', npm_config_fetch_retries: '0' });
-  assert.equal(offline.status, 1); assert.match(offline.stderr, /could not ask the registry about padcode@0\.1\.0-rc\.11/);
+  assert.equal(offline.status, 1); assert.match(offline.stderr, /could not ask the registry about padcode-cli@0\.1\.0-rc\.11/);
 
   const usage = await check(rc, ['--dir', 'artifacts'], env);
   assert.equal(usage.status, 1); assert.match(usage.stderr, /usage: release-check\.mjs --tag TAG --dir DIR/);
@@ -105,10 +105,11 @@ test('A5 release workflow publishes from tags with trusted publishing behind the
   order(build, 'npm ci --ignore-scripts', 'npm run check', 'npm run package -- --release', 'scripts/release-check.mjs --tag "$GITHUB_REF_NAME"', 'shasum -a 256');
   assert.doesNotMatch(build, /id-token/); assert.match(publish, /environment: npm\n/); assert.match(publish, /id-token: write/);
   assert.equal(text.match(/id-token: write/g).length, 1);
-  order(publish, 'npm install -g npm@^11.5.1', 'npm publish "./artifacts/padcode-darwin-', 'npm publish "./artifacts/padcode-${', 'gh release create');
+  order(publish, 'npm install -g npm@^11.5.1', 'npm publish "./artifacts/padcode-darwin-', 'npm publish "./artifacts/padcode-cli-${', 'gh release create');
   // Without ./ npm reads `artifacts/<file>.tgz` as a GitHub `user/repo` shorthand and tries git over SSH.
   for (const line of publish.match(/npm publish .*/g)) assert.match(line, /npm publish "\.\//, line);
   assert.match(publish, /if: needs\.build\.outputs\.publish-darwin == 'true'/);
+  assert.match(publish, /gh release create [^\n]*\\\n\s+"artifacts\/padcode-darwin-\$\{GITHUB_REF_NAME#v\}\.tgz" "artifacts\/padcode-cli-\$\{GITHUB_REF_NAME#v\}\.tgz" artifacts\/SHA256SUMS/);
   assert.equal(publish.match(/npm publish .* --tag "\$DIST_TAG"/g).length, 2);
   assert.equal(publish.match(/DIST_TAG: \$\{\{ needs\.build\.outputs\.dist-tag \}\}/g).length, 3);
   assert.doesNotMatch(text, /NPM_TOKEN|NODE_AUTH_TOKEN|secrets\./);

@@ -2,11 +2,11 @@
 
 ## Current status
 
-No npm registry package, Homebrew formula or curl installer has been published yet. `npm run package` builds the two npm packages locally: `padcode` (JavaScript only) and `padcode-darwin` (universal macOS helpers and the PTY runtime). Isolated installation from those tarballs, without build tools, and first-run setup are tested. The [public release plan](stages/public-release.md) covers publishing.
+No npm registry package, Homebrew formula or curl installer has been published yet. `npm run package` builds the two npm packages locally: `padcode-cli` (JavaScript only, the `padcode` command) and `padcode-darwin` (universal macOS helpers and the PTY runtime). Isolated installation from those tarballs, without build tools, and first-run setup are tested. The [public release plan](stages/public-release.md) covers publishing.
 
 ## npm first
 
-The target is single-command CLI installation: `npm install -g padcode`. The names `padcode` and `padcode-darwin` were unclaimed on npm on 2026-10-08.
+The target is single-command CLI installation: `npm install -g padcode-cli`. npm rejected the name `padcode` at the first publish as too similar to `pacote`, so the CLI package is `padcode-cli`; the command stays `padcode`. `padcode-darwin` is the platform package.
 
 The main package carries the JavaScript CLI and depends on the exact matching `padcode-darwin` version as an optional dependency. The platform package declares `os: darwin` and `cpu: arm64, x64`, so npm skips it elsewhere and Padcode reports the platform as unsupported instead of compiling anything. Neither package runs install scripts.
 
@@ -51,7 +51,7 @@ Naming an Agent or terminal here is not a guarantee; report problems with the bu
 ## Uninstall
 
 ```sh
-npm uninstall -g padcode
+npm uninstall -g padcode-cli
 ```
 
 This removes the CLI and the platform package. Configuration and downloaded models stay; remove `~/.config/padcode` and `~/.local/share/padcode` to delete them. Padcode does not manage the Agent's own data directories. macOS permission entries can be removed in System Settings > Privacy & Security.
@@ -62,10 +62,10 @@ Releases are published by the [release workflow](../.github/workflows/release.ym
 
 1. On a PR: set the version in `package.json` (`0.1.0-rc.N` for a release candidate, `0.1.0` for stable) and move the `CHANGELOG.md` entries from `[Unreleased]` to a `## [<version>] - <date>` section. Merge it.
 2. Tag the merge commit and push the tag: `git tag v<version> && git push origin v<version>`.
-3. The `build` job runs `npm run check`, packages with `--release` (reusing the newest published helpers when native code is unchanged) and runs `scripts/release-check.mjs`. It stops if the tag and version differ, a manifest is wrong, the changelog entry is missing, or `padcode@<version>` already exists.
-4. Approve the `publish` job in the `npm` environment. It publishes `padcode-darwin`, then `padcode`, under `next` for a prerelease or `latest` otherwise, and creates the GitHub Release with the changelog entry, both tarballs and `SHA256SUMS`.
+3. The `build` job runs `npm run check`, packages with `--release` (reusing the newest published helpers when native code is unchanged) and runs `scripts/release-check.mjs`. It stops if the tag and version differ, a manifest is wrong, the changelog entry is missing, or `padcode-cli@<version>` already exists.
+4. Approve the `publish` job in the `npm` environment. It publishes `padcode-darwin`, then `padcode-cli`, under `next` for a prerelease or `latest` otherwise, and creates the GitHub Release with the changelog entry, both tarballs and `SHA256SUMS`.
 
-**Recovery.** If `padcode-darwin` was published but `padcode` failed, re-run the workflow for the same tag. Packaging reuses the published helpers byte for byte, the release check reports `padcode-darwin` as already published, and only `padcode` is published. A published version can never be replaced; fix forward with a new version.
+**Recovery.** If `padcode-darwin` was published but `padcode-cli` failed, re-run the workflow for the same tag. Packaging reuses the published helpers byte for byte, the release check reports `padcode-darwin` as already published, and only `padcode-cli` is published. A published version can never be replaced; fix forward with a new version.
 
 ## Later installation channels
 
@@ -77,7 +77,7 @@ Installers only install the tool. They do not install agents, modify projects, c
 
 The [public release stage](stages/public-release.md) completes this checklist.
 
-- [x] Confirm project naming and package ownership: the name stays Padcode; `padcode` and `padcode-darwin` were unclaimed on npm.
+- [x] Confirm project naming and package ownership: the product name stays Padcode; the npm packages are `padcode-cli` (npm rejects `padcode` as too similar to `pacote`) and `padcode-darwin`.
 - [x] Select the project license: MIT, without overriding third-party licenses.
 - [ ] Review Git history, examples, screenshots and artifacts for personal information, credentials and private project content. Tracked files are reviewed and in English ([R1](stages/release-ready-content.md)); a full-history secret scan is part of going public (R3).
 - [x] Verify licenses and notices for distributed SDL3, PTY and other dependencies ([third-party notices](../THIRD_PARTY_NOTICES.md)).

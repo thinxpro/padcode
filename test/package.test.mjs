@@ -25,14 +25,15 @@ test('P3/P4 two prebuilt packages install without build tools and run from the i
   const out = join(root, 'out');
   const packed = spawnSync(process.execPath, ['scripts/package.mjs', '--out', out, '--fresh'], { encoding: 'utf8', timeout: 60000, env: { ...process.env, PADCODE_SIGN_IDENTITY: '' } });
   assert.equal(packed.status, 0, `${packed.stderr}\n${packed.stdout}`); assert.match(packed.stdout, /Helpers: built fresh \(--fresh\)/); assert.match(packed.stdout, /ad-hoc signed/);
-  const platformTarball = join(out, `padcode-darwin-${version}.tgz`), mainTarball = join(out, `padcode-${version}.tgz`);
+  const platformTarball = join(out, `padcode-darwin-${version}.tgz`), mainTarball = join(out, `padcode-cli-${version}.tgz`);
 
   // Main package: JavaScript only, exact optional platform dependency, no install scripts.
   const mainFiles = listing(mainTarball), main = manifestOf(mainTarball);
   assert.ok(mainFiles.includes('dist/cli.js') && mainFiles.includes('dist/runtime.js') && mainFiles.includes('LICENSE') && mainFiles.includes('THIRD_PARTY_NOTICES.md'));
   assert.deepEqual(mainFiles.filter(name => name.startsWith('build/') || name.startsWith('test/') || name.startsWith('native/') || /\.node$|config\.json$/.test(name)), []);
   assert.deepEqual(main.optionalDependencies, { 'padcode-darwin': version }); assert.equal(main.scripts, undefined); assert.equal(main.devDependencies, undefined);
-  assert.deepEqual(main.bin, { padcode: 'dist/cli.js' });
+  // The npm name is padcode-cli (npm rejects `padcode` as too similar to `pacote`); the command stays `padcode`.
+  assert.equal(main.name, 'padcode-cli'); assert.deepEqual(main.bin, { padcode: 'dist/cli.js' });
   // Both manifests carry the public project metadata from the root package.json.
   const rootManifest = JSON.parse(await readFile('package.json', 'utf8')), meta = m => [m.license, m.author, m.homepage, m.bugs, m.repository];
   assert.deepEqual(meta(main), meta(rootManifest)); assert.deepEqual(main.keywords, rootManifest.keywords); assert.equal(rootManifest.license, 'MIT');
@@ -60,7 +61,7 @@ test('P3/P4 two prebuilt packages install without build tools and run from the i
     assert.equal(r.status, 0, `${r.error ?? ''}\n${r.stderr}\n${r.stdout}`); return r.stdout;
   };
   npm(['install', '--prefix', join(root, 'prefix'), platformTarball, mainTarball]);
-  const modules = join(root, 'prefix/node_modules'), installed = join(modules, 'padcode'), bin = join(modules, '.bin/padcode'), helperDir = join(modules, 'padcode-darwin/bin');
+  const modules = join(root, 'prefix/node_modules'), installed = join(modules, 'padcode-cli'), bin = join(modules, '.bin/padcode'), helperDir = join(modules, 'padcode-darwin/bin');
   const help = spawnSync(bin, ['--help'], { encoding: 'utf8', timeout: 5000, env: bare });
   assert.equal(help.status, 0, help.stderr); assert.match(help.stdout, /config/);
   assert.equal(spawnSync(bin, ['--version'], { encoding: 'utf8', env: bare }).stdout.trim(), version);
@@ -153,7 +154,7 @@ test('R2 release packaging: publishable manifests and helper reuse from the newe
   const root = await mkdtemp(join(tmpdir(), 'padcode-release-pack-')); t.after(() => rm(root, { recursive: true, force: true }));
   const pack = async (out, args, env) => {
     const r = await runAsync([process.execPath, 'scripts/package.mjs', '--out', join(root, out), ...args], env);
-    assert.equal(r.status, 0, `${r.stderr}\n${r.stdout}`); return { stdout: r.stdout, platform: join(root, out, `padcode-darwin-${version}.tgz`), main: join(root, out, `padcode-${version}.tgz`) };
+    assert.equal(r.status, 0, `${r.stderr}\n${r.stdout}`); return { stdout: r.stdout, platform: join(root, out, `padcode-darwin-${version}.tgz`), main: join(root, out, `padcode-cli-${version}.tgz`) };
   };
   const first = await pack('first', ['--fresh']);
   // A non-reusable package (other native sources) on latest and a reusable one on the newer next tag.

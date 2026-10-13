@@ -53,6 +53,8 @@ None in this stage. The first real run of the workflow is part of R4 (first npm 
 
 ## Validation evidence
 
+Note (2026-10-14): the CLI package was later renamed from `padcode` to `padcode-cli`, see the [npm name stage](npm-name.md). Names below are as implemented in this stage.
+
 Environment: macOS 27.0.1 arm64 (M4 Pro), Node 24.21.0, npm 11.19.0.
 
 - A1: `npm run check` passed 213 tests with zero failures or skips. CI is disabled, so Linux and the GitHub-hosted macOS runner were not exercised.
