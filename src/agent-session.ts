@@ -11,7 +11,7 @@ import { GamepadMenus, type MenuFeed } from './menu-controller.js';
 import { PtyWriter } from './pty-writer.js';
 import { chooseDisplay, type Display } from './tmux.js';
 import { PanelFallback, runPanelAgent } from './panel-session.js';
-import { NativeAudio } from './audio.js';
+import { NativeAudio, type AudioPort } from './audio.js';
 import { locateRuntime } from './runtime.js';
 import { agentProfile } from './stick-input.js';
 
@@ -185,7 +185,7 @@ export async function runConfiguredAgent(): Promise<number> {
   return launchConfigured(config.agent, config.controller, handedOff, display, config.voice);
 }
 // Player Hub and padcode run share one launch path so the menu feed always transfers into the session.
-export async function launchConfigured(agent: Agent, controller: Config['controller'], handedOff: MenuFeed | undefined, display: Display, voice: Config['voice'] = null): Promise<number> {
+export async function launchConfigured(agent: Agent, controller: Config['controller'], handedOff: MenuFeed | undefined, display: Display, voice: Config['voice'] = null, audio: AudioPort = new NativeAudio()): Promise<number> {
   const trace = process.env.PADCODE_INPUT_TRACE === '1'
     ? (event: string, generation: number, device?: number) => { process.stderr.write(`PADCODE INPUT event=${event} generation=${generation}${device === undefined ? '' : ` device=${device}`}\n`); }
     : undefined;
@@ -195,7 +195,7 @@ export async function launchConfigured(agent: Agent, controller: Config['control
     factory: () => handedOff, feedStarted: true, automaticHandoff: true, editing, ...(trace ? { trace } : {}),
   }) : new AgentGamepad(controller, { editing, ...(trace ? { trace } : {}) });
   if (display.kind === 'panel') {
-    try { return await runPanelAgent(agent, { tmux: display.tmux, gamepad, voice, audio: new NativeAudio() }); }
+    try { return await runPanelAgent(agent, { tmux: display.tmux, gamepad, voice, audio }); }
     catch (error) {
       if (!(error instanceof PanelFallback)) throw error;
       process.stderr.write(`Padcode: controls pane unavailable (${safeText(error.message)}). Continuing in transparent mode.\n`);

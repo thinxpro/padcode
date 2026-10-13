@@ -4,7 +4,9 @@ Control your own AI coding agent with a gamepad.
 
 Padcode is a local command-line tool for macOS. You keep your terminal, your project, your Agent (Claude Code, Codex or any interactive CLI) and your accounts; Padcode adds controller input, key mapping, a controls pane and optional local voice dictation.
 
-<!-- Demo: a short GIF of a controller driving an Agent session goes here (docs/media/demo.gif). -->
+<p align="center"><img src="docs/media/demo.gif" alt="Padcode demo: the Player Hub launches an Agent session; holding L2 dictates a request into the Agent, the D-pad answers its approval prompt, Share types a quick command and Options ends the session" width="880"></p>
+
+<p align="center"><sub>Scripted recording of real Padcode screens. The controller input is virtual and the Agent, microphone and transcriber are stand-ins. See <a href="docs/demo.md">how the demo is made</a>; run it yourself with <code>npm run demo</code>.</sub></p>
 
 **Status: release candidate `0.1.0-rc.10`, macOS only, not yet published to npm.** The full flow works end to end with a user-provided Agent: Bluetooth setup, controller-operated menus, launching the Agent with automatic controller handoff, a tmux controls pane with an Options menu, quick commands and opt-in voice dictation that types into the Agent's input. Automated tests cover every stage; hardware acceptance rests on the maintainer's reports in [`docs/stages`](docs/stages). See the [compatibility matrix](docs/distribution.md#compatibility) for what has been tested on real hardware.
 
@@ -95,6 +97,7 @@ npm ci --ignore-scripts
 npm run check
 node dist/cli.js demo
 node dist/cli.js
+npm run demo          # scripted README demo (needs tmux)
 ```
 
 The first native build downloads checksum-pinned SDL source from its official GitHub release and requires network access. `demo` is explicitly simulated; `controllers` shows real device state. Q / Esc exits the dashboard; Ctrl+C interrupts. `controllers --json` emits pipe-friendly events. The interface supports narrow terminals, `NO_COLOR` and `TERM=dumb`, and waits for a connection when no controller is present. `PADCODE_ASCII=1` switches frames and the logo to ASCII (for terminals set to draw ambiguous-width symbols double wide); `PADCODE_NO_ANIM=1` skips the welcome sweep.
@@ -129,6 +132,7 @@ Helpers are ad-hoc signed by default. Set `PADCODE_SIGN_IDENTITY` to a codesign 
 | [Distribution](docs/distribution.md) | npm, native artifacts, Homebrew/curl and public release preparation |
 | [Roadmap and acceptance](docs/roadmap.md) | Stages, validation methods and completion criteria |
 | [Decisions](docs/decisions.md) | Confirmed and provisional decisions |
+| [Demo recording](docs/demo.md) | How the README demo is made and how to record real footage |
 | [Contributing](CONTRIBUTING.md) | Development scope, PRs and test evidence |
 
 ## Contributing

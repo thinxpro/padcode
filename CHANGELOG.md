@@ -8,6 +8,7 @@ Nothing has been published to npm yet. The first public version will be `0.1.0` 
 
 ### Added
 
+- Scripted README demo: `npm run demo` plays it, `npm run demo:record` re-records `docs/media/demo.gif` with VHS. It uses real Padcode screens with a labeled virtual controller and a stand-in Agent.
 - Controller Lab: live view of every button, stick, trigger and touchpad, with simulated `demo` mode and `controllers --json` events (`0.1.0-dev.0`).
 - Bluetooth-first setup for macOS, with controller-operated menus and a saved Agent loadout (`dev.1`–`dev.5`).
 - Agent sessions in a bounded PTY with controller-to-key mapping, keyboard pass-through, pause and disconnect protection (`dev.6`–`dev.8`).
