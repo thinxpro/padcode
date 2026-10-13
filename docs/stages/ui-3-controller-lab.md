@@ -64,4 +64,4 @@ Plan commit: `738c0cb`. On macOS 27.0.1 arm64 with Node 24.21.0, the second comp
 
 ### Maintainer physical report
 
-On 2026-10-09 the maintainer tested Controller Lab with a DualShock 4 on the local test build (UI-0 to UI-3 with PRs #28 and #29; not published), following the requested steps (every button, both sticks and stick presses, L2/R2, the touchpad, hold O to return), and reported "测试可以" (the test is fine). This records H1 and H2 as reported by the maintainer. H3 (Xbox or Nintendo hardware) remains open; narrow-terminal and `NO_COLOR` / `PADCODE_ASCII` display results were not reported.
+On 2026-10-09 the maintainer tested Controller Lab with a DualShock 4 on the local test build (UI-0 to UI-3 with PRs #28 and #29; not published), following the requested steps (every button, both sticks and stick presses, L2/R2, the touchpad, hold O to return), and reported that the test is fine. This records H1 and H2 as reported by the maintainer. H3 (Xbox or Nintendo hardware) remains open; narrow-terminal and `NO_COLOR` / `PADCODE_ASCII` display results were not reported.

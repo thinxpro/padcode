@@ -33,7 +33,7 @@ The P0-4 plan required the user to inspect each draft and confirm that the Agent
 ## Automated acceptance
 
 - C6-A1: insertion bytes: single-line flattening, bracketed vs plain mode, chunked pastes of large CJK/emoji text reassembled exactly, adversarial transcripts (ESC, paste terminators, CR/LF, C1) never produce control bytes other than the paste markers, and never a trailing CR/LF.
-- C6-A2: short-answer guard cases (`1`, `y`, `是`, `OK`, `2.` -> popup; normal sentences -> insert) and review mode.
+- C6-A2: short-answer guard cases (`1`, `y`, a one-character "yes", `OK`, `2.` -> popup; normal sentences -> insert) and review mode.
 - C6-A3: undo: exact Backspace count for mixed CJK/ASCII/emoji, refused after keyboard input, controller keys or a second paste, refused after the Agent exits; rerecord flow.
 - C6-A4: insertion deferred while a menu/history/recording is active; generation changes (new recording, session end, disconnect) discard pending insertions; nothing is inserted after Agent exit.
 - C6-A5: end to end in tmux: L2 -> transcript appears in the Agent's input bytes (with paste markers when the fixture enabled bracketed paste) -> no Enter -> Undo removes it -> keyboard typing blocks a later undo.
@@ -58,7 +58,7 @@ Plan commit: `32b7b58`. On macOS 27.0.1 arm64 with Node 24.21.0 and tmux 3.7c, `
 
 - C6-A1/A2: `test/insert.test.mjs` (one-line flattening of adversarial transcripts, short-answer guard, paste/undo IPC bounds, insertion-mode configuration).
 - C6-A3/A4: `test/draft.test.mjs` (draft popup Insert default, keep, rerecord, discard, keyboard picks), settings flows with the insertion-mode step.
-- C6-A5: `test/panel_pty.py` `insert()` in real tmux: an Agent with bracketed paste receives exactly `ESC[200~帮我修复登录页面的 bug，然后运行测试。ESC[201~` with no Enter; Undo writes exactly 21 Backspaces; undo is refused after a typed key and after a controller key, writing nothing; a plain Agent receives the multi-line, Unicode transcript as one control-free line; a one-character transcript opens the draft popup and X inserts it. The C5 review flow is covered in review mode.
+- C6-A5: `test/panel_pty.py` `insert()` in real tmux: an Agent with bracketed paste receives exactly the 21-character wide-character test sentence wrapped as `ESC[200~…ESC[201~` with no Enter; Undo writes exactly 21 Backspaces; undo is refused after a typed key and after a controller key, writing nothing; a plain Agent receives the multi-line, Unicode transcript as one control-free line; a one-character transcript opens the draft popup and X inserts it. The C5 review flow is covered in review mode.
 - One run of `insert()` failed in 16 repetitions without a captured step; every wait in the scenario now names its step, and `menu_pick` waits for the controller to be active before pressing Options.
 - C6-A6: packaged-install smoke tests pass as part of the gate.
 

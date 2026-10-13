@@ -72,7 +72,7 @@ Plan commit: `623e583`. On macOS 27.0.1 arm64 with Node 24.21.0, `npm run check`
 
 ### Maintainer review
 
-On 2026-10-08 the maintainer reviewed UI-1 and reported "UI-1 可以" (UI-1 is acceptable). No terminal-by-terminal results were given, and the report did not mention the DualShock 4, so the DualShock 4 Hub navigation check (D-pad, X, O) remains pending.
+On 2026-10-08 the maintainer reviewed UI-1 and reported that UI-1 is acceptable. No terminal-by-terminal results were given, and the report did not mention the DualShock 4, so the DualShock 4 Hub navigation check (D-pad, X, O) remains pending.
 
 ### Merge decision
 

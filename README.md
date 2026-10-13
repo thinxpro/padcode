@@ -2,11 +2,13 @@
 
 Control your own AI coding agent with a gamepad.
 
-Padcode is a local developer tool designed for terminal installation. You choose your terminal, project, agent and accounts. Padcode provides controller input, key mapping, terminal session bridging and optional agent integrations.
+Padcode is a local command-line tool for macOS. You keep your terminal, your project, your Agent (Claude Code, Codex or any interactive CLI) and your accounts; Padcode adds controller input, key mapping, a controls pane and optional local voice dictation.
+
+<!-- Demo: a short GIF of a controller driving an Agent session goes here (docs/media/demo.gif). -->
+
+**Status: release candidate `0.1.0-rc.10`, macOS only, not yet published to npm.** The full flow works end to end with a user-provided Agent: Bluetooth setup, controller-operated menus, launching the Agent with automatic controller handoff, a tmux controls pane with an Options menu, quick commands and opt-in voice dictation that types into the Agent's input. Automated tests cover every stage; hardware acceptance rests on the maintainer's reports in [`docs/stages`](docs/stages). See the [compatibility matrix](docs/distribution.md#compatibility) for what has been tested on real hardware.
 
 Controllers: DualShock 4 is tested; PlayStation DualSense, Xbox, Nintendo Switch Pro and other SDL gamepads are detected automatically and shown with their own button names, but are not yet tested on hardware.
-
-**Current status: private release candidate `0.1.0-rc.10` for macOS.** The full controller flow works end to end with a user-provided Agent (tested with Claude Code): Bluetooth setup, controller-operated menus, launching the Agent with automatic controller handoff, a tmux controls pane with an Options menu, and opt-in voice dictation that types into the Agent's input. Each stage's automated tests pass; physical acceptance so far rests on the maintainer's reports recorded in [`docs/stages`](docs/stages). npm publication, Developer ID signing and Linux/Windows controller support are not done. Padcode is a provisional name.
 
 ## What you can do with a controller
 
@@ -21,7 +23,70 @@ Controllers: DualShock 4 is tested; PlayStation DualSense, Xbox, Nintendo Switch
 
 Voice transcription runs on your Mac: macOS on-device speech needs nothing installed; whisper.cpp (`brew install whisper-cpp`) is more accurate, and Padcode can download a pinned, checksum-verified model after you confirm; any command that prints text also works. Padcode never sends audio anywhere.
 
-## Run the development build
+## Install
+
+Requirements: macOS 13 or later (Apple silicon or Intel), Node.js 22.14 or later, a gamepad, and the Agent you want to drive. [tmux](https://github.com/tmux/tmux) 3.2 or later (`brew install tmux`) is recommended for the controls pane; without it Padcode runs in plain mode.
+
+Once published, install the current release candidate with:
+
+```sh
+npm install -g padcode@next
+```
+
+`npm install -g padcode` installs the latest stable version once `0.1.0` is out. The `padcode-darwin` platform package (prebuilt, universal helpers) is installed automatically. No Xcode, CMake or compiler is needed and no install scripts run.
+
+Then open a project and start:
+
+```sh
+cd my-project
+padcode
+```
+
+First launch walks you through pairing the controller, choosing your Agent and an optional microphone. Later launches open the Player Hub; **Start agent session** shows the exact command and directory before anything runs. See the [terminal setup guide](docs/setup.md) for every screen.
+
+### Upgrade
+
+```sh
+npm install -g padcode@next     # release candidates
+npm install -g padcode@latest   # stable releases
+```
+
+Helpers are reused byte for byte when native code has not changed, so macOS keeps Bluetooth, microphone and speech permissions across those upgrades.
+
+### Uninstall
+
+```sh
+npm uninstall -g padcode
+```
+
+Configuration (`~/.config/padcode`) and downloaded whisper models (`~/.local/share/padcode`) are kept; delete them to remove everything. See [data handling](docs/distribution.md#data-handling).
+
+## Troubleshooting
+
+| Problem | What to try |
+| --- | --- |
+| "Prebuilt Padcode helpers are only packaged for macOS so far" | Linux and Windows are not supported yet; you can [build from source](#build-from-source). |
+| "macOS helpers (padcode-darwin) are not installed" or "does not match Padcode" | Reinstall with `npm install -g padcode@next` without `--omit=optional`, so both packages have the same version. |
+| Controller not found during setup | Put it in pairing mode (DualShock 4: hold SHARE + PS until the light bar flashes quickly) and scan again, or connect it with a USB cable. Allow **padcode-bluetooth** in System Settings > Privacy & Security > Bluetooth. |
+| Buttons do nothing in the Agent | Check the status pane: if it shows PAUSED, press Options (plain mode) or choose Resume in the Options menu. After closing a menu, release all buttons; input resumes after 250 ms. `padcode controllers` shows live input. |
+| No controls pane | Install tmux 3.2 or later. The launch confirmation says which display mode is used and why. |
+| Box characters look misaligned | Run with `PADCODE_ASCII=1`, or set your terminal to draw ambiguous-width characters single width. |
+| macOS asks for microphone access again after an update | Builds are not Developer ID signed yet; allow **Padcode Audio** once more when a release changes the native helpers. |
+| Voice: "no on-device speech model" | Choose another language or switch to whisper.cpp in Player Hub > Voice + microphone. |
+| Leave a stuck session | Ctrl+] always ends the session and restores the terminal. |
+
+For routing diagnostics run `PADCODE_INPUT_TRACE=1 padcode run`; it prints metadata only, never typed text. Still stuck? [Open an issue](https://github.com/thinxpro/padcode/issues/new/choose) with `padcode --version`, your macOS version, controller and Agent.
+
+## Product boundaries
+
+- Install and launch through a CLI; no standalone desktop app or DMG.
+- Bring and authenticate your own AI coding agent; select an installed command or provide a custom command.
+- Preserve the selected agent's terminal interface, with keyboard and controller input available together.
+- No model service, account system, prompt proxy, cloud execution or hosted code service.
+- Keep configuration and tool records local. The selected agent determines its own networking, model billing and data handling.
+- Voice input is optional and local (macOS). Desktop control is a possible future extension.
+
+## Build from source
 
 Development prerequisites: Node.js 22.14+ (Node 22 LTS recommended), npm, CMake 3.24+ and a C/C++ compiler; use Xcode/Command Line Tools on macOS. The full test suite also needs Python 3 and `pgrep`. These are developer requirements only: installed packages are prebuilt and need just Node.js and npm.
 
@@ -42,7 +107,7 @@ Interactive startup without arguments opens setup, or the Player Hub if configur
 
 See the [terminal setup guide](docs/setup.md) for the complete flow and macOS permission boundaries, and the [Bluetooth acceptance report](docs/stages/p0-config-validation.md) for physical test status.
 
-## Install a local npm test package
+### Local npm packages
 
 Padcode ships as two npm packages: `padcode` (JavaScript only) and `padcode-darwin` (prebuilt helpers and the PTY runtime, universal for Apple silicon and Intel, macOS 13 or later). Installing them needs Node.js 22.14+ and npm, not Xcode, CMake or a compiler, and runs no install scripts. After `npm run check`, build both packages locally; no npm account is needed and nothing is published:
 
@@ -52,38 +117,7 @@ npm install -g ./artifacts/padcode-darwin-0.1.0-rc.10.tgz ./artifacts/padcode-0.
 padcode
 ```
 
-Once published, `npm install -g padcode` installs the platform package automatically on macOS. Helpers are ad-hoc signed by default. Set `PADCODE_SIGN_IDENTITY` to a codesign identity (for example an Apple Development or Developer ID Application certificate) to sign them with hardened runtime and their microphone/Bluetooth entitlements; `PADCODE_SIGN_TIMESTAMP=off` skips the secure timestamp for offline development signing. With a stable identity, macOS keeps microphone permission across rebuilds. Without one, packaging reuses the previous release's helpers byte for byte (`padcode-darwin@latest`, or `--reuse <tarball>`; `--fresh` to skip) when nothing under `native/` changed and the signer is the same, so users are asked for microphone, speech or Bluetooth permission again only after releases that change the native helpers. The [prebuilt packages stage](docs/stages/prebuilt-packages.md) records the checks. Other operating systems are not packaged yet.
-
-## Product boundaries
-
-- Install and launch through a CLI; no standalone desktop app or DMG.
-- Bring and authenticate your own AI coding agent; select an installed command or provide a custom command.
-- Preserve the selected agent's terminal interface, with keyboard and controller input available together.
-- No model service, account system, prompt proxy, cloud execution or hosted code service.
-- Keep configuration and tool records local. The selected agent determines its own networking, model billing and data handling.
-- Voice input is optional and local (macOS). Desktop control is a possible future extension.
-
-## Intended experience
-
-The following illustrates the target experience. **Do not use these as current installation instructions:**
-
-```sh
-npm install -g padcode
-cd my-project
-padcode
-```
-
-First launch: detect a controller → select a local agent or custom command → select a key profile → start a session.
-
-Currently, `padcode` provides setup and the Player Hub, and `padcode config` is implemented. `padcode run` starts the configured Agent after confirmation. `padcode doctor` remains future work.
-
-## Initial release scope
-
-The initial target is macOS with a DualShock 4 over Bluetooth and one foreground terminal session. USB is an alternative. Generic mode will launch a user-provided interactive CLI, map basic controller inputs to terminal keys and preserve keyboard input. Physical controller support on Windows/Linux will only be claimed after platform-specific validation.
-
-No coding agent is bundled, and no vendor API is mandatory. Structured agent adapters, global mouse control, multiple sessions and background residency are deferred. Voice is opt-in, macOS-only and local.
-
-The [continuous controller sessions and voice](docs/stages/p0-4-continuous-controller-and-voice.md) stages C1-C6 are implemented. Remaining before a public release: Developer ID signing and notarization (ad-hoc builds re-ask for microphone access after each update), npm publication, Codex and second-terminal compatibility records, and the maintainer's release decision.
+Helpers are ad-hoc signed by default. Set `PADCODE_SIGN_IDENTITY` to a codesign identity (for example an Apple Development or Developer ID Application certificate) to sign them with hardened runtime and their microphone/Bluetooth entitlements; `PADCODE_SIGN_TIMESTAMP=off` skips the secure timestamp for offline development signing. With a stable identity, macOS keeps microphone permission across rebuilds. Without one, packaging reuses the previous release's helpers byte for byte (`padcode-darwin@latest`, or `--reuse <tarball>`; `--fresh` to skip) when nothing under `native/` changed and the signer is the same, so users are asked for microphone, speech or Bluetooth permission again only after releases that change the native helpers. The [prebuilt packages stage](docs/stages/prebuilt-packages.md) records the checks. Other operating systems are not packaged yet.
 
 ## Design documents
 
@@ -97,10 +131,10 @@ The [continuous controller sessions and voice](docs/stages/p0-4-continuous-contr
 | [Decisions](docs/decisions.md) | Confirmed and provisional decisions |
 | [Contributing](CONTRIBUTING.md) | Development scope, PRs and test evidence |
 
-## Development workflow
+## Contributing
 
-The current [Bluetooth-first onboarding stage](docs/stages/p0-config-bluetooth.md) builds on Controller Lab. The [P0-2 PTY session bridge](docs/stages/p0-2-pty-session.md) now provides keyboard forwarding. The [P0-3 gamepad mapping stage](docs/stages/p0-3-gamepad-agent-input.md) adds basic controller keys, pause and disconnect protection. Real-agent/terminal compatibility and new physical acceptance remain pending. Submit each task through a PR; all automated checks and required physical acceptance must pass before marking an implementation PR ready.
+Bug reports, controller and terminal compatibility reports, and pull requests are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) and the [development rules](AGENTS.md) first; this project follows the [Code of Conduct](CODE_OF_CONDUCT.md). Report security issues privately as described in [SECURITY.md](SECURITY.md). Changes are listed in the [changelog](CHANGELOG.md).
 
-Repository content, commit messages and PR titles/descriptions must be in English.
+## License
 
-Licensed under the [MIT License](LICENSE). Third-party dependencies retain their own licenses; see [third-party notices](THIRD_PARTY_NOTICES.md).
+Padcode is released under the [MIT License](LICENSE): you may use, copy, modify and redistribute it, including commercially, as long as the copyright and license notice are kept. Third-party components keep their own licenses; see [third-party notices](THIRD_PARTY_NOTICES.md).

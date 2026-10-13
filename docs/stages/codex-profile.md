@@ -107,4 +107,4 @@ PR #36 (quick commands) merged into `main` first and conflicted with this branch
 
 ### User-reported physical acceptance and merge decision
 
-On 2026-10-10 the user reported that physical testing passed ("测过了") and authorized merging PR #35. The report did not break results down by H1-H6 and did not record the Codex version, terminal, display mode or controller transport, so those details are not claimed here.
+On 2026-10-10 the user reported that physical testing passed ("tested", translated from the original report) and authorized merging PR #35. The report did not break results down by H1-H6 and did not record the Codex version, terminal, display mode or controller transport, so those details are not claimed here.

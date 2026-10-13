@@ -32,6 +32,9 @@ test('P3/P4 two prebuilt packages install without build tools and run from the i
   assert.deepEqual(mainFiles.filter(name => name.startsWith('build/') || name.startsWith('test/') || name.startsWith('native/') || /\.node$|config\.json$/.test(name)), []);
   assert.deepEqual(main.optionalDependencies, { 'padcode-darwin': version }); assert.equal(main.scripts, undefined); assert.equal(main.devDependencies, undefined);
   assert.deepEqual(main.bin, { padcode: 'dist/cli.js' });
+  // Both manifests carry the public project metadata from the root package.json.
+  const rootManifest = JSON.parse(await readFile('package.json', 'utf8')), meta = m => [m.license, m.author, m.homepage, m.bugs, m.repository];
+  assert.deepEqual(meta(main), meta(rootManifest)); assert.deepEqual(main.keywords, rootManifest.keywords); assert.equal(rootManifest.license, 'MIT');
 
   // Platform package: helpers, both node-pty prebuilds, manifest, notices, os/cpu, no scripts.
   const platformFiles = listing(platformTarball), platform = manifestOf(platformTarball);
@@ -39,6 +42,7 @@ test('P3/P4 two prebuilt packages install without build tools and run from the i
     'pty/prebuilds/darwin-arm64/pty.node', 'pty/prebuilds/darwin-arm64/spawn-helper', 'pty/prebuilds/darwin-x64/pty.node', 'pty/prebuilds/darwin-x64/spawn-helper']) assert.ok(platformFiles.includes(name), name);
   assert.deepEqual(platformFiles.filter(name => /^test\/|config\.json$|\.map$|\.test\.js$|^dist\//.test(name)), []);
   assert.deepEqual([platform.name, platform.version, platform.os, platform.cpu, platform.scripts], ['padcode-darwin', version, ['darwin'], ['arm64', 'x64'], undefined]);
+  assert.deepEqual(meta(platform), meta(rootManifest));
   const runtimeManifest = JSON.parse(spawnSync('tar', ['-xzOf', platformTarball, 'package/platform.json'], { encoding: 'utf8' }).stdout);
   assert.match(runtimeManifest.native.source, /^[0-9a-f]{64}$/); assert.deepEqual([runtimeManifest.native.signer, runtimeManifest.native.since], ['adhoc', version]);
 

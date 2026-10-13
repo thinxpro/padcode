@@ -24,7 +24,7 @@ function session(t, dir, transcriber, speech = {}) {
     async transcribe(path, locale, signal) {
       calls.push(`transcribe:${locale}`);
       if (speech.slow) { await new Promise(r => signal.addEventListener('abort', r)); return { ok: false, code: 'cancelled', message: 'x' }; }
-      return speech.result ?? { ok: true, text: ` 修复 bug\x1b[31m ` };
+      return speech.result ?? { ok: true, text: ` 수정 bug\x1b[31m ` };
     },
     async speechRequest() { audio.requests++; return speech.answer ?? 'authorized'; },
   };
@@ -43,7 +43,7 @@ function session(t, dir, transcriber, speech = {}) {
 test('C5-A2 recording -> TRANSCRIBING -> cleaned draft; nothing else happens to the Agent', async t => {
   const dir = await temporary(t), s = session(t, dir, { kind: 'system', language: 'zh' });
   s.take(); await eventually(() => s.drafts.length === 1, 'no draft');
-  assert.deepEqual(s.drafts, ['修复 bug[31m']); assert.ok(s.calls.includes('capture:TRANSCRIBING...')); assert.ok(s.calls.includes('transcribe:zh-CN'));
+  assert.deepEqual(s.drafts, ['수정 bug[31m']); assert.ok(s.calls.includes('capture:TRANSCRIBING...')); assert.ok(s.calls.includes('transcribe:zh-CN'));
   assert.equal(s.voice.state, 'idle'); assert.ok(s.voice.last, 'recording kept for playback');
   assert.equal(s.calls.filter(c => c.startsWith('capture')).length >= 1, true); assert.equal(s.calls.at(-1), 'release:true');
   s.voice.dispose();
@@ -76,11 +76,11 @@ test('C5 draft review context: keep, rerecord, discard, reopen and every button'
     interrupt: () => calls.push('interrupt'), showMenu: view => calls.push(view ? `menu:${view.title}:${view.selected}:${view.body ?? '-'}:${view.items.join('|')}` : 'menu:close'),
     history: c => calls.push(`history:${c}`), end: () => calls.push('end'), notice: text => calls.push(`notice:${text}`), insert: text => calls.push(`insert:${text}`),
   });
-  controls.openDraft('帮我修复 bug');
-  assert.equal(controls.context, 'draft'); assert.deepEqual(calls, ['capture:VOICE DRAFT', `menu:VOICE DRAFT:0:帮我修复 bug:${draftItems.join('|')}`]);
+  controls.openDraft('이 bug 고쳐 줘');
+  assert.equal(controls.context, 'draft'); assert.deepEqual(calls, ['capture:VOICE DRAFT', `menu:VOICE DRAFT:0:이 bug 고쳐 줘:${draftItems.join('|')}`]);
   for (const button of ['dpad_left', 'dpad_right', 'west', 'north', 'left_shoulder', 'right_shoulder', 'back', 'guide']) handler(button);
   assert.equal(calls.length, 2, 'unmapped buttons acted in the draft');
-  handler('east'); assert.equal(controls.context, 'agent'); assert.equal(controls.draftText, '帮我修复 bug'); assert.deepEqual(calls.slice(-2), ['menu:close', 'release:true']);
+  handler('east'); assert.equal(controls.context, 'agent'); assert.equal(controls.draftText, '이 bug 고쳐 줘'); assert.deepEqual(calls.slice(-2), ['menu:close', 'release:true']);
   // Reopen from the controls menu: "Review voice draft" sits before End session.
   calls.length = 0; controls.openMenu(); assert.match(calls.at(-1), /Review voice draft\|End session/);
   for (let i = 0; i < 6; i++) handler('dpad_down');
@@ -128,7 +128,7 @@ test('C5-A3 setup transcription tiers: macOS speech, whisper.cpp detection and c
 
   let r = await run(['system', 'zh', 'try', 'done', 'auto'], { speech: 'not-determined', speechRequest: 'authorized' });
   assert.deepEqual(r.config.voice.transcriber, { kind: 'system', language: 'zh' });
-  assert.match(r.text, /Padcode sends audio nowhere/); assert.match(r.text, /Speech Recognition/); assert.match(r.text, /SELF-TEST PASSED/); assert.match(r.text, /HEARD {2}system zh-CN: 你好 world/);
+  assert.match(r.text, /Padcode sends audio nowhere/); assert.match(r.text, /Speech Recognition/); assert.match(r.text, /SELF-TEST PASSED/); assert.match(r.text, /HEARD {2}system zh-CN: 안녕 world/);
   assert.match(r.text, /VOICE {3}Fixture Mic \/ macOS on-device speech \(zh\)/);
   // Keeping the microphone after an update: the lost grant is requested before anything records.
   const initial = { version: 2, controller: { transport: 'bluetooth', inputVerified: false }, agent: null, profile: 'terminal-basic', voice: { microphone: { id: 'mic-1', name: 'Fixture Mic' }, transcriber: { kind: 'system', language: 'zh' } } };

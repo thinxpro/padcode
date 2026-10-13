@@ -19,18 +19,18 @@ const command = (mode, extra = []) => ({ kind: 'command', command: process.execP
 const alive = pid => { const r = spawnSync('ps', ['-o', 'stat=', '-p', String(pid)], { encoding: 'utf8' }); return Boolean(r.stdout.trim()) && !r.stdout.trim().startsWith('Z'); };
 
 test('C5-A1 transcript cleanup keeps text and line breaks, strips every control sequence', () => {
-  assert.equal(cleanTranscript('  帮我修复 bug \r\n\r\n\r\n\r\n second\tline  '), '帮我修复 bug\n\nsecond line');
+  assert.equal(cleanTranscript('  이 bug 고쳐 줘 \r\n\r\n\r\n\r\n second\tline  '), '이 bug 고쳐 줘\n\nsecond line');
   const cleaned = cleanTranscript('ls\x1b[2J\x1b]0;evil\x07 \x1b[200~paste\x1b[201~ ok\u0085\x00\x7f');
   assert.ok(!/[\x00-\x09\x0b-\x1f\x7f-\x9f]/.test(cleaned)); assert.equal(cleaned, 'ls[2J]0;evil [200~paste[201~ ok');
-  assert.equal(cleanTranscript('naïve 日本語 🎮'), 'naïve 日本語 🎮');
+  assert.equal(cleanTranscript('naïve ひらがな 🎮'), 'naïve ひらがな 🎮');
   assert.deepEqual(['zh', 'en', 'auto', 'ja'].map(speechLocale), ['zh-CN', 'en-US', 'auto', 'ja']);
 });
 
 test('C5-A1 command transcriber: literal argv, output contract and every failure path', async t => {
   const dir = await temporary(t), wav = join(dir, 'a b;$(touch x).wav'); await writeSilentWav(wav);
   const run = (spec, timeout) => transcribe(spec, wav, {}, timeout).done;
-  assert.deepEqual(await run(command('ok')), { ok: true, text: '帮我修复登录页面的 bug，然后运行测试。' });
-  assert.deepEqual(await run(command('unicode')), { ok: true, text: 'naïve café 日本語 🎮 한국어' });
+  assert.deepEqual(await run(command('ok')), { ok: true, text: '로그인 bug 고치고，테스트도 실행해。' });
+  assert.deepEqual(await run(command('unicode')), { ok: true, text: 'naïve café ひらがな 🎮 한국어' });
   const controls = await run(command('controls')); assert.equal(controls.ok, true); assert.ok(!/[\x00-\x09\x0b-\x1f\x7f-\x9f]/.test(controls.text)); assert.match(controls.text, /ok\nline2  tab\n\nend$/);
   assert.deepEqual(await run(command('empty')), { ok: true, text: '' });
   assert.equal((await run(command('oversize'))).code, 'too-long');
@@ -50,7 +50,7 @@ test('C5-A0 macOS on-device tier through the helper: locale, unsupported languag
   const dir = await temporary(t), wav = join(dir, 'a.wav'); await writeSilentWav(wav);
   const audio = settings => { process.env.PADCODE_AUDIO_FIXTURE = JSON.stringify(settings); return new NativeAudio({ command: process.execPath, args: [resolve('test/fixtures/audio-helper.mjs')], supported: true }); };
   try {
-    assert.deepEqual(await transcribe({ kind: 'system', language: 'zh' }, wav, audio({})).done, { ok: true, text: 'system zh-CN: 你好 world' });
+    assert.deepEqual(await transcribe({ kind: 'system', language: 'zh' }, wav, audio({})).done, { ok: true, text: 'system zh-CN: 안녕 world' });
     assert.deepEqual(await transcribe({ kind: 'system', language: 'en' }, wav, audio({ text: ' a\x1b[31m\r\nb ' })).done, { ok: true, text: 'a[31m\nb' });
     assert.equal((await transcribe({ kind: 'system', language: 'ja' }, wav, audio({ transcribe: 'unsupported' })).done).code, 'unsupported-language');
     assert.equal((await transcribe({ kind: 'system', language: 'zh' }, wav, audio({ transcribe: 'permission' })).done).code, 'speech-permission-required');
@@ -124,10 +124,10 @@ test('C5-A3 consented model download: progress, checksum, size limit, HTTP error
 });
 
 test('draft text helpers: display width, wrapping and bounded previews', () => {
-  assert.equal(displayWidth('ab日本🎮'), 8);
-  assert.deepEqual(wrapText('帮我修复登录页面', 6), ['帮我修', '复登录', '页面']);
+  assert.equal(displayWidth('abあい🎮'), 8);
+  assert.deepEqual(wrapText('あいうえおかきく', 6), ['あいう', 'えおか', 'きく']);
   assert.deepEqual(wrapText('a\nbc', 1), ['a', 'b', 'c']);
-  const long = '修'.repeat(2000), preview = previewText(long);
+  const long = 'あ'.repeat(2000), preview = previewText(long);
   assert.ok(Buffer.byteLength(preview) < 2500); assert.match(preview, /\(\+1200 more characters\)$/);
   assert.equal(previewText('short'), 'short');
 });

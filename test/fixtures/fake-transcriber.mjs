@@ -6,11 +6,11 @@ const audio = rest.find(arg => arg.endsWith('.wav'));
 if (audio && !existsSync(audio)) { process.stderr.write('missing audio\n'); process.exit(4); }
 const say = text => process.stdout.write(text);
 switch (mode) {
-  case 'ok': say('  帮我修复登录页面的 bug，然后运行测试。\n'); break;
-  case 'unicode': say('naïve café 日本語 🎮 한국어\n'); break;
+  case 'ok': say('  로그인 bug 고치고，테스트도 실행해。\n'); break;
+  case 'unicode': say('naïve café ひらがな 🎮 한국어\n'); break;
   case 'controls': say('ls\x1b[2J\x1b]0;evil\x07 \x1b[200~paste\x1b[201~ ok\r\nline2\t\ttab\u0085\x00\n\n\n\nend'); break;
   case 'short': say('1\n'); break;
-  case 'mixed': say('fix 🎮 登录\n第二行 é\n'); break;
+  case 'mixed': say('fix 🎮 로그인\n둘째 줄 é\n'); break;
   case 'empty': say('\n  \n'); break;
   case 'oversize': say('x'.repeat(70 * 1024)); break;
   case 'invalid': process.stdout.write(Buffer.from([0x66, 0xff, 0xfe, 0x67])); break;

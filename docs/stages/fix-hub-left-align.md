@@ -39,4 +39,4 @@ On macOS 27.0.1 arm64 with Node 24.21.0, `npm run check` passed 198 tests with z
 
 The inline screens now wrap at up to 78 columns instead of 72 in wide terminals.
 
-On 2026-10-09 the maintainer asked to merge ("合并") after the fix was installed in the local test build; no separate result for the manual check was reported, so it is not recorded as passed.
+On 2026-10-09 the maintainer asked to merge after the fix was installed in the local test build; no separate result for the manual check was reported, so it is not recorded as passed.

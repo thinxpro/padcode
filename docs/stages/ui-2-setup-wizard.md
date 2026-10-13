@@ -65,4 +65,4 @@ Plan commit: `38c32f7`. On macOS 27.0.1 arm64 with Node 24.21.0, `npm run check`
 
 ### Maintainer review
 
-On 2026-10-08 the maintainer ran setup with this styling (first from the `ui` worktree, then from a local test build) and reported "界面没问题" (the interface is fine). No terminal-by-terminal or `NO_COLOR` / `PADCODE_ASCII` results were given.
+On 2026-10-08 the maintainer ran setup with this styling (first from the `ui` worktree, then from a local test build) and reported that the interface is fine. No terminal-by-terminal or `NO_COLOR` / `PADCODE_ASCII` results were given.
