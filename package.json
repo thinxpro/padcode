@@ -3,7 +3,29 @@
   "version": "0.1.0-rc.10",
   "private": true,
   "license": "MIT",
-  "description": "Gamepad controls for your own coding agent — terminal development build",
+  "description": "Control your own AI coding agent from the terminal with a gamepad",
+  "keywords": [
+    "gamepad",
+    "controller",
+    "dualshock",
+    "dualsense",
+    "cli",
+    "terminal",
+    "coding-agent",
+    "claude-code",
+    "codex",
+    "accessibility",
+    "macos"
+  ],
+  "homepage": "https://github.com/thinxpro/padcode#readme",
+  "bugs": {
+    "url": "https://github.com/thinxpro/padcode/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/thinxpro/padcode.git"
+  },
+  "author": "thinxpro (https://github.com/thinxpro)",
   "type": "module",
   "bin": {
     "padcode": "dist/cli.js"

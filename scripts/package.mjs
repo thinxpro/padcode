@@ -118,7 +118,7 @@ for (const helper of helpers) {
 await bundlePty(join(darwin, 'pty'), { 'darwin-arm64': join(ptySource, 'prebuilds/darwin-arm64'), 'darwin-x64': join(ptySource, 'prebuilds/darwin-x64') });
 for (const file of ['LICENSE', 'THIRD_PARTY_NOTICES.md']) await cp(file, join(darwin, file));
 await writeFile(join(darwin, 'README.md'), `# padcode-darwin\n\nPrebuilt macOS helpers (gamepad, Bluetooth, microphone and speech) and the PTY runtime for [Padcode](https://github.com/thinxpro/padcode) ${version}. Universal (Apple silicon and Intel), macOS ${minos} or later. Installed automatically with \`padcode\`; not meant to be used directly.\n`);
-const common = { version, license: root.license, ...(root.private ? { private: true } : {}), repository: { type: 'git', url: 'git+https://github.com/thinxpro/padcode.git' } };
+const common = { version, license: root.license, ...(root.private ? { private: true } : {}), author: root.author, homepage: root.homepage, bugs: root.bugs, repository: root.repository };
 await writeFile(join(darwin, 'package.json'), JSON.stringify({
   name: 'padcode-darwin', ...common, description: `Prebuilt macOS helpers for Padcode ${version}`,
   os: ['darwin'], cpu: ['arm64', 'x64'], files: ['bin/', 'pty/', 'platform.json', 'LICENSE', 'THIRD_PARTY_NOTICES.md', 'README.md'],
@@ -127,7 +127,7 @@ await writeFile(join(darwin, 'package.json'), JSON.stringify({
 // Main package: JavaScript only, with the platform package as an exact optional dependency.
 for (const file of ['dist', 'LICENSE', 'THIRD_PARTY_NOTICES.md', 'README.md']) await cp(file, join(main, file), { recursive: true });
 await writeFile(join(main, 'package.json'), JSON.stringify({
-  name: root.name, ...common, description: root.description, type: root.type, bin: root.bin,
+  name: root.name, ...common, description: root.description, keywords: root.keywords, type: root.type, bin: root.bin,
   files: ['dist/', 'LICENSE', 'THIRD_PARTY_NOTICES.md', 'README.md'], engines: root.engines,
   optionalDependencies: { 'padcode-darwin': version },
 }, null, 2) + '\n');
