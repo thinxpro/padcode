@@ -30,6 +30,8 @@ Document binary, configuration, cache and log locations. Uninstall preserves con
 
 ## Public release checklist
 
+The [public release stage](stages/public-release.md) completes this checklist.
+
 - [ ] Confirm project naming and package ownership; the maintainer already has an npm account.
 - [x] Select the project license: MIT, without overriding third-party licenses.
 - [ ] Review Git history, examples, screenshots and artifacts for personal information, credentials and private project content.
