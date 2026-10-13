@@ -1,0 +1,75 @@
+name: Release
+# Publishes padcode-darwin and padcode to npm with trusted publishing (no token) and creates the GitHub Release.
+# Triggered only by pushing a version tag; the publish job waits for approval in the `npm` environment.
+on:
+  push:
+    tags: ['v*']
+permissions:
+  contents: read
+concurrency:
+  group: release
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: macos-latest
+    timeout-minutes: 30
+    outputs:
+      dist-tag: ${{ steps.check.outputs.dist-tag }}
+      publish-darwin: ${{ steps.check.outputs.publish-darwin }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install tmux for the controls-pane suite
+        run: brew install tmux
+      - run: npm ci --ignore-scripts
+      - run: npm run check
+      - run: npm run package -- --release --out artifacts
+      - id: check
+        run: node scripts/release-check.mjs --tag "$GITHUB_REF_NAME" --dir artifacts --notes artifacts/notes.md
+      - name: Checksums
+        run: cd artifacts && shasum -a 256 padcode-*.tgz > SHA256SUMS && cat SHA256SUMS
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release
+          path: artifacts/
+          if-no-files-found: error
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: npm
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: release
+          path: artifacts
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+      - name: Install npm with trusted publishing support (11.5.1 or later)
+        run: npm install -g npm@^11.5.1 && npm --version
+      - name: Publish padcode-darwin
+        if: needs.build.outputs.publish-darwin == 'true'
+        run: npm publish "artifacts/padcode-darwin-${GITHUB_REF_NAME#v}.tgz" --tag "$DIST_TAG" --access public
+        env:
+          DIST_TAG: ${{ needs.build.outputs.dist-tag }}
+      - name: Publish padcode
+        run: npm publish "artifacts/padcode-${GITHUB_REF_NAME#v}.tgz" --tag "$DIST_TAG" --access public
+        env:
+          DIST_TAG: ${{ needs.build.outputs.dist-tag }}
+      - name: GitHub Release
+        run: |
+          prerelease=""
+          if [ "$DIST_TAG" = "next" ]; then prerelease="--prerelease"; fi
+          gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --title "$GITHUB_REF_NAME" --notes-file artifacts/notes.md $prerelease \
+            "artifacts/padcode-darwin-${GITHUB_REF_NAME#v}.tgz" "artifacts/padcode-${GITHUB_REF_NAME#v}.tgz" artifacts/SHA256SUMS
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DIST_TAG: ${{ needs.build.outputs.dist-tag }}
