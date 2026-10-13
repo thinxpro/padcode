@@ -105,7 +105,9 @@ test('A5 release workflow publishes from tags with trusted publishing behind the
   order(build, 'npm ci --ignore-scripts', 'npm run check', 'npm run package -- --release', 'scripts/release-check.mjs --tag "$GITHUB_REF_NAME"', 'shasum -a 256');
   assert.doesNotMatch(build, /id-token/); assert.match(publish, /environment: npm\n/); assert.match(publish, /id-token: write/);
   assert.equal(text.match(/id-token: write/g).length, 1);
-  order(publish, 'npm install -g npm@^11.5.1', 'npm publish "artifacts/padcode-darwin-', 'npm publish "artifacts/padcode-${', 'gh release create');
+  order(publish, 'npm install -g npm@^11.5.1', 'npm publish "./artifacts/padcode-darwin-', 'npm publish "./artifacts/padcode-${', 'gh release create');
+  // Without ./ npm reads `artifacts/<file>.tgz` as a GitHub `user/repo` shorthand and tries git over SSH.
+  for (const line of publish.match(/npm publish .*/g)) assert.match(line, /npm publish "\.\//, line);
   assert.match(publish, /if: needs\.build\.outputs\.publish-darwin == 'true'/);
   assert.equal(publish.match(/npm publish .* --tag "\$DIST_TAG"/g).length, 2);
   assert.equal(publish.match(/DIST_TAG: \$\{\{ needs\.build\.outputs\.dist-tag \}\}/g).length, 3);
