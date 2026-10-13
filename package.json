@@ -47,6 +47,8 @@
     "check": "npm run typecheck && npm run build && npm run build:native && npm run build:pty && npm run test:coverage",
     "dev": "npm run build && node dist/cli.js",
     "gallery": "npm run build && node scripts/tui-gallery.mjs",
+    "demo": "npm run build && node scripts/demo/run.mjs",
+    "demo:record": "npm run build && node scripts/demo/record.mjs",
     "build:pty": "node scripts/build-pty.mjs",
     "package": "node scripts/package.mjs"
   },

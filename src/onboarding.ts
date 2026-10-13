@@ -382,7 +382,7 @@ export async function onboarding(edit = false, menus = new GamepadMenus(), lab: 
       continue;
     }
     if (step.action !== 'run') continue;
-    try { notice = `SESSION OVER / Agent exited with status ${await launchConfigured(step.agent, step.controller, step.handedOff, step.display, step.voice)}`; }
+    try { notice = `SESSION OVER / Agent exited with status ${await launchConfigured(step.agent, step.controller, step.handedOff, step.display, step.voice, audio)}`; }
     catch (error) { notice = `SESSION FAILED / ${(error as Error).message}`; }
   }
 }

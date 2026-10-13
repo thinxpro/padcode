@@ -1,6 +1,6 @@
 # Demo recording
 
-Status: planned. No hardware acceptance required for the scripted recording; the optional real-footage clip is maintainer work recorded separately.
+Status: implemented; automated acceptance passes. No hardware acceptance required for the scripted recording; the optional real-footage clip is maintainer work recorded separately.
 
 The README has a demo slot (`docs/media/demo.gif`) left by [R1](release-ready-content.md). This stage fills it with a reproducible, scripted terminal recording and documents how the maintainer records a real controller clip later. The maintainer chose this approach on 2026-10-13: a scripted recording now, plus a guide for real footage that can replace or join it, recorded with [VHS](https://github.com/charmbracelet/vhs).
 
@@ -52,4 +52,20 @@ No hardware acceptance is required: the scripted demo uses no hardware and is no
 
 ## Validation evidence
 
-Pending.
+Environment: macOS 27.0 (Apple silicon), Node 24.21, tmux 3.7c, VHS 0.12.1, 2026-10-13.
+
+- Plan committed before implementation: `9e16e22`.
+- D1: `npm run demo:record` wrote `docs/media/demo.gif` (1.34 MB) and `docs/media/demo.mp4` (0.74 MB), 37 s long. The recorder exits 2 and names `vhs` and `tmux` when they are missing (`test/demo.test.mjs`).
+- D2: `npm run demo` plays the same timeline; the PTY test runs it at 0.35x hold times.
+- D3, D6: `test/demo.test.mjs` asserts the Hub, confirmation, controls pane, the 43-character dictated sentence (typed, not submitted), approval, quick command `/test`, Options menu, END SESSION? and SESSION OVER screens; the stand-in Agent received the sentence and `/test` and answered `yes`; exit code 0; no `padcode-demo-*` directory is left.
+- D4: the same test checks the HUD label on every captured step. Frames from the recording were reviewed at 3 s intervals: the label is visible throughout. The README caption names the virtual controller and stand-ins.
+- D5: `launchConfigured` takes the Hub's `AudioPort` (default `new NativeAudio()`); the demo's voice step goes through it.
+- D7: `docs/demo.md`.
+- D8: `npm run check`: 208 tests, 208 pass, 0 fail, 0 skipped.
+
+Implementation notes:
+- VHS's `Wait+Screen` only reads the normal screen buffer, and tmux draws on the alternate screen. The tape therefore waits for a marker the shell prints after the demo exits, then hides the rest.
+- The virtual controller starts at the end of the event file. The Hub starts a new helper after each session, and it must not replay earlier presses.
+- "Agent exited with status 130" on the Hub after End session is Padcode's normal report for an Agent ended from the menu.
+
+The optional real-footage clip is still pending; it is maintainer work and is not hardware acceptance.
