@@ -4,7 +4,8 @@ import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, rm, readFile, readdir, realpath, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { spawnSync } from 'node:child_process';
+import { execFile, spawnSync } from 'node:child_process';
+import { startRegistry } from './fixtures/registry.mjs';
 
 const darwin = process.platform === 'darwin';
 const version = JSON.parse(await readFile('package.json', 'utf8')).version;
@@ -43,6 +44,8 @@ test('P3/P4 two prebuilt packages install without build tools and run from the i
   assert.deepEqual(platformFiles.filter(name => /^test\/|config\.json$|\.map$|\.test\.js$|^dist\//.test(name)), []);
   assert.deepEqual([platform.name, platform.version, platform.os, platform.cpu, platform.scripts], ['padcode-darwin', version, ['darwin'], ['arm64', 'x64'], undefined]);
   assert.deepEqual(meta(platform), meta(rootManifest));
+  // Without --release both manifests stay private, so local packages cannot be published by accident.
+  assert.deepEqual([main.private, platform.private], [true, true]);
   const runtimeManifest = JSON.parse(spawnSync('tar', ['-xzOf', platformTarball, 'package/platform.json'], { encoding: 'utf8' }).stdout);
   assert.match(runtimeManifest.native.source, /^[0-9a-f]{64}$/); assert.deepEqual([runtimeManifest.native.signer, runtimeManifest.native.since], ['adhoc', version]);
 
@@ -126,7 +129,12 @@ test('P6 reuse: unchanged helpers are copied byte for byte from a previous packa
   assert.match(pack('o1', '--reuse', changed).stdout, /Helpers: built fresh \(native sources changed since /);
   const team = await variant('team', edit(value => { value.native.signer = 'ABCDE12345'; }));
   assert.match(pack('o2', '--reuse', team).stdout, /Helpers: built fresh \(.* was signed by ABCDE12345, now adhoc\)/);
-  const damaged = await variant('damaged', async dir => { const path = join(dir, 'bin/padcode-audio'), data = await readFile(path); data[data.length - 64] ^= 0xff; await writeFile(path, data); });
+  // Flip a byte one page into the first slice: page hashes cover it on every macOS version, unlike signature padding.
+  const damaged = await variant('damaged', async dir => {
+    const path = join(dir, 'bin/padcode-audio'), data = await readFile(path);
+    const offset = Number(/offset (\d+)/.exec(spawnSync('lipo', ['-detailed_info', path], { encoding: 'utf8' }).stdout)[1]);
+    data[offset + 0x1000] ^= 0xff; await writeFile(path, data);
+  });
   assert.match(pack('o3', '--reuse', damaged).stdout, /Helpers: built fresh \(.* failed verification: padcode-audio/);
   const missing = pack('o4', '--reuse', join(root, 'no-such-package.tgz'));
   assert.match(missing.stdout, /Helpers: built fresh \(.*no-such-package\.tgz is not available/);
@@ -135,4 +143,42 @@ test('P6 reuse: unchanged helpers are copied byte for byte from a previous packa
     assert.equal((await manifest(dir)).native.since, version);
     for (const name of Object.keys(helpers)) assert.equal(spawnSync('codesign', ['--verify', '--strict', join(dir, 'bin', name)]).status, 0, `${out} ${name}`);
   }
+});
+
+// Packaging and npm run asynchronously so the in-process stub registry can answer them.
+const runAsync = (args, env) => new Promise(done => execFile(args[0], args.slice(1), { encoding: 'utf8', timeout: 90000, env: { ...process.env, PADCODE_SIGN_IDENTITY: '', ...env } },
+  (error, stdout, stderr) => done({ status: error ? error.code : 0, stdout, stderr })));
+
+test('R2 release packaging: publishable manifests and helper reuse from the newest dist-tag', { skip: !darwin && 'macOS packages only', timeout: 240000 }, async t => {
+  const root = await mkdtemp(join(tmpdir(), 'padcode-release-pack-')); t.after(() => rm(root, { recursive: true, force: true }));
+  const pack = async (out, args, env) => {
+    const r = await runAsync([process.execPath, 'scripts/package.mjs', '--out', join(root, out), ...args], env);
+    assert.equal(r.status, 0, `${r.stderr}\n${r.stdout}`); return { stdout: r.stdout, platform: join(root, out, `padcode-darwin-${version}.tgz`), main: join(root, out, `padcode-${version}.tgz`) };
+  };
+  const first = await pack('first', ['--fresh']);
+  // A non-reusable package (other native sources) on latest and a reusable one on the newer next tag.
+  const stale = join(root, 'stale'); await mkdir(stale);
+  assert.equal(spawnSync('tar', ['-xzf', first.platform, '-C', stale]).status, 0);
+  const staleManifest = JSON.parse(await readFile(join(stale, 'package/platform.json'), 'utf8')); staleManifest.native.source = '0'.repeat(64);
+  await writeFile(join(stale, 'package/platform.json'), JSON.stringify(staleManifest));
+  const staleTarball = join(root, 'stale.tgz'); assert.equal(spawnSync('tar', ['-czf', staleTarball, '-C', stale, 'package']).status, 0);
+  const registry = await startRegistry({ 'padcode-darwin': { 'dist-tags': { latest: '0.0.9', next: '0.0.10-rc.2' }, versions: { '0.0.9': staleTarball, '0.0.10-rc.2': first.platform } } });
+  t.after(() => registry.close());
+  const env = { npm_config_registry: registry.url, npm_config_cache: join(root, 'cache') };
+
+  const release = await pack('release', ['--release'], env);
+  assert.match(release.stdout, /Helpers: reused unchanged from padcode-darwin@0\.0\.10-rc\.2 /);
+  for (const tarball of [release.platform, release.main]) {
+    const manifest = manifestOf(tarball);
+    assert.equal(manifest.private, undefined, manifest.name); assert.equal(manifest.version, version);
+    assert.deepEqual([manifest.license, manifest.homepage, manifest.bugs, manifest.repository].map(Boolean), [true, true, true, true], manifest.name);
+    const dry = await runAsync(['npm', 'publish', tarball, '--dry-run', '--tag', 'next', '--ignore-scripts'], env);
+    assert.equal(dry.status, 0, `${manifest.name}: ${dry.stderr}`); assert.ok(dry.stderr.includes(`📦  ${manifest.name}@${version}\n`), dry.stderr); assert.match(dry.stderr, /Publishing to .* with tag next .*\(dry-run\)/);
+  }
+  assert.deepEqual(manifestOf(release.main).optionalDependencies, { 'padcode-darwin': version });
+
+  // Nothing published: fresh helpers with the reason printed.
+  const empty = await startRegistry({}); t.after(() => empty.close());
+  const none = await pack('none', ['--release'], { ...env, npm_config_registry: empty.url });
+  assert.match(none.stdout, /Helpers: built fresh \(padcode-darwin is not available \(npm error code E404\)\)/);
 });
