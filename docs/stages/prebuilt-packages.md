@@ -128,6 +128,6 @@ Plan commit: `31c27ac`. Environment: macOS 27.0.1, M4 Pro arm64, Xcode 27.0, CMa
 
 ## Physical acceptance record
 
-- M1, user-reported on 2026-10-08: the maintainer installed the two local rc.9 tarballs globally and reported that testing passed with the DualShock 4 ("测试没问题"). The exact scenarios exercised were not itemised in the report.
+- M1, user-reported on 2026-10-08: the maintainer installed the two local rc.9 tarballs globally and reported that testing passed with the DualShock 4 ("tested, no problem", translated). The exact scenarios exercised were not itemised in the report.
 - M2: not yet run. Optional, before relying on certificate signing.
 - M3: not run (no Intel Mac, no macOS 13–15 machine).

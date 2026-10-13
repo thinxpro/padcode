@@ -47,4 +47,4 @@ Plan commit: `9198f73`. On macOS 27.0.1 arm64 with Node 24.21.0, `npm run check`
 
 ### Maintainer physical report
 
-On 2026-10-09 the maintainer tested the local test build (0.1.0-rc.9 with this fix, PR #28 and UI-0 to UI-2; not published) after granting microphone access again, following the requested steps: the built-in microphone check, a Bluetooth headset microphone check and hold-to-record in a session. The report was "测试，没问题" (tested, no problem). Disconnecting a microphone mid-recording was not mentioned and is not claimed.
+On 2026-10-09 the maintainer tested the local test build (0.1.0-rc.9 with this fix, PR #28 and UI-0 to UI-2; not published) after granting microphone access again, following the requested steps: the built-in microphone check, a Bluetooth headset microphone check and hold-to-record in a session. The report was "tested, no problem" (translated). Disconnecting a microphone mid-recording was not mentioned and is not claimed.

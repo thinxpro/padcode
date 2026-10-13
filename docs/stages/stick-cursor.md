@@ -70,4 +70,4 @@ Artifact `padcode-0.1.0-rc.5.tgz`, npm SHA-1 `c251906b5ce14725924bffad4d567fbcd0
 
 ### User-reported physical acceptance
 
-On 2026-10-08 the user reported that the stick and face-button design feels right in Claude Code ("设计很合手") with 0.1.0-rc.5 (H3). Individual H1/H2 items were not reported separately.
+On 2026-10-08 the user reported that the stick and face-button design feels right in Claude Code ("the design feels right in the hand", translated) with 0.1.0-rc.5 (H3). Individual H1/H2 items were not reported separately.
