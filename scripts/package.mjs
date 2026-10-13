@@ -1,8 +1,9 @@
 // Stages and packs the two npm packages: `padcode` (JavaScript) and `padcode-darwin` (prebuilt helpers
-// and PTY runtime). Never publishes. Usage: node scripts/package.mjs [--out DIR] [--reuse SPEC | --fresh]
+// and PTY runtime). Never publishes. Usage: node scripts/package.mjs [--out DIR] [--reuse SPEC | --fresh] [--release]
+// Manifests stay `private` (unpublishable) unless --release is given; the release workflow passes it.
 // PADCODE_SIGN_IDENTITY: codesign identity (default ad-hoc). PADCODE_SIGN_TIMESTAMP=off skips the secure timestamp.
-// Helpers are reused byte for byte from a previous padcode-darwin (default: padcode-darwin@latest from npm, or a
-// tarball path) when the native sources and the signer are unchanged, so macOS keeps users' permission grants.
+// Helpers are reused byte for byte from a previous padcode-darwin (default: the highest version any npm dist-tag
+// points at, or a tarball path) when the native sources and the signer are unchanged, so macOS keeps users' permission grants.
 import { cp, mkdir, mkdtemp, readFile, readdir, writeFile, chmod, rm, access } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { createHash } from 'node:crypto';
@@ -10,13 +11,15 @@ import { tmpdir } from 'node:os';
 import { join, relative, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { bundlePty, ptySource } from './pty-bundle.mjs';
+import { highestVersion } from './release-lib.mjs';
 
 const fail = message => { console.error(`package: ${message}`); process.exit(1); };
 if (process.platform !== 'darwin') fail('packages are built on macOS only.');
 const outIndex = process.argv.indexOf('--out');
 const out = resolve(outIndex > 0 ? process.argv[outIndex + 1] ?? fail('--out needs a directory.') : 'artifacts');
 const reuseIndex = process.argv.indexOf('--reuse');
-const reuseSpec = process.argv.includes('--fresh') ? undefined : reuseIndex > 0 ? process.argv[reuseIndex + 1] ?? fail('--reuse needs a package spec or tarball.') : 'padcode-darwin@latest';
+const fresh = process.argv.includes('--fresh'), release = process.argv.includes('--release');
+const reuseSpec = reuseIndex > 0 ? process.argv[reuseIndex + 1] ?? fail('--reuse needs a package spec or tarball.') : undefined;
 const root = JSON.parse(await readFile('package.json', 'utf8'));
 const version = root.version, minos = '13.0', archs = ['arm64', 'x86_64'];
 const helpers = [
@@ -102,7 +105,15 @@ async function previous(spec) {
     return { files: helperFiles, since: manifest.native.since ?? manifest.version, label };
   } finally { await rm(temp, { recursive: true, force: true }); }
 }
-const reuse = reuseSpec ? await previous(reuseSpec) : { reason: '--fresh' };
+// Release candidates go to `next` and stable versions to `latest`, so the newest package can sit on either tag.
+function published() {
+  const view = run('npm', ['view', 'padcode-darwin', 'dist-tags', '--json'], undefined, 60000);
+  if (view.status !== 0) return { reason: `padcode-darwin is not available (${(view.stderr.split('\n').find(line => /error/i.test(line)) ?? 'npm view failed').trim()})` };
+  const newest = highestVersion(JSON.parse(view.stdout || '{}'));
+  return newest ? { spec: `padcode-darwin@${newest}` } : { reason: 'padcode-darwin has no tagged version' };
+}
+const origin = fresh ? { reason: '--fresh' } : reuseSpec ? { spec: reuseSpec } : published();
+const reuse = origin.spec ? await previous(origin.spec) : origin;
 
 const stage = resolve('build/release'), darwin = join(stage, 'padcode-darwin'), main = join(stage, 'padcode');
 await rm(stage, { recursive: true, force: true });
@@ -118,7 +129,7 @@ for (const helper of helpers) {
 await bundlePty(join(darwin, 'pty'), { 'darwin-arm64': join(ptySource, 'prebuilds/darwin-arm64'), 'darwin-x64': join(ptySource, 'prebuilds/darwin-x64') });
 for (const file of ['LICENSE', 'THIRD_PARTY_NOTICES.md']) await cp(file, join(darwin, file));
 await writeFile(join(darwin, 'README.md'), `# padcode-darwin\n\nPrebuilt macOS helpers (gamepad, Bluetooth, microphone and speech) and the PTY runtime for [Padcode](https://github.com/thinxpro/padcode) ${version}. Universal (Apple silicon and Intel), macOS ${minos} or later. Installed automatically with \`padcode\`; not meant to be used directly.\n`);
-const common = { version, license: root.license, ...(root.private ? { private: true } : {}), author: root.author, homepage: root.homepage, bugs: root.bugs, repository: root.repository };
+const common = { version, license: root.license, ...(root.private && !release ? { private: true } : {}), author: root.author, homepage: root.homepage, bugs: root.bugs, repository: root.repository };
 await writeFile(join(darwin, 'package.json'), JSON.stringify({
   name: 'padcode-darwin', ...common, description: `Prebuilt macOS helpers for Padcode ${version}`,
   os: ['darwin'], cpu: ['arm64', 'x64'], files: ['bin/', 'pty/', 'platform.json', 'LICENSE', 'THIRD_PARTY_NOTICES.md', 'README.md'],

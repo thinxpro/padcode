@@ -1,6 +1,6 @@
 # Public release: open source on GitHub and publish to npm
 
-Status: plan approved by the maintainer on 2026-10-10. No implementation has started.
+Status: plan approved by the maintainer on 2026-10-10. R1 is merged ([release-ready content](release-ready-content.md), PR #38). R2 is implemented in the [release workflow stage](release-workflow.md). R3 and R4 are maintainer steps and have not started; nothing is published.
 
 ## Request
 
@@ -21,7 +21,7 @@ Confirmed by the maintainer:
 
 - The repository `thinxpro/padcode` is private. Repository, Release and npm package visibility are managed separately.
 - The root `package.json` is `private: true`. `scripts/package.mjs` copies `private` into both staged manifests, so neither tarball can be published as is. The staged manifests already carry `repository` (needed for provenance).
-- `scripts/package.mjs` reuses helpers from `padcode-darwin@latest`. If rc versions go to `next`, the `latest` tag either does not exist yet or points at an older version, so reuse would compare against the wrong package.
+- `scripts/package.mjs` reuses helpers from `padcode-darwin@latest`. If rc versions go to `next`, the `latest` tag either does not exist yet or points at an older version, so reuse would compare against the wrong package. (Resolved in R2: reuse now picks the highest version on any dist-tag.)
 - npm trusted publishing (OIDC from GitHub Actions) needs npm CLI 11.5.1 or later, `id-token: write`, a GitHub-hosted runner and a public repository for provenance. It is configured per package on npmjs.com, which may require the package to exist first.
 - README still calls Padcode a provisional name; the current version is `0.1.0-rc.10`.
 - Missing public-project files: `SECURITY.md`, `CHANGELOG.md`, issue templates. `THIRD_PARTY_NOTICES.md` still lists "review which SDL component notices apply" as an open release task.
@@ -110,3 +110,28 @@ Physical and registry checks; none of them may be reported from simulation.
 ## Validation evidence
 
 To be recorded per PR: plan commit, environment, `npm run check` result, CI run, history scan result, and each M-check with date and what the maintainer actually exercised.
+
+### R3 history scan (2026-10-14)
+
+Tool: gitleaks 8.30.1 with `--redact`.
+
+**Scope:** 179 commits, covering:
+
+- every remote branch;
+- every pull request head;
+- every local branch in the maintainer's checkout;
+- a second pass over merge commits, which gitleaks skips by default.
+
+The current tree was also scanned in `gitleaks dir` mode, and commit messages were checked separately.
+
+**Result:** no secrets found. Going public is not blocked.
+
+**Personal data:** gitleaks does not look for personal data, so a manual search covered local paths, email addresses, token prefixes, private keys, Bluetooth MAC addresses, serial numbers and host names:
+
+- **Accepted, history only:** `/Users/kevinsmacmini/Project/padcode` was added to the README in `ba32d9c` and removed the same day in `62cd85e` (2026-09-18). It exposes the macOS user name. The current tree does not contain it, and history is not rewritten.
+- **Accepted, already decided:** the maintainer's email in web-merge commit metadata (see Decisions).
+- **Not sensitive:** the Apple team ID `P7WKBU5DDV` in [prebuilt packages](prebuilt-packages.md). Every binary signed with that certificate shows it anyway.
+- **Placeholders only:** every MAC address in history is a placeholder (`aa:bb:cc:dd:ee:ff`, `00:11:22:33:44:55` and similar).
+- **None found:** real device serial numbers or host names.
+
+**Earlier CI failures:** 17 of the 74 earlier CI runs failed because the private repository's Actions billing limit stopped the jobs before they started, not because tests failed. Public repositories run on GitHub-hosted runners without charge.

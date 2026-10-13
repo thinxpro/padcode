@@ -56,6 +56,17 @@ npm uninstall -g padcode
 
 This removes the CLI and the platform package. Configuration and downloaded models stay; remove `~/.config/padcode` and `~/.local/share/padcode` to delete them. Padcode does not manage the Agent's own data directories. macOS permission entries can be removed in System Settings > Privacy & Security.
 
+## Release procedure
+
+Releases are published by the [release workflow](../.github/workflows/release.yml) with npm trusted publishing; nobody publishes from a laptop after the first version. See the [R2 stage](stages/release-workflow.md) for the checks.
+
+1. On a PR: set the version in `package.json` (`0.1.0-rc.N` for a release candidate, `0.1.0` for stable) and move the `CHANGELOG.md` entries from `[Unreleased]` to a `## [<version>] - <date>` section. Merge it.
+2. Tag the merge commit and push the tag: `git tag v<version> && git push origin v<version>`.
+3. The `build` job runs `npm run check`, packages with `--release` (reusing the newest published helpers when native code is unchanged) and runs `scripts/release-check.mjs`. It stops if the tag and version differ, a manifest is wrong, the changelog entry is missing, or `padcode@<version>` already exists.
+4. Approve the `publish` job in the `npm` environment. It publishes `padcode-darwin`, then `padcode`, under `next` for a prerelease or `latest` otherwise, and creates the GitHub Release with the changelog entry, both tarballs and `SHA256SUMS`.
+
+**Recovery.** If `padcode-darwin` was published but `padcode` failed, re-run the workflow for the same tag. Packaging reuses the published helpers byte for byte, the release check reports `padcode-darwin` as already published, and only `padcode` is published. A published version can never be replaced; fix forward with a new version.
+
 ## Later installation channels
 
 Homebrew should distribute validated versions and dependencies using the same CLI and configuration format. Offer a curl installer only after establishing versioned trusted downloads, checksums, architecture detection, upgrades and uninstall behavior. Specify whether Node is a prerequisite.
