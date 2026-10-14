@@ -1,6 +1,6 @@
 # Stable release 0.1.0
 
-Status: released on 2026-10-14 (PR #45, tag `v0.1.0`). S1–S5 pass, and the maintainer reported M2 and M4 as passed. The optional `next` and placeholder cleanup is pending. Plan committed before implementation: `dd680de`. Follows R4 of the [public release plan](public-release.md).
+Status: released on 2026-10-14 (PR #45, tag `v0.1.0`). S1–S5 pass, and the maintainer reported M2 and M4 as passed. The optional `next` and placeholder cleanup is done. Plan committed before implementation: `dd680de`. Follows R4 of the [public release plan](public-release.md).
 
 ## Reason
 
@@ -79,4 +79,8 @@ Environment: macOS 27.0.1 arm64 (M4 Pro), Node 24.21.0, npm 11.19.0, VHS from Ho
     - `padcode-bluetooth`: `dc2d5785…2925`.
   - The maintainer reported the session check as passed: no new permission prompts after the upgrade.
 - M4 (2026-10-14): the maintainer reported the provenance on the npm package pages as passed.
-- Pending maintainer cleanup: moving `next` to `0.1.0` and deprecating the `0.0.0-stage` placeholders. These need interactive 2FA; running them from the agent's shell failed with a web-login prompt.
+- Cleanup (2026-10-14): these need interactive 2FA, so running them from the agent's shell failed with a web-login prompt. The maintainer then ran them:
+  - `npm dist-tag add <pkg>@0.1.0 next`;
+  - `npm deprecate <pkg>@0.0.0-stage "<message>"`.
+
+  Result: `next` and `latest` are `0.1.0` on both packages. `npm view <pkg>@0.0.0-stage deprecated` shows the placeholder messages.
