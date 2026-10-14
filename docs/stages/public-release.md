@@ -1,6 +1,6 @@
 # Public release: open source on GitHub and publish to npm
 
-Status: plan approved by the maintainer on 2026-10-10. R1 is merged ([release-ready content](release-ready-content.md), PR #38). R2 is implemented in the [release workflow stage](release-workflow.md). R3 and R4 are maintainer steps and have not started; nothing is published.
+Status: plan approved by the maintainer on 2026-10-10. R1 is merged ([release-ready content](release-ready-content.md), PR #38). R2 is implemented in the [release workflow stage](release-workflow.md). R3 was done on 2026-10-14 (repository public). R4 was done on 2026-10-14: `padcode-darwin` and `padcode-cli` `0.1.0-rc.10` are on npm under `next`, and trusted publishing is configured. M1 and M3 passed on 2026-10-14; M2 and M4 wait for the next version.
 
 ## Request
 
@@ -89,9 +89,9 @@ Homebrew tap, Developer ID signing and notarization, curl installer, Linux and W
 
 Physical and registry checks; none of them may be reported from simulation.
 
-- M1: after the first publish, on the maintainer's Mac with no repository checkout on `PATH`: `npm install -g padcode@next` installs both packages from the registry; `padcode --version` matches; a normal session with the DualShock 4 works (Hub, Agent session, sticks, controller map, L2 voice).
+- M1: after the first publish, on the maintainer's Mac with no repository checkout on `PATH`: `npm install -g padcode-cli@next` installs both packages from the registry; `padcode --version` matches; a normal session with the DualShock 4 works (Hub, Agent session, sticks, controller map, L2 voice).
 - M2: upgrading to the next published version that does not change native code reuses the helpers (same `cdhash`) and does not ask for microphone, speech or Bluetooth permission again.
-- M3: `npm uninstall -g padcode` removes the CLI and the platform package and keeps `~/.config/padcode`.
+- M3: `npm uninstall -g padcode-cli` removes the CLI and the platform package and keeps `~/.config/padcode`.
 - M4: the npm package pages show provenance for versions published by the workflow, and the GitHub Release contains both tarballs with matching `SHA256SUMS`.
 - M5 (when hardware is available): an Intel Mac or macOS 13–15 machine installs from the registry and runs the session.
 
@@ -136,3 +136,36 @@ The current tree was also scanned in `gitleaks dir` mode, and commit messages we
 - **None found:** real device serial numbers or host names.
 
 **Earlier CI failures:** 17 of the 74 earlier CI runs failed because the private repository's Actions billing limit stopped the jobs before they started, not because tests failed. Public repositories run on GitHub-hosted runners without charge.
+
+### R4 first publish (2026-10-14)
+
+The npm package names follow the [npm name stage](npm-name.md). M1 and M3 use the `padcode-cli` name for that reason.
+
+- **Who published:** the maintainer, from a local checkout, with 2FA. The packages were made with `npm run package -- --release` at `a1f175f`, and `scripts/release-check.mjs` passed first.
+  - `padcode-darwin@0.1.0-rc.10`: sha1 `2f151f6c226f592acb65a53bb15c83823687d785`.
+  - `padcode-cli@0.1.0-rc.10`: sha1 `6b515649829102fa496ad7a8ac82433eec155ec1`.
+  - On each package, `latest` and `next` both point at `0.1.0-rc.10`, because npm sets `latest` on a first publish.
+  - npm also created a `0.0.0-stage` placeholder version on each package.
+- **Registry install:** in an empty prefix, `npm install -g padcode-cli@next` installed both packages. `padcode --version` printed `0.1.0-rc.10`, and the helpers passed `codesign -v`. This is an install check only; it is not M1, which needs a controller session.
+- **Trusted publishing:** `npm trust github <package> --file release.yml --repo thinxpro/padcode --env npm --allow-publish` was run for both packages. `npm trust list` shows the workflow `release.yml` and environment `npm` with publish and stage-publish permission.
+- **GitHub Release:** tag `v0.1.0-rc.10` (annotated, on `a1f175f`) and a [prerelease](https://github.com/thinxpro/padcode/releases/tag/v0.1.0-rc.10).
+  - Attachments: both tarballs, downloaded from npm with `npm pack`, and `SHA256SUMS`.
+  - Notes: the changelog entry, with relative links made absolute.
+  - The Release workflow was disabled while the tag was pushed, so the tag did not start a second publish, and then enabled again.
+- **M1 passed (2026-10-14), reported by the maintainer.**
+  - Setup: before the test, the local state was cleared so the maintainer started as a new user:
+    - the long-running development session was stopped;
+    - `~/.config/padcode` was removed, after a backup;
+    - the old development install under nvm Node 23.5 and an earlier `padcode-cli` install were uninstalled;
+    - stale temporary session directories were removed.
+
+    These were kept: the DualShock 4 Bluetooth pairing, the terminal's macOS privacy permissions, and the downloaded whisper.cpp model.
+  - Run: on macOS 27.0.1 arm64 with Homebrew Node 24.21.0, the maintainer ran `npm install -g padcode-cli@next`. It installed `padcode-cli@0.1.0-rc.10` with `padcode-darwin@0.1.0-rc.10`, and `padcode --version` printed `0.1.0-rc.10`.
+  - The maintainer completed first-run setup and a normal DualShock 4 session (Hub, Agent session, sticks, controller map, L2 voice), and reported the test as passed. Setup wrote a new `~/.config/padcode/config.json`.
+- **M3 passed (2026-10-14), reported by the maintainer.**
+  - The maintainer ran `npm uninstall -g padcode-cli` and then reinstalled with `npm install -g padcode-cli@next`.
+  - After the reinstall, `~/.config/padcode/config.json` is the file the M1 setup wrote (09:05 local time). It was not recreated.
+  - `npm ls -g` shows `padcode-cli@0.1.0-rc.10` with `padcode-darwin@0.1.0-rc.10`.
+- **Pending:**
+  - M2 needs the next published version that does not change native code.
+  - M4 provenance can only be checked after the first version published by the workflow.
