@@ -1,6 +1,6 @@
 # npm package name: padcode-cli
 
-Status: plan committed before implementation. Stacked on PR #42 (`fix/release-publish-path`), because both change the publish steps in `release.yml`. Retarget to `main` after #42 merges.
+Status: merged (PR #43, retargeted to `main` after #42). N6 passed on 2026-10-14: `padcode-cli@0.1.0-rc.10` is published.
 
 ## Reason
 
@@ -47,4 +47,4 @@ Environment: macOS 27.0.1 arm64, Node 24.21.0, npm 11.19.0.
   CI is recorded on the PR.
 - `npm run package -- --release` reused the helpers from the published `padcode-darwin@0.1.0-rc.10` byte for byte. Against the real registry, the release check reported: `Release 0.1.0-rc.10 is ready: npm dist-tag next; padcode-darwin@0.1.0-rc.10 is already published and will be skipped.`
 - N4: README, changelog and distribution documents updated.
-- N6: pending until the maintainer publishes.
+- N6 (2026-10-14): the maintainer published `artifacts/padcode-cli-0.1.0-rc.10.tgz`, packaged on `main` at `a1f175f`, with `--tag next`. npm accepted the name. The registry tarball has sha1 `6b515649829102fa496ad7a8ac82433eec155ec1`, the same as the local one. `npm install -g --prefix <empty dir> padcode-cli@next` installed `padcode-cli` and `padcode-darwin@0.1.0-rc.10`. `padcode --version` printed `0.1.0-rc.10`, `padcode --help` worked, and the three helpers passed `codesign -v` as universal `x86_64 arm64` binaries.
