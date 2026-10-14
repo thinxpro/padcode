@@ -1,6 +1,6 @@
 # Stable release 0.1.0
 
-Status: plan committed before implementation. Follows R4 of the [public release plan](public-release.md).
+Status: implemented; S1–S4 pass locally. The release steps, S5, M2 and M4 wait for merge and the tag. Plan committed before implementation: `dd680de`. Follows R4 of the [public release plan](public-release.md).
 
 ## Reason
 
@@ -56,4 +56,11 @@ This is also the first release published by the [release workflow](release-workf
 
 ## Validation evidence
 
-To be recorded.
+Environment: macOS 27.0.1 arm64 (M4 Pro), Node 24.21.0, npm 11.19.0, VHS from Homebrew.
+
+- S1:
+  - `npm run check` passed 213 tests with zero failures or skips. CI is recorded on the PR.
+  - The help snapshots were rewritten with `UPDATE_SNAPSHOTS=1`. They now show `v0.1.0` and end after the ENVIRONMENT section.
+- S2: `npm run package -- --release --out artifacts` printed `Helpers: reused unchanged from padcode-darwin@0.1.0-rc.10`. The release check printed `Release 0.1.0 is ready: npm dist-tag latest; padcode-darwin@0.1.0 will be published.` The local tarballs are only evidence; the workflow builds the published ones.
+- S3: `git grep @next` outside stage records and the changelog leaves only the README upgrade line for release candidates. Changed files contain no Chinese text, and relative links resolve.
+- S4: `npm run demo:record` rewrote `docs/media/demo.gif` and `demo.mp4`. The last frame shows `DEMO COMPLETE / npm install -g padcode-cli`.

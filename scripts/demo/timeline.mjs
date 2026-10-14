@@ -36,5 +36,5 @@ export const steps = [
   { name: 'end', until: /END SESSION\?/, hold: 800, press: 'dpad_down' },
   { hold: 600, press: 'south' },
   { name: 'over', until: /SESSION OVER/, hold: 1800, caption: 'Back at the Player Hub. O exits', press: 'east' },
-  { name: 'done', hold: 0, caption: 'DEMO COMPLETE / npm install -g padcode-cli@next' },
+  { name: 'done', hold: 0, caption: 'DEMO COMPLETE / npm install -g padcode-cli' },
 ];

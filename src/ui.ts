@@ -50,7 +50,6 @@ export function help(caps: Caps): string {
     ...section('IN A SESSION', controls, '(PlayStation / Xbox names)'),
     ...section('FLAGS', flags),
     ...section('ENVIRONMENT', environment),
-    '', paint(caps, '  Release candidate / private build.', { tone: 'muted' }),
   ];
   return lines.map(line => truncate(line, width + 2)).join('\n') + '\n';
 }

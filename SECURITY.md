@@ -2,7 +2,7 @@
 
 ## Supported versions
 
-Padcode is pre-1.0. Security fixes go into the latest published version only, including release candidates published under the npm `next` tag.
+Padcode is pre-1.0. Security fixes go into the latest published version only: the npm `latest` tag, or a newer release candidate under `next`.
 
 ## Reporting a vulnerability
 

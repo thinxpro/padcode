@@ -4,7 +4,7 @@
   ██╔═══╝ ██╔══██║██║  ██║██║     ██║   ██║██║  ██║██╔══╝  
   ██║     ██║  ██║██████╔╝╚██████╗╚██████╔╝██████╔╝███████╗
   ╚═╝     ╚═╝  ╚═╝╚═════╝  ╚═════╝ ╚═════╝ ╚═════╝ ╚══════╝
-  YOUR CONTROLLER. YOUR AGENT.  v0.1.0-rc.10
+  YOUR CONTROLLER. YOUR AGENT.  v0.1.0
 
 ── COMMANDS ───────────────────────────────────────────────────────────────────
   padcode                     Player Hub (first run: setup)
@@ -34,6 +34,4 @@
   PADCODE_ASCII=1    ASCII frames and logo (for terminals that draw symbols
                      double wide)
   PADCODE_NO_ANIM=1  Skip the welcome sweep
-
-  Release candidate / private build.
 
