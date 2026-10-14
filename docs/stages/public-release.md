@@ -1,6 +1,6 @@
 # Public release: open source on GitHub and publish to npm
 
-Status: plan approved by the maintainer on 2026-10-10. R1 is merged ([release-ready content](release-ready-content.md), PR #38). R2 is implemented in the [release workflow stage](release-workflow.md). R3 was done on 2026-10-14 (repository public). R4 was done on 2026-10-14: `padcode-darwin` and `padcode-cli` `0.1.0-rc.10` are on npm under `next`, and trusted publishing is configured. M1 and M3 passed on 2026-10-14; M2 and M4 wait for the next version.
+Status: plan approved by the maintainer on 2026-10-10. R1 is merged ([release-ready content](release-ready-content.md), PR #38). R2 is implemented in the [release workflow stage](release-workflow.md). R3 was done on 2026-10-14 (repository public). R4 was done on 2026-10-14: `padcode-darwin` and `padcode-cli` `0.1.0-rc.10` are on npm under `next`, and trusted publishing is configured. M1 and M3 passed on 2026-10-14. M2 and M4 passed with the [0.1.0 release](stable-0-1-0.md) on the same day.
 
 ## Request
 
@@ -166,6 +166,4 @@ The npm package names follow the [npm name stage](npm-name.md). M1 and M3 use th
   - The maintainer ran `npm uninstall -g padcode-cli` and then reinstalled with `npm install -g padcode-cli@next`.
   - After the reinstall, `~/.config/padcode/config.json` is the file the M1 setup wrote (09:05 local time). It was not recreated.
   - `npm ls -g` shows `padcode-cli@0.1.0-rc.10` with `padcode-darwin@0.1.0-rc.10`.
-- **Pending:**
-  - M2 needs the next published version that does not change native code.
-  - M4 provenance can only be checked after the first version published by the workflow.
+- **M2 and M4:** passed with `0.1.0`, the first version published by the workflow. The evidence is in the [stable release stage](stable-0-1-0.md#validation-evidence).

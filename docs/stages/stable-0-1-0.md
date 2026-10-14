@@ -1,6 +1,6 @@
 # Stable release 0.1.0
 
-Status: implemented; S1–S4 pass locally. The release steps, S5, M2 and M4 wait for merge and the tag. Plan committed before implementation: `dd680de`. Follows R4 of the [public release plan](public-release.md).
+Status: released on 2026-10-14 (PR #45, tag `v0.1.0`). S1–S5 pass, and the maintainer reported M2 and M4 as passed. The optional `next` and placeholder cleanup is pending. Plan committed before implementation: `dd680de`. Follows R4 of the [public release plan](public-release.md).
 
 ## Reason
 
@@ -64,3 +64,19 @@ Environment: macOS 27.0.1 arm64 (M4 Pro), Node 24.21.0, npm 11.19.0, VHS from Ho
 - S2: `npm run package -- --release --out artifacts` printed `Helpers: reused unchanged from padcode-darwin@0.1.0-rc.10`. The release check printed `Release 0.1.0 is ready: npm dist-tag latest; padcode-darwin@0.1.0 will be published.` The local tarballs are only evidence; the workflow builds the published ones.
 - S3: `git grep @next` outside stage records and the changelog leaves only the README upgrade line for release candidates. Changed files contain no Chinese text, and relative links resolve.
 - S4: `npm run demo:record` rewrote `docs/media/demo.gif` and `demo.mp4`. The last frame shows `DEMO COMPLETE / npm install -g padcode-cli`.
+- S5 (2026-10-14): PR #45 was merged as `fcf5bf5`, with the same tree as the tested `a08fda2`. The annotated tag `v0.1.0` started [release run 38499242480](https://github.com/thinxpro/padcode/actions/runs/38499242480).
+  - `build` printed `Helpers: reused unchanged from padcode-darwin@0.1.0-rc.10` and `Release 0.1.0 is ready: npm dist-tag latest; padcode-darwin@0.1.0 will be published.`
+  - The maintainer approved the `npm` environment, and `publish` succeeded.
+  - On both packages, `latest` is `0.1.0` and `next` is still `0.1.0-rc.10`.
+  - `npm view <pkg>@0.1.0 dist.attestations` shows SLSA provenance v1 for both packages, and `npm audit signatures` in a clean project reported `2 packages have verified attestations`.
+  - The [GitHub Release](https://github.com/thinxpro/padcode/releases/tag/v0.1.0) is not a prerelease and is the repository's latest release. Its tarballs pass `shasum -a 256 -c SHA256SUMS` and are byte-identical to `npm pack` downloads from the registry.
+  - The CI tarballs differ from the local S2 tarballs, as expected: the workflow builds the published ones.
+- M2 (2026-10-14):
+  - The maintainer upgraded the installed `0.1.0-rc.10` with `npm install -g padcode-cli`. `padcode --version` printed `0.1.0`, and `npm ls -g` shows `padcode-cli@0.1.0` with `padcode-darwin@0.1.0`.
+  - The three installed helpers are byte-identical to the ones in `padcode-darwin@0.1.0-rc.10`, with the same `CDHash`:
+    - `padcode-controller`: `0313a935…2c56`;
+    - `padcode-audio`: `1e06be8d…48a2`;
+    - `padcode-bluetooth`: `dc2d5785…2925`.
+  - The maintainer reported the session check as passed: no new permission prompts after the upgrade.
+- M4 (2026-10-14): the maintainer reported the provenance on the npm package pages as passed.
+- Pending maintainer cleanup: moving `next` to `0.1.0` and deprecating the `0.0.0-stage` placeholders. These need interactive 2FA; running them from the agent's shell failed with a web-login prompt.
