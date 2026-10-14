@@ -8,7 +8,7 @@ Padcode is a local command-line tool for macOS. You keep your terminal, your pro
 
 <p align="center"><sub>Scripted recording of real Padcode screens. The controller input is virtual and the Agent, microphone and transcriber are stand-ins. See <a href="docs/demo.md">how the demo is made</a>; run it yourself with <code>npm run demo</code>.</sub></p>
 
-**Status: release candidate `0.1.0-rc.10`, macOS only, not yet published to npm.** The full flow works end to end with a user-provided Agent: Bluetooth setup, controller-operated menus, launching the Agent with automatic controller handoff, a tmux controls pane with an Options menu, quick commands and opt-in voice dictation that types into the Agent's input. Automated tests cover every stage; hardware acceptance rests on the maintainer's reports in [`docs/stages`](docs/stages). See the [compatibility matrix](docs/distribution.md#compatibility) for what has been tested on real hardware.
+**Status: `0.1.0`, macOS only, [published on npm](https://www.npmjs.com/package/padcode-cli).** The full flow works end to end with a user-provided Agent: Bluetooth setup, controller-operated menus, launching the Agent with automatic controller handoff, a tmux controls pane with an Options menu, quick commands and opt-in voice dictation that types into the Agent's input. Automated tests cover every stage; hardware acceptance rests on the maintainer's reports in [`docs/stages`](docs/stages). See the [compatibility matrix](docs/distribution.md#compatibility) for what has been tested on real hardware.
 
 Controllers: DualShock 4 is tested; PlayStation DualSense, Xbox, Nintendo Switch Pro and other SDL gamepads are detected automatically and shown with their own button names, but are not yet tested on hardware.
 
@@ -29,13 +29,13 @@ Voice transcription runs on your Mac: macOS on-device speech needs nothing insta
 
 Requirements: macOS 13 or later (Apple silicon or Intel), Node.js 22.14 or later, a gamepad, and the Agent you want to drive. [tmux](https://github.com/tmux/tmux) 3.2 or later (`brew install tmux`) is recommended for the controls pane; without it Padcode runs in plain mode.
 
-Once published, install the current release candidate with:
+Install with:
 
 ```sh
-npm install -g padcode-cli@next
+npm install -g padcode-cli
 ```
 
-The npm package is `padcode-cli` (npm reserves `padcode` as too close to an existing package); the command it installs is `padcode`. `npm install -g padcode-cli` installs the latest stable version once `0.1.0` is out. The `padcode-darwin` platform package (prebuilt, universal helpers) is installed automatically. No Xcode, CMake or compiler is needed and no install scripts run.
+The npm package is `padcode-cli` (npm reserves `padcode` as too close to an existing package); the command it installs is `padcode`. The `padcode-darwin` platform package (prebuilt, universal helpers) is installed automatically. No Xcode, CMake or compiler is needed and no install scripts run.
 
 Then open a project and start:
 
@@ -49,8 +49,8 @@ First launch walks you through pairing the controller, choosing your Agent and a
 ### Upgrade
 
 ```sh
-npm install -g padcode-cli@next     # release candidates
 npm install -g padcode-cli@latest   # stable releases
+npm install -g padcode-cli@next     # release candidates
 ```
 
 Helpers are reused byte for byte when native code has not changed, so macOS keeps Bluetooth, microphone and speech permissions across those upgrades.
@@ -68,7 +68,7 @@ Configuration (`~/.config/padcode`) and downloaded whisper models (`~/.local/sha
 | Problem | What to try |
 | --- | --- |
 | "Prebuilt Padcode helpers are only packaged for macOS so far" | Linux and Windows are not supported yet; you can [build from source](#build-from-source). |
-| "macOS helpers (padcode-darwin) are not installed" or "does not match Padcode" | Reinstall with `npm install -g padcode-cli@next` without `--omit=optional`, so both packages have the same version. |
+| "macOS helpers (padcode-darwin) are not installed" or "does not match Padcode" | Reinstall with `npm install -g padcode-cli` without `--omit=optional`, so both packages have the same version. |
 | Controller not found during setup | Put it in pairing mode (DualShock 4: hold SHARE + PS until the light bar flashes quickly) and scan again, or connect it with a USB cable. Allow **padcode-bluetooth** in System Settings > Privacy & Security > Bluetooth. |
 | Buttons do nothing in the Agent | Check the status pane: if it shows PAUSED, press Options (plain mode) or choose Resume in the Options menu. After closing a menu, release all buttons; input resumes after 250 ms. `padcode controllers` shows live input. |
 | No controls pane | Install tmux 3.2 or later. The launch confirmation says which display mode is used and why. |
@@ -116,7 +116,7 @@ Padcode ships as two npm packages: `padcode-cli` (JavaScript only, provides the 
 
 ```sh
 npm run package
-npm install -g ./artifacts/padcode-darwin-0.1.0-rc.10.tgz ./artifacts/padcode-cli-0.1.0-rc.10.tgz
+npm install -g ./artifacts/padcode-darwin-0.1.0.tgz ./artifacts/padcode-cli-0.1.0.tgz
 padcode
 ```
 
